@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de Quiz Interactif - TICpharma Style</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Style for the Generator -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Lobby Screen (Quiz Selection Dashboard) -->
+    <div id="lobby-screen" class="screen-view active">
+        <!-- Glowing background blobs -->
+        <div class="lobby-bg-glow lobby-bg-glow-1"></div>
+        <div class="lobby-bg-glow lobby-bg-glow-2"></div>
+        
+        <div class="lobby-container">
+            <header class="lobby-header">
+                <div class="lobby-brand">
+                    <i class="fa-solid fa-wand-magic-sparkles lobby-logo-icon"></i>
+                    <div class="lobby-brand-info">
+                        <h1>TICpharma Quiz Studio</h1>
+                        <p>Créez, gérez et exportez vos quiz interactifs</p>
+                    </div>
+                </div>
+            </header>
+            
+            <main class="lobby-content">
+                <div class="lobby-section-header">
+                    <h2>Mes Quiz sauvegardés</h2>
+                    <button class="btn btn-primary" id="lobby-create-btn">
+                        <i class="fa-solid fa-plus"></i> Nouveau Quiz
+                    </button>
+                </div>
+                
+                <div class="quizzes-grid" id="quizzes-grid">
+                    <!-- Dynamically rendered quiz cards + create quiz card -->
+                </div>
+            </main>
+            
+            <footer class="lobby-footer">
+                <p>&copy; 2026 - Conçu pour TICpharma</p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Workspace Screen (Editor & Preview Panel) -->
+    <div id="workspace-screen" class="screen-view">
+        <div class="app-container">
+            <!-- Sidebar Header / Navigation -->
+            <header class="app-header">
+                <button class="btn btn-secondary btn-back-lobby" id="btn-back-to-lobby">
+                    <i class="fa-solid fa-arrow-left"></i> Retour aux quiz
+                </button>
+                
+                <div class="active-quiz-info">
+                    <span class="active-quiz-label">Quiz en cours d'édition :</span>
+                    <div class="active-quiz-header-container">
+                        <span id="active-quiz-header-name" class="active-quiz-name">Chargement...</span>
+                        <button id="btn-rename-active-quiz" class="btn-rename-icon" title="Renommer le quiz">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <nav class="nav-tabs">
+                    <button class="tab-btn active" data-tab="questions">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span>Questions (<span id="questions-badge-count">10</span>)</span>
+                    </button>
+                    <button class="tab-btn" data-tab="results">
+                        <i class="fa-solid fa-trophy"></i>
+                        <span>Paliers de Rangs</span>
+                    </button>
+                    <button class="tab-btn" data-tab="export">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Exporter le Quiz</span>
+                    </button>
+                </nav>
+                
+                <div class="app-footer">
+                    <p>&copy; 2026 - Conçu pour TICpharma</p>
+                </div>
+            </header>
+
+            <!-- Main workspace: split into Editor and Live Preview -->
+            <main class="app-workspace">
+                
+                <!-- EDITOR SECTION -->
+                <section class="editor-section">
+                    
+                <!-- TAB 3: QUESTIONS SETTINGS -->
+                <div class="tab-content active" id="tab-questions">
+                    <div class="section-title-sticky">
+                        <div class="section-title-text">
+                            <h2>Questions du Quiz</h2>
+                            <p>Ajoutez, éditez ou réorganisez les questions et réponses.</p>
+                        </div>
+                        <button class="btn btn-primary btn-sm" id="add-question-btn">
+                            <i class="fa-solid fa-plus"></i> Ajouter une question
+                        </button>
+                    </div>
+                    
+                    <div class="questions-list-container" id="questions-list">
+                        <!-- Questions will be injected dynamically here -->
+                    </div>
+                </div>
+
+                <!-- TAB 4: RESULTS SETTINGS -->
+                <div class="tab-content" id="tab-results">
+                    <div class="section-title">
+                        <h2>Paliers de Score & Rangs</h2>
+                        <p>Configurez les titres et descriptions décernés aux joueurs à l'écran final selon leur score.</p>
+                    </div>
+                    
+                    <div class="ranks-editor">
+                        <!-- Rank 1: Excellent (9-10/10) -->
+                        <div class="rank-edit-card">
+                            <div class="rank-header">
+                                <span class="rank-badge rank-gold"><i class="fa-solid fa-trophy"></i> Excellent</span>
+                                <span class="rank-score-range">Score &ge; 90%</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="rank-title-3">Titre obtenu</label>
+                                <input type="text" id="rank-title-3" value="Gourou de l'e-Santé 🚀">
+                            </div>
+                            <div class="form-group">
+                                <label for="rank-desc-3">Description</label>
+                                <textarea id="rank-desc-3" rows="2">Impressionnant ! Les projets PECAN, l'AI Act et les ordonnances numériques n'ont aucun secret pour vous. Vous lisez TICpharma au petit-déjeuner !</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Rank 2: Good (6-8/10) -->
+                        <div class="rank-edit-card">
+                            <div class="rank-header">
+                                <span class="rank-badge rank-silver"><i class="fa-solid fa-star"></i> Très Bon</span>
+                                <span class="rank-score-range">Score 60% à 89%</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="rank-title-2">Titre obtenu</label>
+                                <input type="text" id="rank-title-2" value="Expert Connecté 💻">
+                            </div>
+                            <div class="form-group">
+                                <label for="rank-desc-2">Description</label>
+                                <textarea id="rank-desc-2" rows="2">Très bon score ! Vous suivez activement l'actualité réglementaire et technologique de la santé numérique. Encore un petit effort de veille sur TICpharma !</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Rank 3: Average (4-5/10) -->
+                        <div class="rank-edit-card">
+                            <div class="rank-header">
+                                <span class="rank-badge rank-bronze"><i class="fa-solid fa-medal"></i> Moyen</span>
+                                <span class="rank-score-range">Score 40% à 59%</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="rank-title-1">Titre obtenu</label>
+                                <input type="text" id="rank-title-1" value="Praticien Initié 🩺">
+                            </div>
+                            <div class="form-group">
+                                <label for="rank-desc-1">Description</label>
+                                <textarea id="rank-desc-1" rows="2">Pas mal ! Vous connaissez les bases du secteur mais certaines innovations ou réformes législatives vous ont échappé. Une lecture régulière s'impose.</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Rank 4: Poor (<4/10) -->
+                        <div class="rank-edit-card">
+                            <div class="rank-header">
+                                <span class="rank-badge rank-red"><i class="fa-solid fa-plug"></i> Faible</span>
+                                <span class="rank-score-range">Score &lt; 40%</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="rank-title-0">Titre obtenu</label>
+                                <input type="text" id="rank-title-0" value="Débutant Analogique 🔌">
+                            </div>
+                            <div class="form-group">
+                                <label for="rank-desc-0">Description</label>
+                                <textarea id="rank-desc-0" rows="2">Aïe, le virage du numérique en santé est un peu raide ! Heureusement, TICpharma publie quotidiennement pour vous aider à rattraper le train en marche.</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 5: EXPORT SETTINGS -->
+                <div class="tab-content" id="tab-export">
+                    <div class="color-settings-card" style="margin-bottom: 24px;">
+                        <h3>Palette de couleurs de marque</h3>
+                        <p>Déterminez les couleurs de votre thème pour le quiz généré.</p>
+                        <div class="color-pickers-row">
+                            <div class="color-picker-box">
+                                <label for="color-primary">Couleur Primaire (Bleu)</label>
+                                <div class="picker-container">
+                                    <input type="color" id="color-primary" value="#003087">
+                                    <span class="color-hex-val">#003087</span>
+                                </div>
+                            </div>
+                            <div class="color-picker-box">
+                                <label for="color-accent">Couleur d'Accent (Vert)</label>
+                                <div class="picker-container">
+                                    <input type="color" id="color-accent" value="#6ecd9c">
+                                    <span class="color-hex-val">#6ecd9c</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="color-settings-card" style="margin-bottom: 24px;">
+                        <h3><i class="fa-brands fa-linkedin" style="color:#0a66c2; margin-right:6px;"></i>Message de partage LinkedIn</h3>
+                        <p>Ce texte sera copié dans le presse-papiers quand un joueur clique sur "Partager sur LinkedIn".</p>
+                        <div class="form-group" style="margin-top:12px;">
+                            <label for="linkedin-message">Contenu du message</label>
+                            <textarea id="linkedin-message" rows="7" placeholder="Rédigez votre message de partage..."></textarea>
+                            <small>Variables disponibles : <code>{score}</code> (score du joueur), <code>{total}</code> (nombre de questions), <code>{title}</code> (titre obtenu).</small>
+                        </div>
+                    </div>
+
+                    <div class="export-options-single">
+                        <div class="export-card">
+                            <div class="export-icon-container">
+                                <i class="fa-solid fa-file-code"></i>
+                            </div>
+                            <h3>Fichier Unique Autonome (.html)</h3>
+                            <p>Télécharge un seul fichier <code>.html</code> auto-contenu. Les styles CSS et le script JS y sont directement intégrés pour un fonctionnement 100% autonome sans aucun serveur.</p>
+                            <span class="recommendation-badge"><i class="fa-solid fa-bolt"></i> Ultra simple &agrave; partager & héberger</span>
+                            <button class="btn btn-primary btn-lg btn-full" id="btn-export-single" style="margin-top: 16px;">
+                                <i class="fa-solid fa-file-arrow-down"></i>
+                                <span>Télécharger le Quiz (.html)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="export-help">
+                        <h4>💡 Comment utiliser votre quiz ?</h4>
+                        <ul>
+                            <li><strong>Double-clic</strong> : Ouvrez le fichier directement sur votre ordinateur dans n'importe quel navigateur.</li>
+                            <li><strong>Intégration Web (Iframe)</strong> : Vous pouvez téléverser ce fichier unique sur votre site ou CMS et l'afficher via une balise <code>&lt;iframe src="mon-quiz.html"&gt;&lt;/iframe&gt;</code>.</li>
+                            <li><strong>Hébergement facile</strong> : Déposez-le gratuitement sur des plateformes comme GitHub Pages, Netlify ou Vercel pour le rendre accessible en ligne.</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </section>
+            
+            <!-- LIVE PREVIEW SECTION -->
+            <section class="preview-section">
+                <div class="preview-toolbar">
+                    <div class="toolbar-title">
+                        <i class="fa-solid fa-eye"></i>
+                        <span>Aperçu en direct</span>
+                    </div>
+                    <div class="device-selectors">
+                        <button class="device-btn active" data-width="desktop" title="Aperçu Bureau">
+                            <i class="fa-solid fa-desktop"></i>
+                        </button>
+                        <button class="device-btn" data-width="tablet" title="Aperçu Tablette">
+                            <i class="fa-solid fa-tablet-screen-button"></i>
+                        </button>
+                        <button class="device-btn" data-width="mobile" title="Aperçu Mobile">
+                            <i class="fa-solid fa-mobile-screen-button"></i>
+                        </button>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="btn-refresh-preview" title="Rafraîchir l'aperçu">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+                
+                <div class="preview-frame-container">
+                    <div class="preview-device-wrapper" id="preview-wrapper">
+                        <!-- Simulated browser frame bar -->
+                        <div class="browser-address-bar">
+                            <div class="browser-dots">
+                                <span></span><span></span><span></span>
+                            </div>
+                            <div class="browser-address">
+                                <i class="fa-solid fa-lock"></i>
+                                <span>localhost:3000/mon-quiz-interactif.html</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Real-time iframe content -->
+                        <iframe id="preview-iframe" title="Prévisualisation en temps réel" allowfullscreen="true" allow="fullscreen"></iframe>
+                    </div>
+                </div>
+            </section>
+            
+        </main>
+    </div> <!-- /app-container -->
+    </div> <!-- /workspace-screen -->
+
+    <!-- Application Logic for the Generator -->
+    <script src="app.js"></script>
+</body>
+</html>
