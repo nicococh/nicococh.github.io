@@ -2,7 +2,6 @@
 <html lang="fr">
 <head>
   <meta name="robots" content="noindex" charset="utf-8"/>
-  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Générateur de Tableau HTML - TableauSwyp</title>
   <meta name="description" content="Convertissez facilement vos tableaux Excel ou Google Sheets en code HTML propre et personnalisé avec des styles adaptés à vos sites d'actualités médicaux.">
@@ -560,9 +559,6 @@
 
         <!-- Action Bar -->
         <div class="action-bar">
-          <button id="btnExample" class="btn btn-secondary" title="Charger un exemple de tableau pour tester">
-            Charger un exemple
-          </button>
           <button id="btnClear" class="btn btn-secondary">
             Vider
           </button>
@@ -629,10 +625,10 @@
       const resultsSection = document.getElementById('resultsSection');
       const codeOutput = document.getElementById('codeOutput');
       const previewContainer = document.getElementById('previewContainer');
-      const btnExample = document.getElementById('btnExample');
 
       // State
       let selectedColor = 'E5F3F6'; // Default color: APMnews (#E5F3F6 without hash)
+      let lastPastedHTML = null;    // Cache for HTML clipboard data to preserve formatting
 
       // Color options config
       const siteColors = {
@@ -656,7 +652,7 @@
           selectedColor = siteColors[siteKey] || '';
           
           // Re-convert if there is input
-          if (pasteArea.value.trim() !== '') {
+          if (pasteArea.value.trim() !== '' || lastPastedHTML) {
             convertData();
           }
         });
@@ -664,6 +660,7 @@
 
       // Event Listeners
       pasteArea.addEventListener('input', () => {
+        lastPastedHTML = null; // Clear cached formatting if user edits the text
         if (pasteArea.value.trim() === '') {
           hideResults();
         } else {
@@ -671,17 +668,33 @@
         }
       });
 
-      btnConvert.addEventListener('click', convertData);
+      // Intercept paste event to capture rich HTML formatting (bold, italic, links, etc.)
+      pasteArea.addEventListener('paste', (e) => {
+        const htmlData = e.clipboardData.getData('text/html');
+        const plainText = e.clipboardData.getData('text/plain');
+
+        if (htmlData && (htmlData.includes('<table') || htmlData.includes('<TABLE'))) {
+          e.preventDefault();
+          lastPastedHTML = htmlData;
+          pasteArea.value = plainText;
+          convertData(htmlData);
+        } else {
+          lastPastedHTML = null;
+        }
+      });
+
+      btnConvert.addEventListener('click', () => {
+        convertData();
+      });
 
       btnClear.addEventListener('click', () => {
         pasteArea.value = '';
+        lastPastedHTML = null;
         hideResults();
         pasteArea.focus();
       });
 
       btnCopy.addEventListener('click', copyToClipboard);
-
-      btnExample.addEventListener('click', loadExample);
 
       // Helper to escape HTML characters
       function escapeHTML(str) {
@@ -691,18 +704,6 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;');
-      }
-
-      // Load example table data
-      function loadExample() {
-        const exampleTSV = "Produit\tCatégorie\tPrix\tDisponibilité\n" +
-          "CardioZen\tAPMnews\t45,00 €\tEn stock\n" +
-          "NeuroSoin\tGerontonews\t89,90 €\tRupture\n" +
-          "DigesTab\tTICsanté\t12,50 €\tEn stock\n" +
-          "PharmaGel\tTICpharma\t7,25 €\tEn stock";
-        
-        pasteArea.value = exampleTSV;
-        convertData();
       }
 
       // Hide the results panel
@@ -717,20 +718,22 @@
       }
 
       // Perform the conversion
-      function convertData() {
+      function convertData(htmlInput) {
         const input = pasteArea.value.trim();
-        if (input === '') {
+        const htmlToUse = htmlInput || lastPastedHTML;
+
+        if (input === '' && !htmlToUse) {
           hideResults();
           return;
         }
 
         let generatedHTML = '';
 
-        // Check if the input is HTML code (looks like HTML)
-        if (input.toLowerCase().includes('<table') || input.toLowerCase().startsWith('<table')) {
+        if (htmlToUse) {
+          generatedHTML = parseAndProcessHTMLTable(htmlToUse);
+        } else if (input.toLowerCase().includes('<table') || input.toLowerCase().startsWith('<table')) {
           generatedHTML = parseAndProcessHTMLTable(input);
         } else {
-          // Otherwise parse as TSV (Excel/Google Sheets standard copy-paste)
           generatedHTML = convertTSVToHTMLTable(input);
         }
 
@@ -749,17 +752,76 @@
         }, 50);
       }
 
+      // Proper TSV parser: handles quoted fields (Excel wraps cells in quotes
+      // when they contain tabs, newlines from Alt+Enter, or other special chars)
+      function parseTSV(tsvText) {
+        const rows = [];
+        let row = [];
+        let cell = '';
+        let inQuotes = false;
+        let i = 0;
+
+        // Normalize line endings
+        const text = tsvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+        while (i < text.length) {
+          const ch = text[i];
+
+          if (inQuotes) {
+            if (ch === '"') {
+              // Peek ahead: double quote means escaped quote inside cell
+              if (text[i + 1] === '"') {
+                cell += '"';
+                i += 2;
+              } else {
+                // End of quoted field
+                inQuotes = false;
+                i++;
+              }
+            } else {
+              // Any character inside quotes (including \n from Alt+Enter) goes into the cell
+              cell += ch;
+              i++;
+            }
+          } else {
+            if (ch === '"' && cell.length === 0) {
+              inQuotes = true;
+              i++;
+            } else if (ch === '\t') {
+              // Tab = column separator
+              row.push(cell);
+              cell = '';
+              i++;
+            } else if (ch === '\n') {
+              // Newline = row separator
+              row.push(cell);
+              cell = '';
+              rows.push(row);
+              row = [];
+              i++;
+            } else {
+              cell += ch;
+              i++;
+            }
+          }
+        }
+
+        // Push last cell and row
+        row.push(cell);
+        if (row.some(c => c !== '')) {
+          rows.push(row);
+        }
+
+        return rows;
+      }
+
       // Convert Excel TSV to target styled HTML
       function convertTSVToHTMLTable(tsvText) {
-        const lines = tsvText.split(/\r?\n/);
-        const grid = lines.map(line => line.split('\t'));
+        const grid = parseTSV(tsvText);
 
         let html = `<table style="border-collapse: collapse; width: 100%;">\n`;
         
         grid.forEach((row, rowIndex) => {
-          // Clean row check to avoid empty trailing rows
-          if (row.length === 1 && row[0] === '') return;
-
           if (rowIndex === 0 && selectedColor) {
             html += `  <tr bgcolor="${selectedColor}">\n`;
           } else {
@@ -767,16 +829,11 @@
           }
 
           row.forEach(cell => {
-            let cellText = cell.trim();
-            // Strip Excel escaping quotes if present
-            if (cellText.startsWith('"') && cellText.endsWith('"')) {
-              cellText = cellText.slice(1, -1).replace(/""/g, '"');
-            }
-            let escaped = escapeHTML(cellText);
-            if (rowIndex === 0) {
-              escaped = `<strong>${escaped}</strong>`;
-            }
-            html += `    <td style="border: 1px solid #d3d3d3; text-align: left; vertical-align: top; padding: 8px;">${escaped}</td>\n`;
+            // Convert internal line breaks (Alt+Enter) to <br> tags
+            const lines = cell.split('\n');
+            const escaped = lines.map(l => escapeHTML(l)).join('<br>');
+            const content = (rowIndex === 0) ? `<strong>${escaped}</strong>` : escaped;
+            html += `    <td style="border: 1px solid #d3d3d3; text-align: left; vertical-align: top; padding: 8px;">${content}</td>\n`;
           });
 
           html += `  </tr>\n`;
@@ -786,16 +843,102 @@
         return html;
       }
 
-      // Parse pasted HTML table and apply formatting rules
+      // Parse pasted HTML table and apply formatting rules (preserving bold, italic, links, etc.)
       function parseAndProcessHTMLTable(htmlText) {
+        let tempDiv = null;
         try {
           const parser = new DOMParser();
           const doc = parser.parseFromString(htmlText, 'text/html');
-          const table = doc.querySelector('table');
+          
+          // Create a temporary hidden container in the active DOM to resolve CSS stylesheets and classes
+          tempDiv = document.createElement('div');
+          tempDiv.style.position = 'absolute';
+          tempDiv.style.left = '-99999px';
+          tempDiv.style.top = '-99999px';
+          tempDiv.style.width = '1px';
+          tempDiv.style.height = '1px';
+          tempDiv.style.overflow = 'hidden';
+          
+          // Inject styles and HTML elements
+          tempDiv.innerHTML = doc.head.innerHTML + doc.body.innerHTML;
+          document.body.appendChild(tempDiv);
 
+          const table = tempDiv.querySelector('table');
           if (!table) {
-            // Fallback to TSV if no table tags found
+            // Fallback to TSV if no table tag is found
             return convertTSVToHTMLTable(htmlText);
+          }
+
+          // Recursive helper to clean nested elements and extract only text/approved formatting
+          function cleanNode(node, isFirstRow) {
+            if (node.nodeType === Node.TEXT_NODE) {
+              return escapeHTML(node.textContent);
+            }
+
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const tagName = node.tagName.toLowerCase();
+              
+              if (tagName === 'br') {
+                return '<br>';
+              }
+
+              // Retrieve computed styles of this node
+              const computed = window.getComputedStyle(node);
+              const isBold = computed.fontWeight === 'bold' || 
+                             computed.fontWeight === '700' || 
+                             parseInt(computed.fontWeight, 10) >= 600;
+              const isItalic = computed.fontStyle === 'italic';
+              const isUnderline = computed.textDecorationLine ? 
+                                  computed.textDecorationLine.includes('underline') : 
+                                  computed.textDecoration.includes('underline');
+              const isStrike = computed.textDecorationLine ? 
+                               computed.textDecorationLine.includes('line-through') : 
+                               computed.textDecoration.includes('line-through');
+
+              // Recursively process child nodes
+              let content = '';
+              node.childNodes.forEach(child => {
+                content += cleanNode(child, isFirstRow);
+              });
+
+              // Apply formatting tags based on computed style or tag name (avoiding duplicates)
+              if (isStrike || tagName === 's' || tagName === 'strike' || tagName === 'del') {
+                const trimmed = content.trim().toLowerCase();
+                if (!trimmed.startsWith('<s>') && !trimmed.startsWith('<strike>') && !trimmed.startsWith('<del>')) {
+                  content = `<s>${content}</s>`;
+                }
+              }
+              if (isUnderline || tagName === 'u') {
+                const trimmed = content.trim().toLowerCase();
+                if (!trimmed.startsWith('<u>')) {
+                  content = `<u>${content}</u>`;
+                }
+              }
+              if (isItalic || tagName === 'em' || tagName === 'i') {
+                const trimmed = content.trim().toLowerCase();
+                if (!trimmed.startsWith('<em>') && !trimmed.startsWith('<i>')) {
+                  content = `<em>${content}</em>`;
+                }
+              }
+              if (isBold || tagName === 'strong' || tagName === 'b') {
+                const trimmed = content.trim().toLowerCase();
+                if (!trimmed.startsWith('<strong>') && !trimmed.startsWith('<b>')) {
+                  content = `<strong>${content}</strong>`;
+                }
+              }
+
+              // Handle link tags (preserve href and target)
+              if (tagName === 'a') {
+                const href = node.getAttribute('href');
+                if (href) {
+                  return `<a href="${escapeHTML(href)}" target="_blank">${content}</a>`;
+                }
+              }
+
+              return content;
+            }
+
+            return '';
           }
 
           let formattedHTML = `<table style="border-collapse: collapse; width: 100%;">\n`;
@@ -811,15 +954,54 @@
             // Get both td and th elements
             const cells = row.querySelectorAll('td, th');
             cells.forEach(cell => {
-              // Keep innerHTML (allows links, bold text, etc., inside the cells)
-              let cellContent = cell.innerHTML.trim();
-              if (rowIndex === 0) {
-                // Wrap in strong tag if not already bold
+              // Extract cleaned contents by recursively parsing children
+              let cellContent = '';
+              cell.childNodes.forEach(child => {
+                cellContent += cleanNode(child, rowIndex === 0);
+              });
+              
+              cellContent = cellContent.trim();
+
+              // Retrieve computed styles of the cell itself to check for cell-level formatting
+              const computed = window.getComputedStyle(cell);
+              
+              const isBold = computed.fontWeight === 'bold' || 
+                             computed.fontWeight === '700' || 
+                             parseInt(computed.fontWeight, 10) >= 600;
+              const isItalic = computed.fontStyle === 'italic';
+              const isUnderline = computed.textDecorationLine ? 
+                                  computed.textDecorationLine.includes('underline') : 
+                                  computed.textDecoration.includes('underline');
+              const isStrike = computed.textDecorationLine ? 
+                               computed.textDecorationLine.includes('line-through') : 
+                               computed.textDecoration.includes('line-through');
+
+              // Wrap cellContent in formatting tags if applied to the cell itself (avoiding duplicates)
+              if (isStrike) {
+                const cleanLower = cellContent.toLowerCase();
+                if (!cleanLower.startsWith('<s>') && !cleanLower.startsWith('<strike>') && !cleanLower.startsWith('<del>')) {
+                  cellContent = `<s>${cellContent}</s>`;
+                }
+              }
+              if (isUnderline) {
+                const cleanLower = cellContent.toLowerCase();
+                if (!cleanLower.startsWith('<u>')) {
+                  cellContent = `<u>${cellContent}</u>`;
+                }
+              }
+              if (isItalic) {
+                const cleanLower = cellContent.toLowerCase();
+                if (!cleanLower.startsWith('<em>') && !cleanLower.startsWith('<i>')) {
+                  cellContent = `<em>${cellContent}</em>`;
+                }
+              }
+              if (isBold || rowIndex === 0) {
                 const cleanLower = cellContent.toLowerCase();
                 if (!cleanLower.startsWith('<strong>') && !cleanLower.startsWith('<b>')) {
                   cellContent = `<strong>${cellContent}</strong>`;
                 }
               }
+
               formattedHTML += `    <td style="border: 1px solid #d3d3d3; text-align: left; vertical-align: top; padding: 8px;">${cellContent}</td>\n`;
             });
 
@@ -832,6 +1014,11 @@
           console.error('Error parsing HTML table:', e);
           // Fallback to TSV
           return convertTSVToHTMLTable(htmlText);
+        } finally {
+          // Guaranteed cleanup of temporary DOM element
+          if (tempDiv && tempDiv.parentNode) {
+            tempDiv.parentNode.removeChild(tempDiv);
+          }
         }
       }
 
