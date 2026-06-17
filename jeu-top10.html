@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizRanker Studio - Créateur de Quiz</title>
+    <!-- Google Fonts: Outfit for titles, Inter for body/table -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Librairie SheetJS pour le support de l'import Excel .xlsx -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            /* Palette de couleurs fraîches et lumineuses (Mode Clair) */
+            --bg-main: radial-gradient(circle at 50% 50%, #ffffff 0%, #f1f5f9 100%);
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --border-color: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-light: #e0e7ff;
+            
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            
+            --success: #10b981;
+            --success-light: #d1fae5;
+            
+            --error: #ef4444;
+            --error-light: #fee2e2;
+            
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 40px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            max-width: 1100px;
+            margin-bottom: 30px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h1 span.emoji {
+            font-size: 2.5rem;
+            -webkit-text-fill-color: initial;
+            background: none;
+        }
+
+        h1 span.gradient-title {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            max-width: 700px;
+            line-height: 1.5;
+        }
+
+        main {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(10px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* --- STYLES DE L'ÉDITEUR --- */
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .editor-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #ffffff;
+            border-color: var(--success);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #059669;
+            border-color: #059669;
+        }
+
+        .btn-danger {
+            background: #ffffff;
+            color: var(--error);
+            border-color: var(--border-color);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: var(--error-light);
+            border-color: var(--error);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Tableur Style Excel */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: #ffffff;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        table.excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+            min-width: 900px;
+        }
+
+        table.excel-table th {
+            background: #f8fafc;
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 8px 12px;
+            border-bottom: 2px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            vertical-align: middle;
+        }
+
+        /* En-têtes modifiables */
+        .header-cell-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            min-height: 28px;
+        }
+
+        .header-title-text {
+            border-bottom: 1px dashed var(--text-muted);
+            padding-bottom: 2px;
+            outline: none;
+            cursor: text;
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-title-text:focus {
+            border-bottom: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            opacity: 0.3;
+            transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
+
+        table.excel-table th:hover .header-actions {
+            opacity: 1;
+        }
+
+        .header-action-btn {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 0.68rem;
+            color: var(--text-main);
+            width: 20px;
+            height: 20px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .header-action-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .header-delete-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .header-delete-btn:hover {
+            color: var(--error);
+        }
+
+        table.excel-table td {
+            padding: 0;
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            background: #ffffff;
+            position: relative;
+        }
+
+        table.excel-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        table.excel-table tr td:last-child {
+            border-right: none;
+        }
+
+        table.excel-table tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        /* Cellule input Excel */
+        .cell-input {
+            width: 100%;
+            height: 100%;
+            padding: 12px 14px;
+            border: none;
+            background: transparent;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            outline: none;
+            transition: all 0.15s ease;
+        }
+
+        .cell-input:focus {
+            background: #ffffff;
+            box-shadow: inset 0 0 0 2px var(--primary);
+        }
+
+        .cell-input[type="number"] {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .row-index {
+            padding: 12px 14px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-align: center;
+            background: #f8fafc;
+            user-select: none;
+            width: 50px;
+        }
+
+        .delete-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            margin: auto;
+            transition: all 0.2s ease;
+        }
+
+        .delete-btn:hover {
+            color: var(--error);
+            background: var(--error-light);
+        }
+
+        .delete-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        footer {
+            margin-top: 40px;
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1><span class="emoji">📝</span><span class="gradient-title">QuizRanker Studio</span></h1>
+        <p class="subtitle">Créez vos quiz et téléchargez-les sous forme de jeux autonomes. Ajoutez ou supprimez des colonnes de détail pour enrichir votre tableau de résultats final !</p>
+    </header>
+
+    <main>
+        <section class="card">
+            <div class="editor-header">
+                <div>
+                    <h2 class="editor-title">✏️ Modifiez votre Quiz</h2>
+                    <p class="subtitle" style="font-size: 0.85rem; margin-top: 4px;">Cliquez sur les en-têtes de colonne en gras pour les renommer directement.</p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="addRow()">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        Ajouter une ligne
+                    </button>
+                    <!-- Nouveau bouton d'ajout de colonne -->
+                    <button class="btn btn-primary" onclick="addColumn()" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        Ajouter une colonne
+                    </button>
+                    <button class="btn btn-danger" onclick="clearAll()">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Tout effacer
+                    </button>
+                    <button class="btn" onclick="resetToTemplate()">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                        Modèle Initial (Meds)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Guide d'utilisation / Aide intuitive -->
+            <div style="display: flex; gap: 12px; background: #f0f9ff; padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid #bae6fd; margin-bottom: 20px; text-align: left; align-items: center;">
+                <span style="font-size: 1.35rem; line-height: 1;">💡</span>
+                <div style="font-size: 0.84rem; color: #0369a1; line-height: 1.45;">
+                    <strong style="color: #0284c7; font-family: 'Outfit', sans-serif;">L'ordre des lignes du tableau définit la bonne réponse du quiz</strong> (1er en haut, dernier en bas).
+                    Déplacez les lignes avec <strong>▲/▼</strong> ou cliquez sur <strong>▲/▼ dans les en-têtes</strong> pour trier automatiquement par colonne (ex: par ventes).
+                </div>
+            </div>
+
+            <!-- Configuration des Informations du Quiz -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: #f8fafc; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px; box-shadow: var(--shadow-sm); text-align: left;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                        🏆 Titre du Quiz
+                    </label>
+                    <input type="text" id="quiz-title-input" oninput="saveQuizInfo()" style="padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; font-weight: 600; outline: none; background: #ffffff; color: var(--text-main); transition: border-color 0.2s;" placeholder="ex: Top 10 Médicaments 2025" value="">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                        💬 Consigne / Instruction
+                    </label>
+                    <input type="text" id="quiz-instruction-input" oninput="saveQuizInfo()" style="padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; outline: none; background: #ffffff; color: var(--text-main); transition: border-color 0.2s;" placeholder="ex: Classez les éléments du plus grand au plus petit." value="">
+                </div>
+            </div>
+
+            <!-- Tableur Style Excel -->
+            <div class="table-container">
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            <!-- Les en-têtes seront générés dynamiquement en JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="editor-rows">
+                        <!-- Lignes générées en JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Import/Export & Génération HTML autonome -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <div class="btn-group">
+                    <button class="btn" onclick="exportJSON()">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        Exporter JSON
+                    </button>
+                    <button class="btn" onclick="document.getElementById('import-file').click()">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+                        Importer JSON
+                    </button>
+                    <input type="file" id="import-file" class="hidden" accept=".json" onchange="importJSON(event)">
+                    
+                    <button class="btn" onclick="document.getElementById('import-xlsx-file').click()" style="background: #e2f0d9; color: #385723; border-color: #c5e0b4;">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        Importer Excel (.xlsx)
+                    </button>
+                    <input type="file" id="import-xlsx-file" class="hidden" accept=".xlsx, .xls" onchange="importXLSX(event)">
+                </div>
+
+                <button class="btn btn-primary" onclick="exportPlayableHTML()" title="Génère un fichier de jeu autonome prêt à l'emploi (sans l'éditeur)">
+                    <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Générer & Télécharger le Jeu (jeu.html)
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>QuizRanker Studio - Conçu pour l'excellence et l'interactivité.</p>
+    </footer>
+
+    <!-- MODAL DE CONFIGURATION DE L'IMPORT EXCEL -->
+    <div id="import-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(30, 41, 59, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px);">
+        <div style="background: #ffffff; padding: 24px; border-radius: var(--radius-lg); max-width: 500px; width: 90%; box-shadow: var(--shadow-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 16px;">
+            <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                ⚙️ Configuration de l'import Excel
+            </h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.4;">
+                Associez les colonnes de votre fichier Excel aux champs de votre Quiz. Les colonnes restantes seront chargées en tant que détails affichés à la fin du jeu.
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px; text-align: left;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">1. Titre (Texte principal en gras sur les tuiles) :</label>
+                    <select id="import-sel-title" style="width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; color: var(--text-main); outline: none; background-color: #f8fafc;"></select>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">2. Sous-titre (Sous-texte affiché sur les tuiles) :</label>
+                    <select id="import-sel-subtitle" style="width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; color: var(--text-main); outline: none; background-color: #f8fafc;"></select>
+                </div>
+                
+
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                <button class="btn" onclick="closeImportModal()">Annuler</button>
+                <button class="btn btn-primary" onclick="confirmImportXLSX()">Valider l'importation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BALISE SCRIPT CONTENANT LES DONNÉES PAR DÉFAUT -->
+    <script id="quiz-data-script">
+        // En-têtes génériques par défaut (tableau vide)
+        const DEFAULT_HEADERS = {
+            quizTitle: "",
+            quizInstruction: "Classez les éléments dans le bon ordre.",
+            title: "Titre de l'élément",
+            subtitle: "Sous-titre (Optionnel)",
+            extras: ["Détail 1", "Détail 2"]
+        };
+
+        // L'application s'ouvre avec 5 lignes vides
+        const DEFAULT_ITEMS = [
+            { id: 1, title: "", subtitle: "", extras: ["", ""] },
+            { id: 2, title: "", subtitle: "", extras: ["", ""] },
+            { id: 3, title: "", subtitle: "", extras: ["", ""] },
+            { id: 4, title: "", subtitle: "", extras: ["", ""] },
+            { id: 5, title: "", subtitle: "", extras: ["", ""] }
+        ];
+
+        // Modèle de secours (Top 10 Médicaments)
+        const TEMPLATE_HEADERS = {
+            quizTitle: "Top 10 Médicaments 2025",
+            quizInstruction: "Classez les médicaments par ventes (du plus grand en haut au plus petit en bas).",
+            title: "Nom du Médicament",
+            subtitle: "Laboratoire",
+            extras: ["Ventes (M$)", "Aire Thérapeutique", "Évolution vs 2024"]
+        };
+
+        const TEMPLATE_ITEMS = [
+            { id: 1, title: "Keytruda* (pembrolizumab)", subtitle: "Merck & Co", extras: ["31.7", "Cancer", "Inchangé"] },
+            { id: 2, title: "Mounjaro* (tirzépatide)", subtitle: "Eli Lilly", extras: ["23.0", "Diabète, obésité", "6"] },
+            { id: 3, title: "Ozempic* (sémaglutide)", subtitle: "Novo Nordisk", extras: ["20.0", "Diabète", "-1"] },
+            { id: 4, title: "Dupixent* (dupilumab)", subtitle: "Sanofi / Regeneron", extras: ["18.4", "Immunologie, dermatologie", "-1"] },
+            { id: 5, title: "Skyrizi* (risankizumab)", subtitle: "AbbVie", extras: ["17.6", "Immunologie, dermatologie", "1"] },
+            { id: 6, title: "Eliquis* (apixaban)", subtitle: "BMS / Pfizer", extras: ["15.4", "Cardiovasculaire", "-1"] },
+            { id: 7, title: "Darzalex* (daratumumab)", subtitle: "J&J", extras: ["14.4", "Cancer", "Inchangé"] },
+            { id: 8, title: "Biktarvy* (bictégravir + emtricitabine + ténofovir alafénamide)", subtitle: "Gilead", extras: ["14.3", "HIV", "-4"] },
+            { id: 9, title: "Zepbound* (tirzépatide)", subtitle: "Eli Lilly", extras: ["13.5", "Obésité", "Entrée"] },
+            { id: 10, title: "Wegovy* (sémaglutide)", subtitle: "Novo Nordisk", extras: ["12.4", "Obésité", "5"] }
+        ];
+    </script>
+
+    <script>
+        // État de l'éditeur
+        let headers = { ...DEFAULT_HEADERS };
+        headers.extras = [...DEFAULT_HEADERS.extras];
+        let items = JSON.parse(JSON.stringify(DEFAULT_ITEMS));
+
+        // Initialisation de la page
+        document.addEventListener("DOMContentLoaded", () => {
+            loadFromLocalStorage();
+            renderHeaders();
+            renderEditorTable();
+        });
+
+        // Enregistrer le titre et la consigne du quiz
+        function saveQuizInfo() {
+            headers.quizTitle = document.getElementById("quiz-title-input").value.trim();
+            headers.quizInstruction = document.getElementById("quiz-instruction-input").value.trim();
+            saveToLocalStorage();
+        }
+
+        // Génère la ligne d'en-tête de manière dynamique
+        // Génère la ligne d'en-tête de manière dynamique
+        function renderHeaders() {
+            const headerRow = document.querySelector(".excel-table thead tr");
+            headerRow.innerHTML = `
+                <th style="width: 50px; text-align: center;">#</th>
+                <th style="width: 250px;">
+                    <div class="header-cell-content">
+                        <span contenteditable="true" id="h-title" class="header-title-text" onblur="saveHeaders()">${escapeHtml(headers.title)}</span>
+                        <div class="header-actions">
+                            <button class="header-action-btn" onclick="sortItems('title', 'desc'); return false;" title="Trier par ordre décroissant (Z-A / 9-1)">▼</button>
+                            <button class="header-action-btn" onclick="sortItems('title', 'asc'); return false;" title="Trier par ordre croissant (A-Z / 1-9)">▲</button>
+                        </div>
+                    </div>
+                </th>
+                <th style="width: 200px;">
+                    <div class="header-cell-content">
+                        <span contenteditable="true" id="h-subtitle" class="header-title-text" onblur="saveHeaders()">${escapeHtml(headers.subtitle)}</span>
+                        <div class="header-actions">
+                            <button class="header-action-btn" onclick="sortItems('subtitle', 'desc'); return false;" title="Trier par ordre décroissant (Z-A / 9-1)">▼</button>
+                            <button class="header-action-btn" onclick="sortItems('subtitle', 'asc'); return false;" title="Trier par ordre croissant (A-Z / 1-9)">▲</button>
+                        </div>
+                    </div>
+                </th>
+            `;
+            
+            // Ajouter les colonnes dynamiques (Extras)
+            headers.extras.forEach((ext, idx) => {
+                const th = document.createElement("th");
+                th.style.minWidth = "170px";
+                th.innerHTML = `
+                    <div class="header-cell-content">
+                        <span contenteditable="true" class="extra-header-span header-title-text" data-idx="${idx}" onblur="saveHeaders()">${escapeHtml(ext)}</span>
+                        <div class="header-actions">
+                            <button class="header-action-btn" onclick="sortItems('extra', 'desc', ${idx}); return false;" title="Trier par ordre décroissant (9-1 / Z-A)">▼</button>
+                            <button class="header-action-btn" onclick="sortItems('extra', 'asc', ${idx}); return false;" title="Trier par ordre croissant (1-9 / A-Z)">▲</button>
+                            <button class="header-delete-btn" onclick="deleteColumn(${idx})" title="Supprimer la colonne">&times;</button>
+                        </div>
+                    </div>
+                `;
+                headerRow.appendChild(th);
+            });
+            
+            const thAction = document.createElement("th");
+            thAction.style.width = "110px";
+            thAction.style.textAlign = "center";
+            thAction.innerText = "Actions";
+            headerRow.appendChild(thAction);
+
+            // Mettre à jour les champs de texte Titre et Consigne
+            document.getElementById("quiz-title-input").value = headers.quizTitle || "";
+            document.getElementById("quiz-instruction-input").value = headers.quizInstruction || "";
+        }
+
+        function saveHeaders() {
+            headers.title = document.getElementById("h-title").innerText.trim() || DEFAULT_HEADERS.title;
+            headers.subtitle = document.getElementById("h-subtitle").innerText.trim() || DEFAULT_HEADERS.subtitle;
+            
+            const extraSpans = document.querySelectorAll(".extra-header-span");
+            extraSpans.forEach(span => {
+                const idx = parseInt(span.getAttribute("data-idx"));
+                headers.extras[idx] = span.innerText.trim() || `Détail ${idx + 1}`;
+            });
+            
+            saveToLocalStorage();
+        }
+
+        // Tri intelligent du tableau (détecte si les valeurs sont numériques ou textuelles)
+        function sortItems(colType, direction, extraIdx = null) {
+            items.sort((a, b) => {
+                let valA, valB;
+                if (colType === 'title') {
+                    valA = a.title || "";
+                    valB = b.title || "";
+                } else if (colType === 'subtitle') {
+                    valA = a.subtitle || "";
+                    valB = b.subtitle || "";
+                } else if (colType === 'extra') {
+                    valA = a.extras[extraIdx] || "";
+                    valB = b.extras[extraIdx] || "";
+                }
+
+                // Tenter un tri numérique
+                const numA = parseFloat(valA.toString().replace(/,/g, '.').trim());
+                const numB = parseFloat(valB.toString().replace(/,/g, '.').trim());
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    return direction === 'asc' ? numA - numB : numB - numA;
+                }
+
+                // Sinon tri alphabétique
+                valA = valA.toString().toLowerCase();
+                valB = valB.toString().toLowerCase();
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            renderEditorTable();
+            saveToLocalStorage();
+        }
+
+        function renderEditorTable() {
+            const tbody = document.getElementById("editor-rows");
+            tbody.innerHTML = "";
+
+            items.forEach((item, index) => {
+                const tr = document.createElement("tr");
+
+                // Ajuster la taille des extras de l'item à celle des en-têtes
+                while (item.extras.length < headers.extras.length) {
+                    item.extras.push("");
+                }
+                if (item.extras.length > headers.extras.length) {
+                    item.extras = item.extras.slice(0, headers.extras.length);
+                }
+
+                let extrasHtml = "";
+                item.extras.forEach((ext, extIdx) => {
+                    extrasHtml += `
+                        <td>
+                            <input type="text" class="cell-input" value="${escapeHtml(ext)}" onchange="updateItem(${item.id}, 'extra', this.value, ${extIdx})" placeholder="Détail">
+                        </td>
+                    `;
+                });
+
+                tr.innerHTML = `
+                    <td class="row-index">${index + 1}</td>
+                    <td>
+                        <input type="text" class="cell-input" value="${escapeHtml(item.title)}" onchange="updateItem(${item.id}, 'title', this.value)" placeholder="ex: Nom du produit">
+                    </td>
+                    <td>
+                        <input type="text" class="cell-input" value="${escapeHtml(item.subtitle)}" onchange="updateItem(${item.id}, 'subtitle', this.value)" placeholder="ex: Laboratoire (Optionnel)">
+                    </td>
+                    ${extrasHtml}
+                    <td style="text-align: center; vertical-align: middle; padding: 6px;">
+                        <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+                            <button class="delete-btn" onclick="moveRowUp(${index})" title="Monter d'un rang" style="padding: 6px; font-size: 0.95rem;">▲</button>
+                            <button class="delete-btn" onclick="moveRowDown(${index})" title="Descendre d'un rang" style="padding: 6px; font-size: 0.95rem;">▼</button>
+                            <button class="delete-btn" onclick="deleteRow(${item.id})" title="Supprimer la ligne" style="padding: 6px; color: var(--error);">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function moveRowUp(index) {
+            if (index > 0) {
+                const temp = items[index];
+                items[index] = items[index - 1];
+                items[index - 1] = temp;
+                renderEditorTable();
+                saveToLocalStorage();
+            }
+        }
+
+        function moveRowDown(index) {
+            if (index < items.length - 1) {
+                const temp = items[index];
+                items[index] = items[index + 1];
+                items[index + 1] = temp;
+                renderEditorTable();
+                saveToLocalStorage();
+            }
+        }
+
+        function updateItem(id, field, value, extIdx = null) {
+            const item = items.find(i => i.id === id);
+            if (item) {
+                if (field === 'extra') {
+                    item.extras[extIdx] = value;
+                } else {
+                    item[field] = value;
+                }
+                saveToLocalStorage();
+            }
+        }
+
+        function addRow() {
+            const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
+            const newExtras = Array(headers.extras.length).fill("");
+            items.push({
+                id: newId,
+                title: "",
+                subtitle: "",
+                extras: newExtras
+            });
+            renderEditorTable();
+            saveToLocalStorage();
+        }
+
+        function deleteRow(id) {
+            items = items.filter(i => i.id !== id);
+            renderEditorTable();
+            saveToLocalStorage();
+        }
+
+        // AJOUTER / SUPPRIMER DES COLONNES
+        function addColumn() {
+            const newColIdx = headers.extras.length + 1;
+            headers.extras.push(`Détail ${newColIdx}`);
+            items.forEach(item => {
+                item.extras.push("");
+            });
+            renderHeaders();
+            renderEditorTable();
+            saveToLocalStorage();
+        }
+
+        function deleteColumn(idx) {
+            if (confirm(`Supprimer la colonne "${headers.extras[idx]}" ?`)) {
+                headers.extras.splice(idx, 1);
+                items.forEach(item => {
+                    item.extras.splice(idx, 1);
+                });
+                renderHeaders();
+                renderEditorTable();
+                saveToLocalStorage();
+            }
+        }
+
+        function clearAll() {
+            if (confirm("Voulez-vous vider tout le tableau et réinitialiser les colonnes ?")) {
+                headers = { ...DEFAULT_HEADERS };
+                headers.extras = [...DEFAULT_HEADERS.extras];
+                items = [];
+                for (let i = 1; i <= 5; i++) {
+                    items.push({ id: i, title: "", subtitle: "", extras: ["", ""] });
+                }
+                renderHeaders();
+                renderEditorTable();
+                saveToLocalStorage();
+            }
+        }
+
+        function resetToTemplate() {
+            if (confirm("Réinitialiser avec le modèle par défaut des médicaments ? (Vos données actuelles seront écrasées)")) {
+                headers = { ...TEMPLATE_HEADERS };
+                headers.extras = [...TEMPLATE_HEADERS.extras];
+                items = JSON.parse(JSON.stringify(TEMPLATE_ITEMS));
+                renderHeaders();
+                renderEditorTable();
+                saveToLocalStorage();
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem("quizranker_headers", JSON.stringify(headers));
+            localStorage.setItem("quizranker_items", JSON.stringify(items));
+        }
+
+        function loadFromLocalStorage() {
+            const savedHeaders = localStorage.getItem("quizranker_headers");
+            const savedItems = localStorage.getItem("quizranker_items");
+            if (savedHeaders) {
+                headers = JSON.parse(savedHeaders);
+                // Migrer les anciens formats si nécessaire
+                if (!headers.quizTitle) headers.quizTitle = headers.title || "Quiz sans nom";
+                if (!headers.quizInstruction) headers.quizInstruction = "Classez les éléments dans le bon ordre.";
+                if (!headers.extras) headers.extras = [];
+            }
+            if (savedItems) {
+                const parsed = JSON.parse(savedItems);
+                // Migrer la colonne 'value' vers le début de 'extras' si présente
+                items = parsed.map(item => {
+                    if (item.value !== undefined) {
+                        const newExtras = [item.value !== null ? item.value.toString() : "", ...item.extras];
+                        delete item.value;
+                        item.extras = newExtras;
+                    }
+                    return item;
+                });
+                // Si on a migré une colonne 'value' dans les items, on doit aussi la migrer dans les en-têtes !
+                if (headers.title && savedHeaders && JSON.parse(savedHeaders).value !== undefined) {
+                    const oldHeaders = JSON.parse(savedHeaders);
+                    headers.extras = [oldHeaders.value || "Valeur", ...headers.extras];
+                    delete headers.value;
+                    delete headers.sortOrder;
+                    saveToLocalStorage();
+                }
+            } else {
+                items = [];
+                for (let i = 1; i <= 5; i++) {
+                    items.push({ id: i, title: "", subtitle: "", extras: ["", ""] });
+                }
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return str.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function exportJSON() {
+            const data = { headers, items };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `quiz_data_${headers.title.toLowerCase().replace(/[^a-z0-9]/g, "_")}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed.headers && Array.isArray(parsed.items)) {
+                        headers = parsed.headers;
+                        if (!headers.extras) headers.extras = [];
+                        items = parsed.items;
+                        renderHeaders();
+                        renderEditorTable();
+                        saveToLocalStorage();
+                        alert("Données importées avec succès !");
+                    } else {
+                        alert("Format JSON incorrect.");
+                    }
+                } catch (err) {
+                    alert("Erreur lors de la lecture du fichier JSON.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = "";
+        }
+
+        let tempExcelRows = null;
+        let tempExcelHeaders = null;
+        let tempRankColIdx = -1;
+
+        // --- IMPORTATION EXCEL (.XLSX) ---
+        function importXLSX(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (jsonRows.length < 2) {
+                        alert("Le fichier Excel doit contenir au moins 1 ligne d'en-tête et 1 ligne de données.");
+                        return;
+                    }
+
+                    tempExcelRows = jsonRows;
+                    tempExcelHeaders = jsonRows[0].map(h => h ? h.toString().trim() : "");
+                    
+                    // Détecter la colonne de rang (pour l'exclure par défaut)
+                    tempRankColIdx = -1;
+                    tempExcelHeaders.forEach((h, idx) => {
+                        const low = h.toLowerCase();
+                        if (low === "rang" || low === "rank" || low === "#" || low === "id") {
+                            tempRankColIdx = idx;
+                        }
+                    });
+
+                    // 1. Tenter d'auto-détecter les meilleures colonnes
+                    let autoTitleColIdx = -1;
+                    let autoSubtitleColIdx = -1;
+
+                    let availableIdx = [];
+                    tempExcelHeaders.forEach((_, idx) => {
+                        if (idx !== tempRankColIdx) availableIdx.push(idx);
+                    });
+
+                    if (availableIdx.length > 0) autoTitleColIdx = availableIdx[0];
+                    if (availableIdx.length > 1) autoSubtitleColIdx = availableIdx[1];
+
+                    // Fallback
+                    if (autoTitleColIdx === -1 && availableIdx.length > 0) autoTitleColIdx = availableIdx[0];
+
+                    // 2. Remplir les sélecteurs du modal
+                    const selTitle = document.getElementById("import-sel-title");
+                    const selSubtitle = document.getElementById("import-sel-subtitle");
+
+                    selTitle.innerHTML = "";
+                    selSubtitle.innerHTML = "";
+                    selSubtitle.innerHTML = `<option value="-1">-- Aucun --</option>`;
+
+                    tempExcelHeaders.forEach((h, idx) => {
+                        const optionText = h ? `${h} (colonne ${idx + 1})` : `Colonne ${idx + 1}`;
+                        selTitle.innerHTML += `<option value="${idx}">${optionText}</option>`;
+                        selSubtitle.innerHTML += `<option value="${idx}">${optionText}</option>`;
+                    });
+
+                    // Présélectionner les choix auto-détectés
+                    if (autoTitleColIdx !== -1) selTitle.value = autoTitleColIdx;
+                    if (autoSubtitleColIdx !== -1) selSubtitle.value = autoSubtitleColIdx;
+
+                    // Afficher le modal
+                    document.getElementById("import-modal").classList.remove("hidden");
+
+                } catch (err) {
+                    console.error(err);
+                    alert("Erreur lors de la lecture du fichier Excel.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = "";
+        }
+
+        function closeImportModal() {
+            document.getElementById("import-modal").classList.add("hidden");
+            tempExcelRows = null;
+            tempExcelHeaders = null;
+            tempRankColIdx = -1;
+        }
+
+        function confirmImportXLSX() {
+            if (!tempExcelRows || !tempExcelHeaders) return;
+
+            const titleColIdx = parseInt(document.getElementById("import-sel-title").value);
+            const subtitleColIdx = parseInt(document.getElementById("import-sel-subtitle").value);
+
+            // Mettre à jour les en-têtes principaux
+            headers.title = tempExcelHeaders[titleColIdx] || "Titre";
+            headers.subtitle = subtitleColIdx !== -1 ? (tempExcelHeaders[subtitleColIdx] || "Sous-titre") : "Sous-titre (Optionnel)";
+
+            // Détecter toutes les autres colonnes comme extras (Détails)
+            headers.extras = [];
+            const extraColIndexes = [];
+            tempExcelHeaders.forEach((h, idx) => {
+                if (idx !== tempRankColIdx && idx !== titleColIdx && idx !== subtitleColIdx) {
+                    headers.extras.push(h || `Détail ${headers.extras.length + 1}`);
+                    extraColIndexes.push(idx);
+                }
+            });
+
+            // Charger les données
+            items = [];
+            let newId = 1;
+            for (let r = 1; r < tempExcelRows.length; r++) {
+                const row = tempExcelRows[r];
+                const titleVal = row[titleColIdx];
+                if (titleVal === undefined || titleVal === null || titleVal.toString().trim() === "") {
+                    continue;
+                }
+
+                const rowExtras = [];
+                extraColIndexes.forEach(idx => {
+                    const extVal = row[idx];
+                    rowExtras.push(extVal !== undefined && extVal !== null ? extVal.toString().trim() : "");
+                });
+
+                items.push({
+                    id: newId++,
+                    title: titleVal.toString().trim(),
+                    subtitle: subtitleColIdx !== -1 && row[subtitleColIdx] !== undefined && row[subtitleColIdx] !== null ? row[subtitleColIdx].toString().trim() : "",
+                    extras: rowExtras
+                });
+            }
+
+            renderHeaders();
+            renderEditorTable();
+            saveToLocalStorage();
+            closeImportModal();
+            alert("Import Excel réussi ! " + items.length + " éléments importés.");
+        }
+
+        // --- EXPORTATION DU JEU AUTONOME ---
+        function exportPlayableHTML() {
+            const validItems = items.filter(i => i.title && i.title.trim() !== "");
+            if (validItems.length < 2) {
+                alert("Veuillez saisir au moins 2 éléments valides (Titre) avant de générer le jeu.");
+                return;
+            }
+
+            const pageTitle = escapeHtml(headers.quizTitle || headers.title || "Quiz");
+
+            // Code du jeu autonome (Jeu uniquement, sans éditeur)
+            const playableTemplate = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizRanker - ${pageTitle}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: radial-gradient(circle at 50% 50%, #ffffff 0%, #f1f5f9 100%);
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --border-color: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-light: #e0e7ff;
+            
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            
+            --success: #10b981;
+            --success-light: #d1fae5;
+            --success-dark: #065f46;
+            
+            --error: #ef4444;
+            --error-light: #fee2e2;
+            --error-dark: #991b1b;
+            
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 40px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 30px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h1 span.emoji {
+            font-size: 2.5rem;
+            -webkit-text-fill-color: initial;
+            background: none;
+        }
+
+        h1 span.gradient-title {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+
+        main {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(10px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .game-layout {
+            width: 100%;
+        }
+
+        .rank-badge-pill {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text-muted);
+            background: #f1f5f9;
+            border: 2px solid var(--border-color);
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .rank-badge-pill.top-1 {
+            background: #fef3c7;
+            border-color: #f59e0b;
+            color: #d97706;
+        }
+
+        .rank-badge-pill.top-2 {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+            color: #475569;
+        }
+
+        .rank-badge-pill.top-3 {
+            background: #ffedd5;
+            border-color: #ea580c;
+            color: #c2410c;
+        }
+
+        .sortable-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 200px;
+        }
+
+        .draggable-tile {
+            background: #ffffff;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.2s cubic-bezier(0.2, 1, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+        }
+
+        .draggable-tile:hover {
+            border-color: #cbd5e1;
+            box-shadow: var(--shadow-md);
+        }
+
+        .draggable-tile:active {
+            cursor: grabbing;
+        }
+
+        .draggable-tile.dragging {
+            opacity: 0.4;
+            border-style: dashed;
+            background: #f8fafc;
+            transform: scale(0.98);
+        }
+
+        .tile-drag-handle {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            cursor: grab;
+        }
+
+        .tile-drag-handle svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .tile-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .tile-title {
+            font-weight: 600;
+            font-size: 1.05rem;
+            color: var(--text-main);
+            letter-spacing: -0.2px;
+        }
+
+        .tile-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .tile-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .tile-ctrl-btn {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: var(--radius-sm);
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tile-ctrl-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .tile-ctrl-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke-width: 3;
+        }
+
+        .validation-section {
+            display: flex;
+            justify-content: center;
+            margin-top: 24px;
+        }
+
+        .btn-validate {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            padding: 16px 40px;
+            border-radius: 50px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-validate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(79, 70, 229, 0.4);
+            background: linear-gradient(135deg, var(--primary-hover) 0%, var(--accent-hover) 100%);
+        }
+
+        .btn-validate:active {
+            transform: translateY(1px);
+        }
+
+        .results-card {
+            background: #ffffff;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 30px;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+        }
+
+        .score-display-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .score-circle {
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+
+        .score-circle svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .score-circle circle {
+            fill: none;
+            stroke-width: 12;
+        }
+
+        .score-circle .circle-bg {
+            stroke: #f1f5f9;
+        }
+
+        .score-circle .circle-progress {
+            stroke: var(--primary);
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease-out;
+            stroke-dasharray: 440;
+            stroke-dashoffset: 440;
+        }
+
+        .score-text-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .score-percent {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .score-fraction {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .score-comment {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 8px;
+        }
+
+        .score-desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            max-width: 450px;
+            line-height: 1.5;
+        }
+
+        .correction-container {
+            max-width: 800px;
+            margin: 0 auto 40px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-align: left;
+        }
+
+        .correction-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .draggable-tile.correct {
+            border-color: var(--success);
+            background: var(--success-light);
+        }
+
+        .draggable-tile.incorrect {
+            border-color: var(--error);
+            background: var(--error-light);
+        }
+
+        .tile-status-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+        }
+
+        .correct .tile-status-icon {
+            background: var(--success);
+            color: #ffffff;
+        }
+
+        .incorrect .tile-status-icon {
+            background: var(--error);
+            color: #ffffff;
+        }
+
+        .correct .tile-status-icon svg, .incorrect .tile-status-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 3;
+        }
+
+        .rank-badge-info {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+
+        .correct .rank-badge-info {
+            background: var(--success);
+            color: #ffffff;
+        }
+
+        .incorrect .rank-badge-info {
+            background: var(--error);
+            color: #ffffff;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: #ffffff;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        table.excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+            min-width: 700px;
+        }
+
+        table.excel-table th {
+            background: #f8fafc;
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 12px 14px;
+            border-bottom: 2px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        table.excel-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            background: #ffffff;
+        }
+
+        table.excel-table tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        .final-table-card card {
+            text-align: left;
+            margin-top: 40px;
+        }
+
+        .table-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rank-highlight {
+            font-weight: 800;
+            color: var(--primary);
+            text-align: center;
+            width: 40px;
+        }
+
+        .btn {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        footer {
+            margin-top: 40px;
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+            width: 100%;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3); }
+            50% { transform: scale(1.02); box-shadow: 0 14px 28px rgba(79, 70, 229, 0.5); }
+            100% { transform: scale(1); box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3); }
+        }
+
+        .pulse-btn {
+            animation: pulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="quiz-title"><span class="emoji">🧠</span><span class="gradient-title">Classement : ${pageTitle}</span></h1>
+        <p id="quiz-subtitle" class="subtitle">${escapeHtml(headers.quizInstruction || "Classez les éléments dans le bon ordre.")}</p>
+    </header>
+
+    <main>
+        <section id="view-game" class="card">
+            <div class="game-layout">
+                <div class="sortable-list" id="game-list"></div>
+            </div>
+
+            <div class="validation-section">
+                <button class="btn-validate pulse-btn" onclick="validateRanking()">
+                    <svg xmlns="http://www.w3.org/2000/svg" style="width:24px;height:24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Valider mon classement !
+                </button>
+            </div>
+        </section>
+
+        <section id="view-results" class="hidden">
+            <div class="results-card">
+                <div class="score-display-container">
+                    <div class="score-circle">
+                        <svg>
+                            <circle class="circle-bg" cx="80" cy="80" r="70"></circle>
+                            <circle id="score-circle-progress" class="circle-progress" cx="80" cy="80" r="70"></circle>
+                        </svg>
+                        <div class="score-text-overlay">
+                            <div id="score-percent" class="score-percent">0%</div>
+                            <div id="score-fraction" class="score-fraction">0 / 0</div>
+                        </div>
+                    </div>
+                    <h3 id="score-comment" class="score-comment">Calcul du score...</h3>
+                    <p class="score-desc">Résultat calculé sur la base de la position absolue de chaque tuile par rapport à la réponse exacte.</p>
+                </div>
+
+                <div class="correction-container">
+                    <h4 class="correction-title">🎯 Votre Classement vs Réponse Réelle</h4>
+                    <div id="correction-list" class="sortable-list"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="restartGame()" style="border-radius: 30px; padding: 12px 28px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                        Rejouer
+                    </button>
+                </div>
+
+                <div class="final-table-card card" style="background: #f8fafc; border-color: var(--border-color); margin-top: 40px;">
+                    <h4 class="table-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;color:var(--primary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
+                        Tableau des Réponses Détaillées (Correct)
+                    </h4>
+                    <div class="table-container">
+                        <table class="excel-table">
+                            <thead>
+                                <tr>
+                                    <!-- Les en-têtes seront injectés dynamiquement -->
+                                </tr>
+                            </thead>
+                            <tbody id="results-table-rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>QuizRanker Player - Conçu pour l'excellence et l'interactivité.</p>
+    </footer>
+
+    <script id="quiz-data-script">
+        const DEFAULT_HEADERS = ${JSON.stringify(headers)};
+        const DEFAULT_ITEMS = ${JSON.stringify(validItems)};
+    <\/script>
+
+    <script>
+        let headers = { ...DEFAULT_HEADERS };
+        let items = JSON.parse(JSON.stringify(DEFAULT_ITEMS));
+        let playerOrder = [];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("quiz-title").innerHTML = \`<span class="emoji">🧠<\/span><span class="gradient-title">Classement : \${escapeHtml(headers.quizTitle || headers.title || "Quiz")}<\/span>\`;
+            document.getElementById("quiz-subtitle").innerText = headers.quizInstruction || "Classez les éléments dans le bon ordre.";
+            
+            // Construire les en-têtes du tableau de résultats
+            const resultsTableHeader = document.querySelector(".excel-table thead tr");
+            resultsTableHeader.innerHTML = \`
+                <th style="width: 60px; text-align: center;">Rang<\/th>
+                <th>\${escapeHtml(headers.title)}<\/th>
+                <th>\${escapeHtml(headers.subtitle)}<\/th>
+            \`;
+            headers.extras.forEach(ext => {
+                const th = document.createElement("th");
+                th.innerText = ext;
+                resultsTableHeader.appendChild(th);
+            });
+            
+            initializeGame();
+        });
+
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function initializeGame() {
+            const validItems = items.filter(i => i.title && i.title.trim() !== "");
+            if (validItems.length < 2) {
+                alert("Erreur : Pas assez de données valides.");
+                return;
+            }
+
+            const shuffledItems = shuffle(validItems);
+            const listContainer = document.getElementById("game-list");
+            listContainer.innerHTML = "";
+
+            shuffledItems.forEach((item, idx) => {
+                const tile = document.createElement("div");
+                tile.className = "draggable-tile";
+                tile.setAttribute("draggable", "true");
+                tile.setAttribute("data-id", item.id);
+                
+                let rankClass = "";
+                if (idx === 0) rankClass = "top-1";
+                else if (idx === 1) rankClass = "top-2";
+                else if (idx === 2) rankClass = "top-3";
+                
+                tile.innerHTML = \`
+                    <div class="rank-badge-pill \${rankClass}">\${idx + 1}<\/div>
+                    <div class="tile-drag-handle" title="Glisser pour déplacer">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </div>
+                    <div class="tile-content">
+                        <div class="tile-title">\${escapeHtml(item.title)}<\/div>
+                        <div class="tile-subtitle">\${escapeHtml(item.subtitle)}<\/div>
+                    </div>
+                    <div class="tile-controls">
+                        <button class="tile-ctrl-btn" onclick="moveTileUp(this)" title="Monter">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                            </svg>
+                        </button>
+                        <button class="tile-ctrl-btn" onclick="moveTileDown(this)" title="Descendre">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+                    </div>
+                \`;
+                
+                tile.addEventListener("dragstart", handleDragStart);
+                tile.addEventListener("dragend", handleDragEnd);
+                listContainer.appendChild(tile);
+            });
+
+            listContainer.addEventListener("dragover", handleDragOver);
+            updateRankBadges();
+        }
+
+        let dragSrcEl = null;
+        function handleDragStart(e) {
+            this.classList.add("dragging");
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", this.getAttribute("data-id"));
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove("dragging");
+            updateRankBadges();
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            const container = document.getElementById("game-list");
+            const draggingTile = document.querySelector(".dragging");
+            if (!draggingTile) return;
+
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) {
+                container.appendChild(draggingTile);
+            } else {
+                container.insertBefore(draggingTile, afterElement);
+            }
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll(".draggable-tile:not(.dragging)")];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function moveTileUp(btn) {
+            const tile = btn.closest(".draggable-tile");
+            const prev = tile.previousElementSibling;
+            if (prev) {
+                tile.parentNode.insertBefore(tile, prev);
+                updateRankBadges();
+            }
+        }
+
+        function moveTileDown(btn) {
+            const tile = btn.closest(".draggable-tile");
+            const next = tile.nextElementSibling;
+            if (next) {
+                tile.parentNode.insertBefore(next, tile);
+                updateRankBadges();
+            }
+        }
+
+        function updateRankBadges() {
+            const tiles = document.querySelectorAll("#game-list .draggable-tile");
+            tiles.forEach((tile, index) => {
+                const badge = tile.querySelector(".rank-badge-pill");
+                if (badge) {
+                    badge.innerText = index + 1;
+                    badge.className = "rank-badge-pill";
+                    if (index === 0) badge.classList.add("top-1");
+                    else if (index === 1) badge.classList.add("top-2");
+                    else if (index === 2) badge.classList.add("top-3");
+                }
+            });
+        }
+
+        function validateRanking() {
+            const tileElements = [...document.querySelectorAll("#game-list .draggable-tile")];
+            playerOrder = tileElements.map(el => parseInt(el.getAttribute("data-id")));
+
+            const validItems = items.filter(i => i.title && i.title.trim() !== "");
+            const correctSortedItems = [...validItems];
+
+            let correctCount = 0;
+            const totalCount = correctSortedItems.length;
+
+            const correctionList = document.getElementById("correction-list");
+            correctionList.innerHTML = "";
+
+            playerOrder.forEach((playerId, playerIndex) => {
+                const item = items.find(i => i.id === playerId);
+                const correctIndex = correctSortedItems.findIndex(i => i.id === playerId);
+                const isCorrect = playerIndex === correctIndex;
+
+                if (isCorrect) correctCount++;
+
+                const tile = document.createElement("div");
+                tile.className = \`draggable-tile \${isCorrect ? 'correct' : 'incorrect'}\`;
+
+                tile.innerHTML = \`
+                    <div class="tile-status-icon">
+                        \${isCorrect ? 
+                            \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /><\/svg>\` : 
+                            \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /><\/svg>\`
+                        }
+                    <\/div>
+                    <div class="tile-content">
+                        <div class="tile-title">\${escapeHtml(item.title)}<\/div>
+                        <div class="tile-subtitle">\${escapeHtml(item.subtitle)}<\/div>
+                    </div>
+                    <div class="rank-badge-info">
+                        \${isCorrect ? 
+                            \`Correct : Top \${correctIndex + 1}\` : 
+                            \`Placé : \${playerIndex + 1}e | Réel : \${correctIndex + 1}e\`
+                        }
+                    <\/div>
+                \`;
+                correctionList.appendChild(tile);
+            });
+
+            const finalTableBody = document.getElementById("results-table-rows");
+            finalTableBody.innerHTML = "";
+            correctSortedItems.forEach((item, index) => {
+                const tr = document.createElement("tr");
+                
+                let extrasHtml = "";
+                item.extras.forEach(ext => {
+                    extrasHtml += \`<td>\${escapeHtml(ext)}<\/td>\`;
+                });
+
+                tr.innerHTML = \`
+                    <td class="row-index rank-highlight">\${index + 1}<\/td>
+                    <td style="font-weight:600;">\${escapeHtml(item.title)}<\/td>
+                    <td style="color: var(--text-muted);">\${escapeHtml(item.subtitle)}<\/td>
+                    \${extrasHtml}
+                \`;
+                finalTableBody.appendChild(tr);
+            });
+
+            const scorePercent = Math.round((correctCount / totalCount) * 100);
+            const circle = document.getElementById("score-circle-progress");
+            const radius = circle.r.baseVal.value;
+            const circumference = 2 * Math.PI * radius;
+            circle.style.strokeDasharray = \`\${circumference} \${circumference}\`;
+            const offset = circumference - (scorePercent / 100) * circumference;
+            
+            document.getElementById("score-percent").innerText = \`\${scorePercent}%\`;
+            document.getElementById("score-fraction").innerText = \`\${correctCount} / \${totalCount}\`;
+
+            let comment = "";
+            if (scorePercent === 100) comment = "🥇 Score Parfait ! Magnifique !";
+            else if (scorePercent >= 80) comment = "🥈 Excellent travail !";
+            else if (scorePercent >= 50) comment = "🥉 Bon score ! Encore un effort !";
+            else comment = "😅 Retentez votre chance !";
+
+            document.getElementById("score-comment").innerText = comment;
+
+            document.getElementById("view-game").classList.add("hidden");
+            document.getElementById("view-results").classList.remove("hidden");
+            
+            setTimeout(() => {
+                circle.style.strokeDashoffset = offset;
+            }, 100);
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function restartGame() {
+            document.getElementById("view-results").classList.add("hidden");
+            document.getElementById("view-game").classList.remove("hidden");
+            initializeGame();
+        }
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return str.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    <\/script>
+</body>
+</html>`;
+
+            const blob = new Blob([playableTemplate], { type: "text/html" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `jeu_${headers.quizTitle ? headers.quizTitle.toLowerCase().replace(/[^a-z0-9]/g, "_") : (headers.title ? headers.title.toLowerCase().replace(/[^a-z0-9]/g, "_") : "quiz")}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
