@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta name="robots" content="noindex" charset="utf-8"/>
+
+
+  <style>
+  /* Couleur de la barre et du titre du haut: accent2. Couleur vert Gerontonnews de base: #7cc246  */
+  :root {
+    --bg: #f7f5f0;
+    --card: #ffffff;
+    --accent: #1a1a2e;
+    --accent2: #509b15;
+    --correct: #7cc246;
+    --wrong: #e63946;
+    --muted: #888;
+    --border: #e0ddd6;
+    --text: #1a1a2e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    padding: 16px;
+    color: var(--text);
+  }
+
+  #quiz {
+    background: var(--card);
+    border: 2px solid var(--accent);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  /* Barre de progression */
+  #progress-bar-wrap {
+    background: var(--border);
+    height: 4px;
+  }
+  #progress-bar {
+    height: 4px;
+    background: var(--accent2);
+    transition: width 0.4s ease;
+  }
+
+  #quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #quiz-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent2);
+  }
+
+  #counter {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+
+  #quiz-body {
+    padding: 16px;
+  }
+
+  #q {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.5;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  #a {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .answer-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    background: transparent;
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+
+  .answer-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: #f0ede8;
+  }
+
+  .answer-btn:disabled { cursor: default; }
+
+  .answer-btn.correct {
+    border-color: var(--correct);
+    background: #FFFFFF;
+    color: var(--correct);
+    font-weight: 700;
+  }
+
+  .answer-btn.wrong {
+    border-color: var(--wrong);
+    background: #FFFFFF;
+    color: var(--wrong);
+  }
+
+  /* Zone de feedback */
+  #feedback {
+    display: none;
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 3px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  #feedback.show-correct {
+    display: block;
+    background: #EBFEEF;
+    border: 1.5px solid var(--correct);
+    color: var(--correct);
+  }
+
+  #feedback.show-wrong {
+    display: block;
+    background: #fdf0f1;
+    border: 1.5px solid var(--wrong);
+    color: var(--wrong);
+  }
+
+  /* Bouton suivant */
+  #next-btn {
+    display: none;
+    margin-top: 12px;
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  #next-btn:hover { background: #2d2d4e; }
+  #next-btn.show { display: block; }
+
+  /* Résultat final */
+  #result {
+    display: none;
+    padding: 24px 16px;
+    text-align: center;
+  }
+
+  #result.show { display: block; }
+
+  #result-emoji {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+
+  #result-message {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  #result-score {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  #result-detail {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  #restart-btn {
+    margin-top: 16px;
+    padding: 10px 22px;
+    background: transparent;
+    border: 1.5px solid var(--accent);
+    border-radius: 3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  #restart-btn:hover {
+    background: var(--accent);
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+<div id="quiz">
+  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  <div id="quiz-header">
+    <span id="quiz-title">Quiz d'été</span>
+    <span id="counter"></span>
+  </div>
+  <div id="quiz-body">
+    <div id="q"></div>
+    <div id="a"></div>
+    <div id="feedback"></div>
+    <button id="next-btn"></button>
+  </div>
+  <div id="result">
+    <div id="result-emoji"></div>
+    <div id="result-message"></div>
+    <div id="result-score"></div>
+    <div id="result-detail"></div>
+    <button id="restart-btn">Recommencer</button>
+  </div>
+</div>
+
+<script>
+/* Bonnes réponses indexées à partir de 0 */
+/* Dans cet exemple, on a d'abord une réponse sans lien hypertexte, puis avec 1 lien, puis 2 liens */
+const quiz = [
+  {
+    q: 'Combien font 2 + 2 ?',
+    a: ['3', '5', '22', '4'],
+    c: 3
+  },
+  {
+    q: 'À combien se monte la participation journalière des résidents aux dépenses autonomie dans les départements expérimentateurs de la fusion des sections tarifaires "soins" et "dépendance"?',
+    a: ['4,95 euros', '5,50 euros', '6,10 euros', '7,20 euros'],
+    c: 2,
+    expl: "Voir ",
+    liens: [
+      { texte: 'notre article.', url: 'https://www.gerontonews.com/story?CODE=ED4SY04F4' }
+          ]
+  },
+  {
+    q: 'Sur quel sujet la Caisse nationale de solidarité pour l\'autonomie (CNSA) est-elle en train de plancher en priorité?',
+    a: ['Les personnes handicapées vieillissantes', 'L\'habitat intermédiaire', 'La dénutrition', 'La maltraitance en établissement'],
+    c: 1,
+   expl: "Explications ",
+    liens: [
+      { texte: 'ici', url: 'https://www.gerontonews.com/story?CODE=MS3SR96C9' },
+      { texte: 'là', url: 'https://www.gerontonews.com/story?CODE=MR6SY0EGY' }
+          ]
+  },
+  {
+    q: 'Combien font 8 + 2 ?',
+    a: ['3', '5', '22', '10'],
+    c: 3,
+    expl: 'Une question de mathématiques de base.',
+    liens: [
+      { texte: 'En savoir plus', url: 'https://example.com' }
+    ]
+  },
+  {
+    q: 'Dans quel langage ce quiz est-il codé ?',
+    a: ['Java', 'C++', 'Python', 'JavaScript'],
+    c: 3,
+    expl: 'JavaScript est le langage natif des navigateurs web.',
+    liens: [
+      { texte: 'Découvrir JavaScript', url: 'https://developer.mozilla.org/fr/docs/Web/JavaScript' }
+    ]
+  }
+];
+
+let i = 0, score = 0;
+
+const qEl       = document.getElementById('q');
+const aEl       = document.getElementById('a');
+const feedbackEl= document.getElementById('feedback');
+const nextBtn   = document.getElementById('next-btn');
+const counterEl = document.getElementById('counter');
+const progressEl= document.getElementById('progress-bar');
+const quizBody  = document.getElementById('quiz-body');
+const resultEl  = document.getElementById('result');
+
+function updateProgress() {
+  const pct = (i / quiz.length) * 100;
+  progressEl.style.width = pct + '%';
+  counterEl.textContent = 'Question ' + (i + 1) + '/' + quiz.length;
+}
+
+function show() {
+  feedbackEl.className = '';
+  feedbackEl.textContent = '';
+  nextBtn.className = '';
+  aEl.innerHTML = '';
+
+  updateProgress();
+  qEl.textContent = quiz[i].q;
+
+  quiz[i].a.forEach((text, n) => {
+    const b = document.createElement('button');
+    b.className = 'answer-btn';
+    b.textContent = text;
+    b.onclick = () => pick(n);
+    aEl.appendChild(b);
+  });
+}
+
+function pick(n) {
+  const correct = quiz[i].c;
+  const buttons = aEl.querySelectorAll('.answer-btn');
+
+  // Désactiver tous les boutons
+  buttons.forEach(b => b.disabled = true);
+
+  // Colorier la bonne et la mauvaise réponse
+  buttons[correct].classList.add('correct');
+
+  const q = quiz[i];
+  feedbackEl.innerHTML = '';
+
+  if (n !== correct) {
+    buttons[n].classList.add('wrong');
+    feedbackEl.className = 'show-wrong';
+    const main = document.createElement('span');
+    main.textContent = '✗ Incorrect. La bonne réponse était: ' + q.a[correct] + '. ';
+    feedbackEl.appendChild(main);
+  } else {
+    score++;
+    feedbackEl.className = 'show-correct';
+    const main = document.createElement('span');
+    main.textContent = '✓ Bonne réponse! ';
+    feedbackEl.appendChild(main);
+  }
+
+  // Explication optionnelle (affichée dans les deux cas)
+  if (q.expl) {
+    const expl = document.createElement('span');
+    expl.textContent = '' + q.expl;
+    feedbackEl.appendChild(expl);
+  }
+
+  // Liens optionnels (1 ou 2)
+  if (q.liens && q.liens.length > 0) {
+    feedbackEl.appendChild(document.createTextNode(' '));
+    q.liens.forEach((l, idx) => {
+      if (idx > 0) feedbackEl.appendChild(document.createTextNode(' et '));
+      const a = document.createElement('a');
+      a.href = l.url;
+      a.textContent = l.texte;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.style.cssText = 'color: inherit; font-weight: 700; text-decoration: underline;';
+      feedbackEl.appendChild(a);
+    });
+  }
+
+  // Bouton suivant
+  const isLast = (i === quiz.length - 1);
+  nextBtn.textContent = isLast ? 'Voir le résultat →' : 'Question suivante →';
+  nextBtn.className = 'show';
+}
+
+nextBtn.onclick = () => {
+  i++;
+  if (i < quiz.length) {
+    show();
+  } else {
+    showResult();
+  }
+};
+
+function showResult() {
+  quizBody.style.display = 'none';
+  resultEl.classList.add('show');
+  progressEl.style.width = '100%';
+  counterEl.textContent = 'Terminé !';
+
+  let emoji, message;
+  if (score === quiz.length)          { emoji = '🏅'; message = 'Parfait !'; }
+  else if (score >= quiz.length - 1)  { emoji = '😎'; message = 'Très bien !'; }
+  else if (score >= quiz.length - 2)  { emoji = '👍'; message = 'Pas mal !'; }
+  else if (score >= quiz.length - 4)  { emoji = '💪'; message = "Encore un peu d'entraînement !"; }
+  else                                { emoji = '😭'; message = 'Ouille ! Essayez encore !'; }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-message').textContent = message;
+  document.getElementById('result-score').textContent = 'Score : ' + score + ' / ' + quiz.length;
+}
+
+document.getElementById('restart-btn').onclick = () => {
+  i = 0; score = 0;
+  quizBody.style.display = '';
+  resultEl.className = '';
+  show();
+};
+
+show();
+</script>
+</body>
+</html>
