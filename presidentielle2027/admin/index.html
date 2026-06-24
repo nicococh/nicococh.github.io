@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration - Comparateur Santé</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Lucide Icons (loaded via CDN for easy visual styling) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="logo-emoji">🏛️</span>
+        <div class="logo-text">
+          <h1>Élysée Santé</h1>
+          <span class="subtitle">Espace Administration</span>
+        </div>
+      </div>
+
+      <div class="file-actions">
+        <h3>Sauvegarde Cloud</h3>
+        <button id="btn-save-supabase" class="btn btn-primary block-btn">
+          <i data-lucide="save"></i> Enregistrer sur Supabase
+        </button>
+      </div>
+
+      <!-- Second Tour configuration -->
+      <div class="file-actions second-tour-actions">
+        <h3>Mode Second Tour</h3>
+        
+        <div class="form-group" style="margin-bottom: 0.75rem;">
+          <label class="switch-container" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="checkbox-second-tour" style="width: auto; cursor: pointer;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Activer le mode</span>
+          </label>
+        </div>
+        
+        <div id="second-tour-info" style="display: none; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div>Date: <strong id="second-tour-date">-</strong></div>
+          <div style="margin-top: 0.15rem;">Expire le: <strong id="second-tour-expiry">-</strong></div>
+        </div>
+
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.4rem;">Candidats qualifiés :</div>
+        <ul id="second-tour-candidates-list" style="list-style: none; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 600; max-height: 100px; overflow-y: auto; padding: 0.25rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <!-- Populated dynamically -->
+        </ul>
+      </div>
+
+      <!-- Supabase Direct Connection Active -->
+
+      <nav class="candidates-nav">
+        <div class="nav-title">
+          <span>Candidats</span>
+          <button id="btn-add-candidate" class="btn-icon" title="Ajouter un candidat">
+            <i data-lucide="plus-circle"></i>
+          </button>
+        </div>
+        <ul id="candidates-list" class="nav-list">
+          <!-- Dynamically populated -->
+        </ul>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <a href="../index.html" class="btn btn-outline btn-sm block-btn">
+          <i data-lucide="arrow-left"></i> Voir le site public
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Editor unlocked by default under Supabase -->
+
+      <!-- Empty State -->
+      <div id="empty-state" class="empty-state">
+        <i data-lucide="user-plus" class="empty-icon"></i>
+        <h2>Sélectionnez ou créez un candidat</h2>
+        <p>Choisissez un candidat dans la barre latérale pour modifier ses informations et son programme de santé, ou créez-en un nouveau.</p>
+        <button id="btn-create-first" class="btn btn-primary">
+          <i data-lucide="plus"></i> Créer un candidat
+        </button>
+      </div>
+
+      <!-- Editor Panel (Hidden by default, shown when a candidate is selected) -->
+      <section id="editor-panel" class="editor-panel" style="display: none;">
+        <!-- Header -->
+        <header class="editor-header">
+          <div class="candidate-header-info">
+            <h2 id="editor-candidate-name-title">Emmanuel Macron</h2>
+            <p id="editor-candidate-party-title">La République En Marche</p>
+          </div>
+          <div class="editor-actions">
+            <button id="btn-delete-candidate" class="btn btn-danger btn-sm">
+              <i data-lucide="trash-2"></i> Supprimer le candidat
+            </button>
+          </div>
+        </header>
+
+        <!-- Tab Navigation for Editor -->
+        <nav class="editor-tabs">
+          <button class="tab-btn active" data-tab="tab-identity">
+            <i data-lucide="user"></i> Identité & Style
+          </button>
+          <button class="tab-btn" data-tab="tab-paste">
+            <i data-lucide="clipboard"></i> Importer un Tableau (Google Sheets)
+          </button>
+          <button class="tab-btn" data-tab="tab-program">
+            <i data-lucide="heart-pulse"></i> Programme de Santé
+          </button>
+        </nav>
+
+        <!-- Tab Contents -->
+        <div class="tab-content-container">
+          <!-- Identity Tab -->
+          <div id="tab-identity" class="tab-pane active">
+            <div class="card form-card">
+              <h3>Informations du Candidat</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="input-name">Nom complet</label>
+                  <input type="text" id="input-name" placeholder="ex: Emmanuel Macron">
+                </div>
+                <div class="form-group">
+                  <label for="input-party">Parti politique</label>
+                  <input type="text" id="input-party" placeholder="ex: La République En Marche">
+                </div>
+                <div class="form-group col-span-2">
+                  <label for="input-photo">Lien de la photo</label>
+                  <div class="photo-input-group">
+                    <input type="text" id="input-photo" placeholder="https://... ou chemin relatif">
+                    <div id="photo-preview" class="mini-photo-preview"></div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="input-color">Couleur représentative (Thème)</label>
+                  <div class="color-picker-group">
+                    <input type="color" id="input-color" value="#0055A5">
+                    <input type="text" id="input-color-hex" value="#0055A5" placeholder="#FFFFFF">
+                  </div>
+                </div>
+                <div class="form-group" style="grid-column: span 2; display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                  <input type="checkbox" id="input-second-round" style="width: auto; cursor: pointer;">
+                  <label for="input-second-round" style="cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Qualifié pour le Second Tour</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paste Tab -->
+          <div id="tab-paste" class="tab-pane">
+            <div class="card paste-card">
+              <div class="paste-instructions">
+                <h3>Copier/Coller depuis Google Sheets / Excel</h3>
+                <p>Copiez votre tableau depuis Google Sheets (sélectionnez la ligne d'en-tête et toutes les lignes de propositions, faites <kbd>Ctrl+C</kbd>) puis collez-le directement dans la zone ci-dessous.</p>
+                <div class="alert alert-info">
+                  <i data-lucide="info"></i>
+                  <span>Le parseur associera automatiquement les colonnes aux 9 catégories santé standard, en ignorant les cellules vides. Les sauts de ligne à l'intérieur des cellules sont parfaitement gérés.</span>
+                </div>
+              </div>
+
+              <div class="paste-area-wrapper">
+                <textarea id="textarea-sheets-paste" placeholder="Collez votre tableau Google Sheets ici... (ex: faites Ctrl+V ou Clic-Droit > Coller)"></textarea>
+              </div>
+
+              <div class="paste-actions">
+                <button id="btn-parse-paste" class="btn btn-success">
+                  <i data-lucide="check"></i> Analyser et Fusionner
+                </button>
+                <button id="btn-clear-paste" class="btn btn-outline">
+                  Vider la zone
+                </button>
+              </div>
+
+              <!-- Preview of pasted data -->
+              <div id="paste-preview-section" class="paste-preview-section" style="display: none;">
+                <h4>Aperçu de l'analyse</h4>
+                <div class="preview-stats">
+                  <span id="stat-columns">9 colonnes identifiées</span>
+                  <span id="stat-rows">0 lignes importées</span>
+                  <span id="stat-total-items">0 propositions détectées</span>
+                </div>
+                <div class="table-scroll-container">
+                  <table id="table-paste-preview">
+                    <thead>
+                      <!-- Populated dynamically -->
+                    </thead>
+                    <tbody>
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Program Details Tab -->
+          <div id="tab-program" class="tab-pane">
+            <div class="program-editor-wrapper">
+              <div class="program-category-selector">
+                <label for="select-edit-category">Catégorie du programme</label>
+                <select id="select-edit-category">
+                  <option value="Organisation du système de santé">1. Organisation du système de santé</option>
+                  <option value="Établissements de santé">2. Établissements de santé</option>
+                  <option value="Soins de ville">3. Soins de ville</option>
+                  <option value="Médico-social">4. Médico-social</option>
+                  <option value="Protection sociale">5. Protection sociale</option>
+                  <option value="Santé publique, médecine, recherche">6. Santé publique, médecine, recherche</option>
+                  <option value="Produits de santé">7. Produits de santé</option>
+                  <option value="Questions de société">8. Questions de société</option>
+                  <option value="Pour en savoir plus">9. Pour en savoir plus</option>
+                </select>
+              </div>
+
+              <div class="card category-items-card">
+                <div class="category-header">
+                  <h3 id="current-category-title">Organisation du système de santé</h3>
+                  <button id="btn-add-proposal" class="btn btn-outline btn-sm">
+                    <i data-lucide="plus"></i> Ajouter une proposition
+                  </button>
+                </div>
+
+                <div id="proposals-container" class="proposals-container">
+                  <!-- Dynamically populated list of editable rows -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Supabase CDN Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>

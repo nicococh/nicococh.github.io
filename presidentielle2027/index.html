@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Élysée Santé - Comparateur de Programmes Santé</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <!-- Clean Top Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <img src="elysee.png" alt="Palais de l'Élysée" class="header-logo">
+        <div class="brand-text-group">
+          <h1>Présidentielle 2027</h1>
+          <p>Le comparateur des programmes de santé par APMnews</p>
+        </div>
+      </div>
+      
+      <!-- Right Side Header Group -->
+      <div class="header-right-group">
+        <!-- Layout Switcher: Single vs Compare -->
+        <div class="mode-switcher">
+          <button id="btn-mode-single" class="mode-btn active">
+            <i data-lucide="user"></i> Par candidat
+          </button>
+          <button id="btn-mode-compare" class="mode-btn">
+            <i data-lucide="columns-2"></i> Comparer
+          </button>
+        </div>
+        <img src="logo_apmnews_h70.png" alt="APMnews" class="header-logo-right">
+      </div>
+    </div>
+  </header>
+
+  <main class="app-container">
+    <!-- Info Banner for Second Tour -->
+    <div id="second-tour-banner" class="second-tour-banner" style="display: none;">
+      <div class="banner-content">
+        <span class="banner-badge"><i data-lucide="info" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i>Second Tour</span>
+        <span class="banner-text">Le mode Second Tour est actif. Seuls les programmes des candidats finalistes sont affichés.</span>
+      </div>
+    </div>
+
+    <!-- Candidates Selection Bar -->
+    <section class="candidates-selection-section">
+      <div class="selection-header-row">
+        <h3 id="selection-heading">Sélectionnez un candidat :</h3>
+        <button id="btn-toggle-archives" class="archive-toggle-btn" style="display: none;">
+          <i data-lucide="archive"></i> <span>Voir les archives (1er tour)</span>
+        </button>
+      </div>
+      <div id="candidates-bar" class="candidates-bar">
+        <!-- Dynamically filled with candidate circular selectors -->
+      </div>
+    </section>
+
+    <!-- Main Content Area -->
+    <section id="content-area" class="content-area">
+      <!-- VIEW A: Single Candidate full program list -->
+      <div id="single-candidate-view" class="single-candidate-view">
+        <div id="candidate-identity-card" class="candidate-identity-card">
+          <!-- Dynamically populated: Avatar, Name, Party -->
+        </div>
+
+        <div id="single-program-anchors" class="single-program-anchors">
+          <!-- Dynamically populated category quick links -->
+        </div>
+        
+        <div id="single-program-list" class="single-program-list">
+          <!-- Dynamically populated: 9 categories listed vertically -->
+        </div>
+      </div>
+
+      <!-- VIEW B: Side-by-side Comparative grid -->
+      <div id="compare-view" class="compare-view" style="display: none;">
+        <!-- Theme Category Filter for comparison -->
+        <div id="compare-category-tabs" class="compare-category-tabs">
+          <!-- Dynamically populated category tabs -->
+        </div>
+
+        <div id="compare-grid" class="compare-grid">
+          <!-- Dynamically populated side-by-side columns of selected candidates -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <img src="logo_apmnews_h70.png" alt="APMnews" class="footer-logo">
+    <p>&copy; 2027 APMnews — Synthèse objective des programmes officiels.</p>
+  </footer>
+
+  <!-- Supabase CDN Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
