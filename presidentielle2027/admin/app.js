@@ -4,7 +4,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 // Hardcoded Admin Credentials for auto-login (safe under RLS policy)
 const adminEmail = 'nicococh@gmail.com'; // Replace with your admin user email
-const adminPassword = 'vutrblnazmxazjgselks'; // Replace with your admin user password
+const adminPassword = 'rEZ$v8H/y#kppWt'; // Replace with your admin user password
 
 let supabaseClient = null;
 if (supabaseUrl && supabaseKey && supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseKey !== 'YOUR_ANON_KEY') {
