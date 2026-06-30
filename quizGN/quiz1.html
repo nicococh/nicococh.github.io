@@ -37,6 +37,7 @@
   #quiz-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent2); }
   #counter { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; }
   #quiz-body { padding: 16px; }
+  #quiz-body.hide { display: none; }
   #q { font-size: 15px; font-weight: 600; line-height: 1.5; margin-bottom: 14px; color: var(--text); }
   #a { display: flex; flex-direction: column; gap: 8px; }
   .answer-btn {
@@ -110,14 +111,17 @@
     max-width: 900px !important;
     margin: 0 auto !important;
   }
-  body.is-fullscreen #quiz-body {
+  body.is-fullscreen #quiz-body.hide {
+    display: none !important;
+  }
+  body.is-fullscreen #quiz-body:not(.hide) {
     flex-grow: 1 !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
     padding: 32px 24px !important;
   }
-  body.is-fullscreen #result {
+  body.is-fullscreen #result.show {
     flex-grow: 1 !important;
     display: flex !important;
     flex-direction: column !important;
@@ -384,7 +388,7 @@ nextBtn.onclick = () => {
 };
 
 function showResult() {
-  quizBody.style.display = 'none'; resultEl.classList.add('show'); progressEl.style.width = '100%';
+  quizBody.classList.add('hide'); resultEl.classList.add('show'); progressEl.style.width = '100%';
   counterEl.textContent = 'Terminé !';
   const pourcentage = Math.round((score / quiz.length) * 100);
   let emoji, message;
@@ -401,7 +405,7 @@ function showResult() {
 }
 
 document.getElementById('restart-btn').onclick = () => {
-  i = 0; score = 0; quizBody.style.display = ''; resultEl.className = ''; show();
+  i = 0; score = 0; quizBody.classList.remove('hide'); resultEl.className = ''; show();
 };
 
 // Gestion du plein écran
