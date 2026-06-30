@@ -477,7 +477,7 @@ function exportQuiz() {
   #result.show { display: block; }
   #result-emoji { font-size: 40px; margin-bottom: 10px; }
   #result-message { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
-  #result-score { font-size: 13px; color: var(--muted); font-weight: 600; }
+  #result-score { font-size: 18px; color: var(--muted); font-weight: 600; }
   #restart-btn {
     margin-top: 16px; padding: 10px 22px; background: transparent; border: 1.5px solid var(--accent); border-radius: 3px;
     font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); cursor: pointer; transition: all 0.15s;
@@ -724,7 +724,7 @@ function showResult() {
 
   document.getElementById('result-emoji').textContent = emoji;
   document.getElementById('result-message').textContent = message;
-  document.getElementById('result-score').textContent = 'Score : ' + score + ' / ' + quiz.length + ' (' + pourcentage + '%)';
+  document.getElementById('result-score').textContent = 'Score : ' + score + ' / ' + quiz.length + ';
 }
 
 document.getElementById('restart-btn').onclick = () => {
