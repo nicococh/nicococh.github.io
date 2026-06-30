@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
- <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
-
+<meta name="robots" content="noindex, nofollow" charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta name="robots" content="noindex"/>
 <style>
@@ -61,7 +60,7 @@
   #result.show { display: block; }
   #result-emoji { font-size: 40px; margin-bottom: 10px; }
   #result-message { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
-  #result-score { font-size: 13px; color: var(--muted); font-weight: 600; }
+  #result-score { font-size: 18px; color: var(--accent2); font-weight: 600; }
   #restart-btn {
     margin-top: 16px; padding: 10px 22px; background: transparent; border: 1.5px solid var(--accent); border-radius: 3px;
     font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); cursor: pointer; transition: all 0.15s;
@@ -190,7 +189,7 @@
 <div id="quiz">
   <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
   <div id="quiz-header">
-    <span id="quiz-title">Quiz d'été</span>
+    <span id="quiz-title">Quiz de l'été 2026, épisode 1 </span>
     <div style="display: flex; align-items: center; gap: 8px;">
       <span id="counter"></span>
       <button id="fullscreen-btn" title="Plein écran" aria-label="Plein écran">
@@ -199,6 +198,7 @@
         </svg>
         <span id="fullscreen-label">Plein écran</span>
       </button>
+      <img id="gn-logo" src="https://www.gerontonews.com/images/logo/logo_geronto_news_line.png" alt="Gerontonews" style="height: 23px; width: auto; display: block;">
     </div>
   </div>
   <div id="quiz-body">
@@ -218,18 +218,39 @@
 <script>
 const quiz = [
   {
+    "q": "Qui est l'intrus de l'équipe Gerontonews?",
+    "a": [
+      "Manon",
+      "Maxime",
+      "Mathieu",
+      "Claire"
+    ],
+    "c": 2,
+    "expl": "Eh ben oui, il suffit pas d'avoir un nom en Ma!",
+    "liens": [
+      {
+        "texte": "Voir ici",
+        "url": "https://www.apmnews.com/en_direct"
+      },
+      {
+        "texte": "et là",
+        "url": "https://dictionnaire.lerobert.com/fr/"
+      }
+    ]
+  },
+  {
     "q": "A combien se monte la participation journalière des résidents aux dépenses \"autonomie\" dans les départements expérimentateurs de la fusion des sections tarifaires soins et dépendance?",
     "a": [
       "4,95 euros",
-      "5,50 euros",
       "6,10 euros",
+      "5,50 euros",
       "7,20 euros"
     ],
-    "c": 2,
-    "expl": "Dans le cadre de l'expérimentation de la fusion des sections tarifaires « soins » et « dépendance » dans les départements pilotes, le montant de la participation journalière des résidents aux dépenses d'autonomie a été spécifiquement fixé à 6,10 euros.",
+    "c": 1,
+    "expl": "",
     "liens": [
       {
-        "texte": "Notre article",
+        "texte": "Lire ici",
         "url": "https://www.gerontonews.com/story?CODE=ED4SY04F4"
       }
     ]
@@ -243,66 +264,15 @@ const quiz = [
       "La maltraitance en établissement"
     ],
     "c": 1,
-    "expl": "La CNSA s'est saisie en priorité du dossier de l'habitat intermédiaire (résidences autonomie, habitats inclusifs, etc.) afin de structurer et de développer des alternatives adaptées entre le domicile historique et l'Ehpad. Nos articles ",
+    "expl": "C'était pas facile. ",
     "liens": [
       {
-        "texte": "ici",
+        "texte": "Réponses ici",
         "url": "https://www.gerontonews.com/story?CODE=MS3SR96C9"
       },
       {
-        "texte": "et là ",
+        "texte": "et là",
         "url": "https://www.gerontonews.com/story?CODE=MR6SY0EGY"
-      }
-    ]
-  },
-  {
-    "q": "Le déploiement des centres de ressources territoriaux (CRT) est plus lent que prévu. De 500 à l'origine, quelle est la nouvelle cible de la direction générale de la cohésion sociale (DGCS) à l'horizon 2028?",
-    "a": [
-      "380",
-      "420",
-      "Toujours 500",
-      "550. Le retard sera rattrapé et l'objectif, dépassé"
-    ],
-    "c": 0,
-    "expl": "Face au constat d'un déploiement plus lent que prévu initialement, la direction générale de la cohésion sociale (DGCS) a revu ses ambitions à la baisse. La cible de 500 CRT a été réajustée à 380 structures à l'horizon 2028 pour correspondre au rythme réel d'installation sur le terrain.",
-    "liens": [
-      {
-        "texte": "Notre article",
-        "url": "https://www.gerontonews.com/story?CODE=MR7SXSD4R"
-      }
-    ]
-  },
-  {
-    "q": "Comment la DGCS compte-t-elle accélérer les coupes Pathos?",
-    "a": [
-      "Via l'intelligence artificielle (IA)",
-      "Via le doublement de médecins évaluateurs dans les agences régionales de santé (ARS)",
-      "Via le nouveau référentiel, qui a enfin été publié en juin 2025",
-      "Via une toute nouvelle formation des médecins coordonnateurs en Ehpad"
-    ],
-    "c": 0,
-    "expl": "Pour pallier le manque de temps médical et fluidifier les validations de la charge en soins et de la dépendance (coupes Pathos), la DGCS mise sur l'intégration d'outils basés sur l'intelligence artificielle (IA) capables de pré-analyser les dossiers et d'accélérer les procédures d'évaluation.",
-    "liens": [
-      {
-        "texte": "Notre article",
-        "url": "https://www.gerontonews.com/story?CODE=ED8SX84DD"
-      }
-    ]
-  },
-  {
-    "q": "Quel appel à projets national le ministère du travail, de la santé, des solidarités et des familles a-t-il lancé en mai 2025?",
-    "a": [
-      "Celui du Grand défi numérique sur le \"bien-vieillir\"",
-      "Celui de l'habitat inclusif pour les personnes âgées et handicapées",
-      "Celui du programme Icope pour mieux repérer les fragilités",
-      "Celui sur la cybersécurité dans les établissements médico-sociaux"
-    ],
-    "c": 0,
-    "expl": "Au printemps 2025, le ministère a officiellement lancé l'appel à projets national relatif au \"Grand défi numérique\", visant à soutenir et financer les innovations technologiques et numériques de pointe au service de l'autonomie, de la prévention et du bien-vieillir.",
-    "liens": [
-      {
-        "texte": "Notre article",
-        "url": "https://www.gerontonews.com/story?CODE=CZ2SWMAZN"
       }
     ]
   }
@@ -401,7 +371,7 @@ function showResult() {
 
   document.getElementById('result-emoji').textContent = emoji;
   document.getElementById('result-message').textContent = message;
-  document.getElementById('result-score').textContent = 'Score : ' + score + ' / ' + quiz.length + ' (' + pourcentage + '%)';
+  document.getElementById('result-score').textContent = 'Score : ' + score + ' / ' + quiz.length + '';
 }
 
 document.getElementById('restart-btn').onclick = () => {
