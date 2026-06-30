@@ -1,7 +1,425 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta name="robots" content="noindex, nofollow" charset="utf-8"/>
+   <meta name="robots" content="noindex" charset="utf-8"/>
+  <meta charset="utf-8">
+  <title>Générateur de Quiz Gerontonews</title>
+  <style>
+    :root {
+      --bg: #f7f5f0;
+      --card: #ffffff;
+      --accent: #1a1a2e;
+      --accent2: #509b15;
+      --correct: #7cc246;
+      --wrong: #e63946;
+      --muted: #888;
+      --border: #e0ddd6;
+      --text: #1a1a2e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: var(--bg);
+      padding: 24px;
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 24px;
+      color: var(--accent);
+      margin-bottom: 20px;
+      border-bottom: 3px solid var(--accent2);
+      padding-bottom: 8px;
+    }
+
+    .section {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    h2 {
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent2);
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      margin-top: 12px;
+    }
+
+    input[type="text"], textarea, select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    input[type="text"]:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .question-block {
+      background: #faf9f6;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .question-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      border-bottom: 1px dashed var(--border);
+      padding-bottom: 8px;
+    }
+
+    .grid-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .option-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .grid-links {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1.5px solid transparent;
+    }
+
+    .btn-primary {
+      background: var(--accent2);
+      color: white;
+    }
+    .btn-primary:hover { background: #438211; }
+
+    .btn-secondary {
+      background: transparent;
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn-secondary:hover { background: var(--accent); color: white; }
+
+    .btn-danger {
+      background: transparent;
+      border-color: var(--wrong);
+      color: var(--wrong);
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+    .btn-danger:hover { background: var(--wrong); color: white; }
+
+    .btn-export {
+      background: var(--accent);
+      color: white;
+      font-size: 14px;
+      padding: 12px 24px;
+      width: 100%;
+    }
+    .btn-export:hover { background: #2d2d4e; }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .range-row input[type="text"] { width: auto; flex-grow: 1; }
+    .range-row .range-pct { font-size: 13px; font-weight: bold; width: 80px; }
+    .range-row .range-emoji { width: 60px !important; text-align: center; }
+
+    .autosave-status {
+      font-size: 12px;
+      color: var(--correct);
+      font-weight: 600;
+      text-align: right;
+      margin-bottom: 10px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Éditeur de Quiz Interactif</h1>
+  <div id="autosave" class="autosave-status">✓ Sauvegarde automatique locale effectuée</div>
+
+  <div class="section">
+    <h2>1. Configuration Générale</h2>
+    <label for="quiz-title-input">Titre du Quiz</label>
+    <input type="text" id="quiz-title-input" value="Quiz d'été">
+  </div>
+
+  <div class="section">
+    <h2>2. Paliers de Résultats & Messages</h2>
+    <p style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">Définis les messages selon le pourcentage de bonnes réponses obtenues par l'utilisateur.</p>
+    <div id="ranges-container"></div>
+  </div>
+
+  <div class="section">
+    <h2>3. Questions du Quiz</h2>
+    <div id="questions-container"></div>
+    <button class="btn btn-secondary" onclick="addQuestion()">+ Ajouter une question</button>
+  </div>
+
+  <div class="section">
+    <h2>4. Générer le fichier final</h2>
+    <p style="font-size: 13px; margin-bottom: 15px;">Une fois que ton quiz est prêt, clique sur le bouton ci-dessous pour télécharger le fichier HTML autonome et prêt à être diffusé.</p>
+    <button class="btn btn-export" onclick="exportQuiz()">Télécharger le Quiz (.html)</button>
+  </div>
+</div>
+
+<script>
+// Structure par défaut des paliers de scores (Emojis + Messages conservés !)
+let scoreRanges = [
+  { minPct: 100, emoji: '🏅', message: 'Parfait !' },
+  { minPct: 80,  emoji: '😎', message: 'Très bien !' },
+  { minPct: 50,  emoji: '👍', message: 'Pas mal !' },
+  { minPct: 20,  emoji: '💪', message: "Encore un peu d'entraînement !" },
+  { minPct: 0,   emoji: '😭', message: 'Ouille ! Essayez encore !' }
+];
+
+// Liste des questions initialement vide (aucun placeholder)
+let questions = [];
+
+// Chargement initial depuis le localStorage (Sauvegarde en cours de route)
+if (localStorage.getItem('gn_quiz_title')) {
+  document.getElementById('quiz-title-input').value = localStorage.getItem('gn_quiz_title');
+}
+if (localStorage.getItem('gn_quiz_ranges')) {
+  scoreRanges = JSON.parse(localStorage.getItem('gn_quiz_ranges'));
+}
+if (localStorage.getItem('gn_quiz_questions')) {
+  questions = JSON.parse(localStorage.getItem('gn_quiz_questions'));
+}
+
+// Lancer l'initialisation de l'interface
+renderRanges();
+renderQuestions();
+
+// Écouter tous les changements sur la page pour sauvegarder automatiquement
+document.addEventListener('input', triggerAutoSave);
+
+function triggerAutoSave() {
+  saveCurrentState();
+  const statusEl = document.getElementById('autosave');
+  statusEl.style.display = 'block';
+  setTimeout(() => { statusEl.style.display = 'none'; }, 1000);
+}
+
+function saveCurrentState() {
+  localStorage.setItem('gn_quiz_title', document.getElementById('quiz-title-input').value);
+  
+  // Sauvegarder les paliers
+  const updatedRanges = [];
+  scoreRanges.forEach((range, idx) => {
+    updatedRanges.push({
+      minPct: range.minPct,
+      emoji: document.getElementById(`range-emoji-${idx}`).value,
+      message: document.getElementById(`range-msg-${idx}`).value
+    });
+  });
+  scoreRanges = updatedRanges;
+  localStorage.setItem('gn_quiz_ranges', JSON.stringify(scoreRanges));
+
+  // Sauvegarder les questions
+  const updatedQuestions = [];
+  const blocks = document.querySelectorAll('.question-block');
+  blocks.forEach((block, idx) => {
+    const qText = block.querySelector('.q-text').value;
+    const aInputs = block.querySelectorAll('.a-input');
+    const cSelect = block.querySelector('.c-select').value;
+    const explText = block.querySelector('.expl-text').value;
+    
+    const answers = Array.from(aInputs).map(input => input.value);
+    
+    const liens = [];
+    for(let l=1; l<=2; l++) {
+      const txt = block.querySelector(`.link-txt-${l}`).value;
+      const url = block.querySelector(`.link-url-${l}`).value;
+      if(txt || url) {
+        liens.push({ texte: txt, url: url });
+      }
+    }
+
+    updatedQuestions.push({
+      q: qText,
+      a: answers,
+      c: parseInt(cSelect),
+      expl: explText,
+      liens: liens
+    });
+  });
+  questions = updatedQuestions;
+  localStorage.setItem('gn_quiz_questions', JSON.stringify(questions));
+}
+
+function renderRanges() {
+  const container = document.getElementById('ranges-container');
+  container.innerHTML = '';
+  scoreRanges.forEach((range, idx) => {
+    let labelText = `Dès ${range.minPct}%`;
+    if(range.minPct === 100) labelText = "Score de 100%";
+    else if(range.minPct === 0) labelText = "Moins de 20%";
+
+    container.innerHTML += `
+      <div class="range-row">
+        <span class="range-pct">${labelText}</span>
+        <input type="text" class="range-emoji" id="range-emoji-${idx}" value="${range.emoji}" placeholder="Emoji">
+        <input type="text" id="range-msg-${idx}" value="${range.message}" placeholder="Message personnalisé">
+      </div>
+    `;
+  });
+}
+
+function renderQuestions() {
+  const container = document.getElementById('questions-container');
+  container.innerHTML = '';
+  
+  if (questions.length === 0) {
+    container.innerHTML = '<p style="font-size: 13px; color: var(--muted); margin-bottom: 15px;">Aucune question pour le moment. Cliquez sur le bouton ci-dessous pour commencer.</p>';
+    return;
+  }
+
+  questions.forEach((q, idx) => {
+    const link1 = q.liens && q.liens[0] ? q.liens[0] : { texte: '', url: '' };
+    const link2 = q.liens && q.liens[1] ? q.liens[1] : { texte: '', url: '' };
+
+    const block = document.createElement('div');
+    block.className = 'question-block';
+    block.innerHTML = `
+      <div class="question-header">
+        <strong>Question n°${idx + 1}</strong>
+        <button class="btn btn-danger" onclick="deleteQuestion(${idx})">Supprimer</button>
+      </div>
+      
+      <label>Intitulé de la question</label>
+      <input type="text" class="q-text" value="${q.q.replace(/"/g, '&quot;')}">
+
+      <label>Options de réponses (Cochez la bonne réponse)</label>
+      <div class="grid-options">
+        ${[0,1,2,3].map(i => `
+          <div class="option-item">
+            <input type="radio" name="correct-${idx}" value="${i}" ${q.c === i ? 'checked' : ''} onchange="triggerAutoSave()">
+            <input type="text" class="a-input" value="${q.a[i] ? q.a[i].replace(/"/g, '&quot;') : ''}" placeholder="Réponse ${i+1}">
+          </div>
+        `).join('')}
+      </div>
+      <input type="hidden" class="c-select" value="${q.c}">
+
+      <label>Explications (Optionnel, affiché après validation)</label>
+      <textarea class="expl-text" rows="2">${q.expl || ''}</textarea>
+
+      <label>Liens de référence (Optionnel - Max 2)</label>
+      <div class="grid-links">
+        <input type="text" class="link-txt-1" value="${link1.texte.replace(/"/g, '&quot;')}" placeholder="Texte du lien 1 (ex: notre article)">
+        <input type="text" class="link-url-1" value="${link1.url}" placeholder="URL complète (https://...)">
+      </div>
+      <div class="grid-links">
+        <input type="text" class="link-txt-2" value="${link2.texte.replace(/"/g, '&quot;')}" placeholder="Texte du lien 2 (ex: décret officiel)">
+        <input type="text" class="link-url-2" value="${link2.url}" placeholder="URL complète (https://...)">
+      </div>
+    `;
+
+    block.querySelectorAll(`input[name="correct-${idx}"]`).forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        block.querySelector('.c-select').value = e.target.value;
+        triggerAutoSave();
+      });
+    });
+
+    container.appendChild(block);
+  });
+}
+
+function addQuestion() {
+  saveCurrentState();
+  questions.push({
+    q: '',
+    a: ['', '', '', ''],
+    c: 0,
+    expl: '',
+    liens: []
+  });
+  renderQuestions();
+  triggerAutoSave();
+}
+
+function deleteQuestion(idx) {
+  if (confirm("Voulez-vous vraiment supprimer cette question ?")) {
+    saveCurrentState();
+    questions.splice(idx, 1);
+    renderQuestions();
+    triggerAutoSave();
+  }
+}
+
+function exportQuiz() {
+  if (questions.length === 0) {
+    alert("Veuillez ajouter au moins une question avant de générer le quiz.");
+    return;
+  }
+  
+  saveCurrentState();
+  
+  const title = document.getElementById('quiz-title-input').value || "Quiz";
+  
+  let scoreConditionJs = '';
+  scoreRanges.forEach((range, idx) => {
+    if (idx === 0) {
+      scoreConditionJs += `if (pourcentage === 100) { emoji = '${range.emoji}'; message = '${range.message.replace(/'/g, "\\'")}'; }\n`;
+    } else if (idx === scoreRanges.length - 1) {
+      scoreConditionJs += `  else { emoji = '${range.emoji}'; message = '${range.message.replace(/'/g, "\\'")}'; }`;
+    } else {
+      scoreConditionJs += `  else if (pourcentage >= ${range.minPct}) { emoji = '${range.emoji}'; message = '${range.message.replace(/'/g, "\\'")}'; }\n`;
+    }
+  });
+
+  const htmlTemplate = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta name="robots" content="noindex"/>
 <style>
@@ -189,7 +607,7 @@
 <div id="quiz">
   <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
   <div id="quiz-header">
-    <span id="quiz-title">Quiz d'été TEST</span>
+    <span id="quiz-title">${title.replace(/</g, "&lt;")}</span>
     <div style="display: flex; align-items: center; gap: 8px;">
       <span id="counter"></span>
       <button id="fullscreen-btn" title="Plein écran" aria-label="Plein écran">
@@ -215,63 +633,7 @@
 </div>
 
 <script>
-const quiz = [
-  {
-    "q": "A combien se monte la participation journalière des résidents aux dépenses \"autonomie\" dans les départements expérimentateurs de la fusion des sections tarifaires soins et dépendance?",
-    "a": [
-      "4,95 euros",
-      "6,10 euros",
-      "5,50 euros",
-      "7,20 euros"
-    ],
-    "c": 1,
-    "expl": "6,10 euros",
-    "liens": [
-      {
-        "texte": "lire ici",
-        "url": "https://www.gerontonews.com/story?CODE=ED4SY04F4"
-      }
-    ]
-  },
-  {
-    "q": "Sur quel sujet la Caisse nationale de solidarité pour l'autonomie (CNSA) est-elle en train de plancher en priorité?",
-    "a": [
-      "Les personnes handicapées vieillissantes",
-      "L'habitat intermédiaire",
-      "La dénutrition",
-      "La maltraitance en établissement"
-    ],
-    "c": 1,
-    "expl": "L'habitat intermédiaire",
-    "liens": [
-      {
-        "texte": "Réponses ici",
-        "url": "https://www.gerontonews.com/story?CODE=MS3SR96C9"
-      },
-      {
-        "texte": "et là",
-        "url": "https://www.gerontonews.com/story?CODE=MR6SY0EGY"
-      }
-    ]
-  },
-  {
-    "q": "Le déploiement des centres de ressources territoriaux (CRT) est plus lent que prévu. De 500 à l'origine, quelle est la nouvelle cible de la direction générale de la cohésion sociale (DGCS) à l'horizon 2028?",
-    "a": [
-      "380",
-      " 420",
-      " Toujours 500",
-      "550. Le retard sera rattrapé et l'objectif, dépassé"
-    ],
-    "c": 0,
-    "expl": "C'est la 1",
-    "liens": [
-      {
-        "texte": "Lien unique",
-        "url": "https://www.legifrance.gouv.fr/jorf/jo"
-      }
-    ]
-  }
-];
+const quiz = ${JSON.stringify(questions, null, 2)};
 let i = 0, score = 0;
 
 const qEl = document.getElementById('q');
@@ -358,11 +720,7 @@ function showResult() {
   const pourcentage = Math.round((score / quiz.length) * 100);
   let emoji, message;
   
-  if (pourcentage === 100) { emoji = '🏅'; message = 'Parfait !'; }
-  else if (pourcentage >= 80) { emoji = '😎'; message = 'Très bien !'; }
-  else if (pourcentage >= 50) { emoji = '👍'; message = 'Pas mal !'; }
-  else if (pourcentage >= 20) { emoji = '💪'; message = 'Encore un peu d\'entraînement !'; }
-  else { emoji = '😭'; message = 'Ouille ! Essayez encore !'; }
+  ${scoreConditionJs}
 
   document.getElementById('result-emoji').textContent = emoji;
   document.getElementById('result-message').textContent = message;
@@ -437,6 +795,18 @@ if (fullscreenBtn) {
 }
 
 show();
+<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([htmlTemplate], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${title.toLowerCase().replace(/[^a-z0-9]/g, '-')}-quiz.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 </script>
 </body>
 </html>
