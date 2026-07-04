@@ -47,8 +47,9 @@
     min-height: 18px;
   }
   #actionbar {
-    margin-top: 6px;
+    margin-bottom: 8px;
     display: flex;
+    align-items: center;
     gap: 8px;
   }
   #actionbar button {
@@ -62,6 +63,9 @@
   #actionbar button:disabled {
     color: #aaa;
     cursor: default;
+  }
+  #supprBtn {
+    margin-left: auto;
   }
   #savebar {
     display: flex;
@@ -86,15 +90,17 @@
 
 <h1>À bas les retours chariot&nbsp;!</h1>
 <p class="info">
-  Collez du texte, sélectionnez des paragraphes puis appuyez sur
-  <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets de césure.</p>
-
-<textarea id="editor" placeholder="Collez ou tapez votre texte ici..."> Bla Bla... </textarea>
+  Collez du texte, sélectionnez des paragraphes (pas forcément en entier) puis appuyez sur
+  <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).</p>
 
 <div id="actionbar">
   <button id="undoBtn" type="button" disabled>Annuler (Ctrl+Z)</button>
   <button id="redoBtn" type="button" disabled>Rétablir (Ctrl+Y)</button>
+  <button id="copyBtn" type="button">Copier (Ctrl+C)</button>
+  <button id="supprBtn" type="button">Suppr sauts de ligne (Ctrl+M) 💥</button>
 </div>
+
+<textarea id="editor" placeholder="Collez ou tapez votre texte ici..."></textarea>
 
 <div id="status"></div>
 <div id="savebar">
@@ -109,6 +115,8 @@ const savestatus = document.getElementById('savestatus');
 const clearsave = document.getElementById('clearsave');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
+const copyBtn = document.getElementById('copyBtn');
+const supprBtn = document.getElementById('supprBtn');
 
 const STORAGE_KEY = 'editeur-texte-autosave';
 
@@ -274,6 +282,48 @@ clearsave.addEventListener('click', function() {
   }
 });
 
+function supprimerSautsDeLigne() {
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  if (start === end) {
+    status.textContent = "Aucune sélection : sélectionnez du texte avec la souris avant Ctrl+M.";
+    return;
+  }
+
+  const value = editor.value;
+  const selectedText = value.substring(start, end);
+  const cleaned = nettoyerTexte(selectedText);
+
+  // setRangeText ne déclenche pas 'beforeinput', on empile donc l'état
+  // précédent nous-mêmes, et on clôt le groupe de frappe en cours.
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  // Remplacer la sélection par le texte nettoyé
+  editor.setRangeText(cleaned, start, end, 'select');
+
+  status.textContent = "Sauts de ligne supprimés dans la sélection (" + selectedText.length + " → " + cleaned.length + " caractères).";
+  editor.focus();
+  sauvegarder();
+}
+
+async function copierContenu() {
+  try {
+    await navigator.clipboard.writeText(editor.value);
+    status.textContent = "Contenu copié dans le presse-papier.";
+  } catch (err) {
+    // Solution de repli si l'API Clipboard n'est pas disponible
+    editor.select();
+    document.execCommand('copy');
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+    status.textContent = "Contenu copié dans le presse-papier.";
+  }
+}
+
+supprBtn.addEventListener('click', supprimerSautsDeLigne);
+copyBtn.addEventListener('click', copierContenu);
+
 function nettoyerTexte(selectedText) {
   let lastChar = "";
   let text = selectedText;
@@ -314,30 +364,7 @@ editor.addEventListener('keydown', function(e) {
 
   if (isCtrlM) {
     e.preventDefault(); // empêche l'ouverture d'un nouvel onglet
-
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-
-    if (start === end) {
-      status.textContent = "Aucune sélection : sélectionnez du texte avec la souris avant Ctrl+M.";
-      return;
-    }
-
-    const value = editor.value;
-    const selectedText = value.substring(start, end);
-    const cleaned = nettoyerTexte(selectedText);
-
-    // setRangeText ne déclenche pas 'beforeinput', on empile donc l'état
-    // précédent nous-mêmes, et on clôt le groupe de frappe en cours.
-    empilerUndo(etatActuel());
-    terminerGroupe();
-
-    // Remplacer la sélection par le texte nettoyé
-    editor.setRangeText(cleaned, start, end, 'select');
-
-    status.textContent = "Sauts de ligne supprimés dans la sélection (" + selectedText.length + " → " + cleaned.length + " caractères).";
-    editor.focus();
-    sauvegarder();
+    supprimerSautsDeLigne();
     return;
   }
 
