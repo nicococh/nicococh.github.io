@@ -248,19 +248,12 @@ window.addEventListener('DOMContentLoaded', function() {
     if (saved) {
       const data = JSON.parse(saved);
       if (data.texte && data.texte !== editor.value) {
-        const confirmer = confirm(
-          "Un texte sauvegardé automatiquement a été trouvé (dernière sauvegarde : " +
-          formatHeure(new Date(data.date)) +
-          "). Voulez-vous le restaurer et remplacer le contenu actuel de l'éditeur ?"
-        );
-        if (confirmer) {
-          editor.value = data.texte;
-          status.textContent = "Texte restauré depuis la sauvegarde automatique.";
-          // Nouveau point de départ : on repart avec des piles vides
-          undoStack = [];
-          redoStack = [];
-          mettreAJourBoutons();
-        }
+        editor.value = data.texte;
+        status.textContent = "Texte restauré depuis la sauvegarde automatique (" + formatHeure(new Date(data.date)) + ").";
+        // Nouveau point de départ : on repart avec des piles vides
+        undoStack = [];
+        redoStack = [];
+        mettreAJourBoutons();
       }
       savestatus.textContent = "Dernière sauvegarde : " + formatHeure(new Date(data.date));
     }
