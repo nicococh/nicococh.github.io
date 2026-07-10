@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SUPERCHARIOT, version du 9 juillet 2026 --> 
+<!-- Version 10 juillet 2026 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -85,6 +85,37 @@
     text-decoration: underline;
     padding: 0;
   }
+  #editorWrap {
+    position: relative;
+  }
+  .snippet-bubble {
+    position: absolute;
+    z-index: 10;
+    background: #003087;
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    transform: translateY(-100%);
+    margin-top: -8px;
+  }
+  .snippet-bubble::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 14px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #003087 transparent transparent transparent;
+  }
+  .snippet-bubble .hint {
+    opacity: 0.7;
+    font-size: 11px;
+    margin-left: 8px;
+  }
 </style>
 </head>
 <body>
@@ -101,7 +132,10 @@
   <button id="supprBtn" type="button">Suppr sauts de ligne (Ctrl+M) 💥</button>
 </div>
 
-<textarea id="editor" placeholder="Collez ou tapez votre texte ici..."></textarea>
+<div id="editorWrap">
+  <textarea id="editor" placeholder="Collez ou tapez votre texte ici..."></textarea>
+  <div id="snippetBubble" class="snippet-bubble" style="display: none;"></div>
+</div>
 
 <div id="status"></div>
 <div id="savebar">
@@ -118,6 +152,7 @@ const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 const copyBtn = document.getElementById('copyBtn');
 const supprBtn = document.getElementById('supprBtn');
+const snippetBubble = document.getElementById('snippetBubble');
 
 const STORAGE_KEY = 'editeur-texte-autosave';
 
@@ -179,6 +214,7 @@ function annuler() {
   editor.setSelectionRange(precedent.start, precedent.end);
   terminerGroupe();
   mettreAJourBoutons();
+  masquerBulle();
   status.textContent = "Dernière action annulée.";
   editor.focus();
   sauvegarder();
@@ -198,6 +234,7 @@ function retablir() {
   editor.setSelectionRange(suivant.start, suivant.end);
   terminerGroupe();
   mettreAJourBoutons();
+  masquerBulle();
   status.textContent = "Action rétablie.";
   editor.focus();
   sauvegarder();
@@ -297,6 +334,7 @@ function supprimerSautsDeLigne() {
   // Remplacer la sélection par le texte nettoyé
   editor.setRangeText(cleaned, start, end, 'select');
 
+  masquerBulle();
   status.textContent = "Sauts de ligne supprimés dans la sélection (" + selectedText.length + " → " + cleaned.length + " caractères).";
   editor.focus();
   sauvegarder();
@@ -317,6 +355,128 @@ async function copierContenu() {
 
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
+
+// --- Saisie rapide (bulle de suggestion) ---
+// Dès que le texte tapé juste avant le curseur correspond exactement (casse
+// comprise) à un des déclencheurs ci-dessous, une bulle apparaît au-dessus
+// du curseur. Appuyer sur Entrée remplace le déclencheur par l'expansion.
+// Toute autre touche, ou un déplacement du curseur, referme la bulle.
+
+const SNIPPETS = [
+  { trigger: "Le M",   expansion: "(Le Monde, px)" },
+  { trigger: "lemo",   expansion: "(Le Monde, px)" },
+  { trigger: "lmù*",   expansion: "(Le Monde science et médecine, px)" },
+  { trigger: "(Le P",   expansion: "(Le Parisien, px)" },
+  { trigger: "(Le G",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
+  { trigger: "Les E",  expansion: "(Les Échos, px)" },
+  { trigger: "Le F",   expansion: "(Le Figaro, px)" },
+  { trigger: "La C",   expansion: "(La Croix, px)" },
+  { trigger: "L'H",    expansion: "(L'Humanité, px)" },
+  { trigger: "Libé",   expansion: "(Libération, px)" },
+  { trigger: "L'Opi",  expansion: "(L'Opinion, px)" }
+];
+// Les déclencheurs les plus longs sont testés en premier (utile si l'un est
+// le préfixe d'un autre, ex. "L'Opi" ne doit pas être masqué par un "L'O" plus court).
+SNIPPETS.sort((a, b) => b.trigger.length - a.trigger.length);
+
+let activeSnippet = null; // { trigger, expansion, start, end }
+
+function caractereFrontiere(c) {
+  // Un déclencheur ne doit pas être précédé d'une lettre/chiffre, sinon on
+  // risque de le détecter au milieu d'un mot (ex. "ÉchelLe M...").
+  return c === undefined || !/[A-Za-zÀ-ÖØ-öø-ÿ0-9]/.test(c);
+}
+
+function detecterSnippet() {
+  if (editor.selectionStart !== editor.selectionEnd) {
+    masquerBulle();
+    return;
+  }
+  const pos = editor.selectionStart;
+  const texte = editor.value;
+
+  for (const snippet of SNIPPETS) {
+    const debut = pos - snippet.trigger.length;
+    if (debut < 0) continue;
+    if (texte.slice(debut, pos) !== snippet.trigger) continue;
+    if (!caractereFrontiere(texte[debut - 1])) continue;
+
+    activeSnippet = { ...snippet, start: debut, end: pos };
+    afficherBulle();
+    return;
+  }
+
+  masquerBulle();
+}
+
+function afficherBulle() {
+  if (!activeSnippet) return;
+  snippetBubble.innerHTML = activeSnippet.expansion + '<span class="hint">↵ pour insérer</span>';
+  snippetBubble.style.display = 'block';
+
+  const coords = getCaretCoordinates(editor, editor.selectionStart);
+  snippetBubble.style.left = Math.max(0, coords.left - editor.scrollLeft) + 'px';
+  snippetBubble.style.top = (coords.top - editor.scrollTop) + 'px';
+}
+
+function masquerBulle() {
+  activeSnippet = null;
+  snippetBubble.style.display = 'none';
+}
+
+function accepterSnippet() {
+  if (!activeSnippet) return;
+  const { expansion, start, end } = activeSnippet;
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.setRangeText(expansion, start, end, 'end');
+  masquerBulle();
+  status.textContent = "Expression insérée.";
+  editor.focus();
+  sauvegarder();
+}
+
+// Calcule la position (en pixels, relative au textarea) du curseur, en
+// répliquant le rendu du textarea dans un <div> invisible de même style.
+function getCaretCoordinates(textarea, position) {
+  const div = document.createElement('div');
+  const computed = window.getComputedStyle(textarea);
+
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.wordWrap = 'break-word';
+  div.style.width = computed.width;
+
+  const proprietes = [
+    'boxSizing', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+    'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+    'fontStyle', 'fontVariant', 'fontWeight', 'fontSize', 'lineHeight', 'fontFamily',
+    'textAlign', 'textTransform', 'textIndent', 'letterSpacing', 'wordSpacing', 'tabSize'
+  ];
+  proprietes.forEach(function(prop) { div.style[prop] = computed[prop]; });
+
+  document.body.appendChild(div);
+
+  div.textContent = textarea.value.substring(0, position);
+  const span = document.createElement('span');
+  span.textContent = textarea.value.substring(position) || '.';
+  div.appendChild(span);
+
+  const coordinates = {
+    top: span.offsetTop + parseInt(computed.borderTopWidth, 10),
+    left: span.offsetLeft + parseInt(computed.borderLeftWidth, 10)
+  };
+
+  document.body.removeChild(div);
+  return coordinates;
+}
+
+editor.addEventListener('input', detecterSnippet);
+editor.addEventListener('click', masquerBulle);
+editor.addEventListener('blur', masquerBulle);
 
 function nettoyerTexte(selectedText) {
   let lastChar = "";
@@ -351,6 +511,20 @@ function nettoyerTexte(selectedText) {
 }
 
 editor.addEventListener('keydown', function(e) {
+  const isEnter = e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+  const isEscape = e.key === 'Escape';
+
+  if (isEnter && activeSnippet) {
+    e.preventDefault();
+    accepterSnippet();
+    return;
+  }
+
+  if (isEscape && activeSnippet) {
+    masquerBulle();
+    return;
+  }
+
   const isCtrlM = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'm' || e.key === 'M');
   const isCtrlZ = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z');
   const isCtrlY = (e.ctrlKey || e.metaKey) && !e.altKey &&
