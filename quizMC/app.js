@@ -345,7 +345,7 @@ function startGame() {
 
   // Start timer
   updateTimerDisplay();
-  gameState.timerInterval = setInterval(tick, 1000);
+  gameState.timerInterval = setInterval(tick, 1500);
 
   updateStatsDisplay();
 }
