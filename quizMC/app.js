@@ -4,7 +4,7 @@
 const gameState = {
   keywords: [],      // Array of parsed keyword objects
   isPlaying: false,
-  timeLeft: 600,     // 10 minutes in seconds
+  timeLeft: 900,     // 15 minutes in seconds
   score: 0,
   timerInterval: null,
   revealed: false,
