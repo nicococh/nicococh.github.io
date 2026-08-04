@@ -4,7 +4,7 @@
 const gameState = {
   keywords: [],      // Array of parsed keyword objects
   isPlaying: false,
-  timeLeft: 900,     // 15 minutes in seconds
+  timeLeft: 600,     // 10 minutes in seconds
   score: 0,
   timerInterval: null,
   revealed: false,
@@ -345,7 +345,7 @@ function startGame() {
 
   // Start timer
   updateTimerDisplay();
-  gameState.timerInterval = setInterval(tick, 1500);
+  gameState.timerInterval = setInterval(tick, 1000);
 
   updateStatsDisplay();
 }
