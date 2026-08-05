@@ -603,6 +603,38 @@ function exportQuiz() {
       padding: 10px 14px !important;
     }
   }
+
+  /* Pluie de cotillons (confettis) pour un score de 100% */
+  #confetti-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 9999;
+  }
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 9px;
+    height: 14px;
+    opacity: 0.9;
+    animation-name: confetti-fall;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  @keyframes confetti-fall {
+    0% {
+      transform: translateY(0) translateX(0) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(110vh) translateX(var(--drift, 0px)) rotate(720deg);
+      opacity: 0.9;
+    }
+  }
 </style>
 </head>
 <body>
@@ -634,6 +666,7 @@ function exportQuiz() {
     <button id="restart-btn">Recommencer</button>
   </div>
 </div>
+<div id="confetti-layer"></div>
 
 <script>
 const quiz = ${JSON.stringify(questions, null, 2)};
@@ -728,6 +761,40 @@ function showResult() {
   document.getElementById('result-emoji').textContent = emoji;
   document.getElementById('result-message').textContent = message;
   document.getElementById('result-score').textContent = 'Score : ' + score + ' / ' + quiz.length + '';
+
+  if (pourcentage === 100) {
+    launchConfetti();
+  }
+}
+
+// Déclenche une pluie de cotillons (confettis) en pur CSS/JS, sans dépendance externe
+function launchConfetti() {
+  const layer = document.getElementById('confetti-layer');
+  if (!layer) return;
+  const colors = ['#509b15', '#7cc246', '#1a1a2e', '#e63946', '#f2c94c', '#2d9cdb'];
+  const total = 140;
+
+  for (let n = 0; n < total; n++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const left = Math.random() * 100;
+    const duration = 2.6 + Math.random() * 1.8;
+    const delay = Math.random() * 0.6;
+    const drift = (Math.random() * 160 - 80) + 'px';
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const isCircle = Math.random() > 0.5;
+
+    piece.style.left = left + 'vw';
+    piece.style.background = color;
+    piece.style.borderRadius = isCircle ? '50%' : '2px';
+    piece.style.setProperty('--drift', drift);
+    piece.style.animationDuration = duration + 's';
+    piece.style.animationDelay = delay + 's';
+
+    layer.appendChild(piece);
+
+    setTimeout(() => piece.remove(), (duration + delay) * 1000 + 200);
+  }
 }
 
 document.getElementById('restart-btn').onclick = () => {
