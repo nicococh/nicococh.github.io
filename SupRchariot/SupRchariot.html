@@ -130,6 +130,7 @@ Il y a une saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(L
   <button id="undoBtn" type="button" disabled>Annuler (Ctrl+Z)</button>
   <button id="redoBtn" type="button" disabled>Rétablir (Ctrl+Y)</button>
   <button id="copyBtn" type="button">Copier tout</button>
+  <button id="planBtn" type="button">Insérer plan</button>
   <button id="supprBtn" type="button">Suppr sauts de ligne (Ctrl+M) 💥</button>
 </div>
 
@@ -152,6 +153,7 @@ const clearsave = document.getElementById('clearsave');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 const copyBtn = document.getElementById('copyBtn');
+const planBtn = document.getElementById('planBtn');
 const supprBtn = document.getElementById('supprBtn');
 const snippetBubble = document.getElementById('snippetBubble');
 
@@ -341,6 +343,48 @@ function supprimerSautsDeLigne() {
   sauvegarder();
 }
 
+function insererPlan() {
+  const plan = `La santé dans la presse xxxx
+
+PARIS, xx xxx 2026 (APMnews) -
+
+POLITIQUE DE SANTÉ
+
+
+ÉTABLISSEMENTS - SOINS DE VILLE
+
+
+ENTREPRISES
+
+
+SANTÉ - MÉDECINE
+
+
+RECHERCHE
+
+
+ENVIRONNEMENT
+
+
+ET AUSSI...
+
+
+/xx/xx/APMnews
+
+`;
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.value = plan + editor.value;
+  editor.setSelectionRange(plan.length, plan.length);
+
+  masquerBulle();
+  status.textContent = "Plan inséré en tête du document.";
+  editor.focus();
+  sauvegarder();
+}
+
 async function copierContenu() {
   try {
     await navigator.clipboard.writeText(editor.value);
@@ -354,6 +398,7 @@ async function copierContenu() {
   }
 }
 
+planBtn.addEventListener('click', insererPlan);
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
 
