@@ -48,8 +48,8 @@
   .answer-btn.correct { border-color: var(--correct); background: #FFFFFF; color: var(--correct); font-weight: 700; }
   .answer-btn.wrong { border-color: var(--wrong); background: #FFFFFF; color: var(--wrong); }
   #feedback { display: none; margin-top: 18px; padding: 10px 14px; border-radius: 3px; font-size: 18px; font-weight: 600; line-height: 1.5; }
-  #feedback.show-correct { display: block; background: #EBFEEF; border: 1.5px solid var(--correct); color: var(--correct); }
-  #feedback.show-wrong { display: block; background: #fdf0f1; border: 1.5px solid var(--wrong); color: var(--wrong); }
+  #feedback.show-correct { display: block; background: #EBFEEF; border: 1.5px solid var(--correct); color: var(--text); }
+  #feedback.show-wrong { display: block; background: #fdf0f1; border: 1.5px solid var(--wrong); color: var(--text); }
   #next-btn {
     display: none; margin-top: 12px; width: 100%; padding: 11px 14px; background: var(--accent); border: none; border-radius: 3px;
     font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: 0.05em; color: #fff; cursor: pointer; transition: background 0.15s;
@@ -95,15 +95,22 @@
   body.is-fullscreen #quiz {
     width: 100% !important;
     height: 100vh !important;
+    height: 100dvh !important;
     max-width: 100% !important;
     border: none !important;
     border-radius: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     background: var(--card) !important;
+    overflow: hidden !important;
   }
   body.is-fullscreen #quiz-header,
-  body.is-fullscreen #progress-bar-wrap,
+  body.is-fullscreen #progress-bar-wrap {
+    width: 100% !important;
+    max-width: 900px !important;
+    margin: 0 auto !important;
+    flex-shrink: 0 !important;
+  }
   body.is-fullscreen #quiz-body,
   body.is-fullscreen #result {
     width: 100% !important;
@@ -115,18 +122,24 @@
   }
   body.is-fullscreen #quiz-body:not(.hide) {
     flex-grow: 1 !important;
+    min-height: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
     padding: 32px 24px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   body.is-fullscreen #result.show {
     flex-grow: 1 !important;
+    min-height: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
     align-items: center !important;
     padding: 32px 24px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   body.is-fullscreen #q {
     font-size: 22px !important;
@@ -186,13 +199,45 @@
       padding: 10px 14px !important;
     }
   }
+
+  /* Pluie de cotillons (confettis) pour un score de 100% */
+  #confetti-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 9999;
+  }
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 9px;
+    height: 14px;
+    opacity: 0.9;
+    animation-name: confetti-fall;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  @keyframes confetti-fall {
+    0% {
+      transform: translateY(0) translateX(0) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(110vh) translateX(var(--drift, 0px)) rotate(720deg);
+      opacity: 0.9;
+    }
+  }
 </style>
 </head>
 <body>
 <div id="quiz">
   <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
   <div id="quiz-header">
-    <span id="quiz-title">Quiz de l'été 2026, épisode 1 </span>
+    <span id="quiz-title">Quiz d'été</span>
     <div style="display: flex; align-items: center; gap: 8px;">
       <span id="counter"></span>
       <button id="fullscreen-btn" title="Plein écran" aria-label="Plein écran">
@@ -217,65 +262,108 @@
     <button id="restart-btn">Recommencer</button>
   </div>
 </div>
+<div id="confetti-layer"></div>
 
 <script>
 const quiz = [
   {
-    "q": "Qui est l'intrus de l'équipe Gerontonews?",
+    "q": "Combien de crédits la ministre déléguée chargée de l'autonomie et des personnes handicapées, Camille Galliard-Minier, a-t-elle fléchés pour équiper les Ehpad contre la canicule en 2026 ?",
     "a": [
-      "Manon",
-      "Maxime",
-      "Mathieu",
-      "Claire"
+      "100 millions d'euros, dans le cadre du fonds exceptionnel pour la transition écologique des Ehpad",
+      "50 millions d'euros, dans le cadre du fonds exceptionnel pour la transition écologique des Ehpad",
+      "50 millions d'euros, ponctionnés sur le fonds de soutien à la qualité des Ehpad",
+      "Les arbitrages sont en cours, mais elle a promis \"pas moins de 85 millions d'euros\""
     ],
     "c": 2,
-    "expl": "Eh ben oui, il suffit pas d'avoir un nom en Ma!",
-    "liens": [
-      {
-        "texte": "Voir ici",
-        "url": "https://www.apmnews.com/en_direct"
-      },
-      {
-        "texte": "et là",
-        "url": "https://dictionnaire.lerobert.com/fr/"
-      }
-    ]
-  },
-  {
-    "q": "A combien se monte la participation journalière des résidents aux dépenses \"autonomie\" dans les départements expérimentateurs de la fusion des sections tarifaires soins et dépendance?",
-    "a": [
-      "4,95 euros",
-      "6,10 euros",
-      "5,50 euros",
-      "7,20 euros"
-    ],
-    "c": 1,
-    "expl": "",
+    "expl": "Il s'agit de 50 millions d'euros, présentés comme un \"doublement\" du fonds exceptionnel pour la transition écologique des Ehpad de 2025 mais en réalité pris sur le \"fonds de soutien à la qualité\" des Ehpad doté de 85 M€ en première instruction budgétaire 2026.",
     "liens": [
       {
         "texte": "Lire ici",
-        "url": "https://www.gerontonews.com/story?CODE=ED4SY04F4"
+        "url": "https://www.gerontonews.com/story?CODE=LQ30571908C "
+      },
+      {
+        "texte": "et là",
+        "url": "https://www.gerontonews.com/story?CODE=LQ30958620C "
       }
     ]
   },
   {
-    "q": "Sur quel sujet la Caisse nationale de solidarité pour l'autonomie (CNSA) est-elle en train de plancher en priorité?",
+    "q": "Quel dispositif la mission d'évaluation et de contrôle de l'Assemblée nationale sur la sécurité sociale (Mecss) a-t-elle qualifié de \"fiasco administratif et budgétaire\" fin mai ?",
     "a": [
-      "Les personnes handicapées vieillissantes",
-      "L'habitat intermédiaire",
-      "La dénutrition",
-      "La maltraitance en établissement"
+      "Les centres de ressources territoriaux (CRT) portés par les Ehpad et les services autonomie à domicile",
+      "Les coupes Pathos",
+      "Le service public départemental de l'autonomie (SPDA)",
+      "Les heures de lien social des services autonomie à domicile "
     ],
-    "c": 1,
-    "expl": "C'était pas facile. ",
+    "c": 3,
+    "expl": "La Mecss a fait état d'une genèse problématique et d'un mauvais ciblage.",
     "liens": [
       {
-        "texte": "Réponses ici",
-        "url": "https://www.gerontonews.com/story?CODE=MS3SR96C9"
+        "texte": "Lire ici",
+        "url": "https://www.gerontonews.com/story?CODE=LQ29753512C "
+      }
+    ]
+  },
+  {
+    "q": "Quels sont les deux derniers groupes gestionnaires d'Ehpad ayant fait l'objet d'articles dans Gerontonews ?",
+    "a": [
+      " VYV³ et DomusVi",
+      "SOS Seniors et Clariane",
+      "Fondation Partage et vie et Emeis",
+      "ACPPA et LNA Santé"
+    ],
+    "c": 0,
+    "expl": "",
+    "liens": [
+      {
+        "texte": "L'article sur VYV³",
+        "url": "https://www.gerontonews.com/story?CODE=LQ30430610C "
+      },
+      {
+        "texte": "et l'entretien avec DomusVi",
+        "url": "https://www.gerontonews.com/story?CODE=LQ30749594C "
+      }
+    ]
+  },
+  {
+    "q": "Quel est l'avis de la Haute Autorité de santé (HAS) que s'apprête à suivre le gouvernement sur la grippe ?",
+    "a": [
+      "Une vaccination facultative pour les professionnels d'Ehpad et les résidents",
+      "La vaccination obligatoire de tous les professionnels d'Ehpad et de tous les résidents",
+      "La vaccination obligatoire de tous les professionnels d'Ehpad, mais pas des résidents",
+      "La vaccination obligatoire de tous les résidents, mais pas des professionnels d'Ehpad"
+    ],
+    "c": 2,
+    "expl": "Outre l'ensemble des professionnels de santé au sens large, la HAS prône une telle obligation \"pour les autres professionnels travaillant dans des établissements hébergeant des personnes âgées\", et de façon \"prioritaire\" en Ehpad et USLD. Les résidents ne sont pas concernés par l'obligation.",
+    "liens": [
+      {
+        "texte": "Lire ici",
+        "url": "https://www.gerontonews.com/story?CODE=LQ31147931C"
       },
       {
         "texte": "et là",
-        "url": "https://www.gerontonews.com/story?CODE=MR6SY0EGY"
+        "url": "https://www.gerontonews.com/story?CODE=LQ31183786C "
+      }
+    ]
+  },
+  {
+    "q": "Quel(s) acteur(s) a ou ont quitté le projet France autonomie, qui doit aboutir à une Conférence nationale de l'autonomie cet automne ?",
+    "a": [
+      "Départements de France ",
+      "Les principales fédérations d'Ehpad : FHF, Fehap et Synerpa",
+      "L'Union des gérontopôles de France",
+      "L'association France Silver Éco"
+    ],
+    "c": 0,
+    "expl": "Départements de France ne digère pas l'agrément ministériel des avenants 75 et 76 dans la branche associative de l'aide à domicile, qui suppose un financement conséquent de la part de ces collectivités.",
+    "liens": [
+      {
+        "texte": "Lire ici",
+        "url": "https://www.gerontonews.com/story?CODE=LQ29749517C"
+      },
+      {
+        "texte": "et là",
+        "url": "https://www.gerontonews.com/story?CODE=LQ28455040C"
       }
     ]
   }
@@ -366,15 +454,49 @@ function showResult() {
   const pourcentage = Math.round((score / quiz.length) * 100);
   let emoji, message;
   
-  if (pourcentage === 100) { emoji = '🏅'; message = 'Parfait !'; }
-  else if (pourcentage >= 80) { emoji = '😎'; message = 'Très bien !'; }
-  else if (pourcentage >= 50) { emoji = '👍'; message = 'Pas mal !'; }
-  else if (pourcentage >= 20) { emoji = '💪'; message = 'Encore un peu d\'entraînement !'; }
-  else { emoji = '😭'; message = 'Ouille ! Essayez encore !'; }
+  if (pourcentage === 100) { emoji = '🏅'; message = 'Rien ne vous a échappé, félicitations !'; }
+  else if (pourcentage >= 80) { emoji = '😎'; message = 'Pas mal du tout, c\'est presque un sans-faute !'; }
+  else if (pourcentage >= 50) { emoji = '👍'; message = 'Moyenne honorable, vous vous en tirez bien !'; }
+  else if (pourcentage >= 20) { emoji = '💪'; message = 'Allez... Encore un peu d\'entraînement !'; }
+  else { emoji = '😭'; message = 'Ouille ! Essayez d\'être plus assidu(e) dans votre lecture de Gerontonews !'; }
 
   document.getElementById('result-emoji').textContent = emoji;
   document.getElementById('result-message').textContent = message;
   document.getElementById('result-score').textContent = 'Score : ' + score + ' / ' + quiz.length + '';
+
+  if (pourcentage === 100) {
+    launchConfetti();
+  }
+}
+
+// Déclenche une pluie de cotillons (confettis) en pur CSS/JS, sans dépendance externe
+function launchConfetti() {
+  const layer = document.getElementById('confetti-layer');
+  if (!layer) return;
+  const colors = ['#509b15', '#7cc246', '#1a1a2e', '#e63946', '#f2c94c', '#2d9cdb'];
+  const total = 140;
+
+  for (let n = 0; n < total; n++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const left = Math.random() * 100;
+    const duration = 2.6 + Math.random() * 1.8;
+    const delay = Math.random() * 0.6;
+    const drift = (Math.random() * 160 - 80) + 'px';
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const isCircle = Math.random() > 0.5;
+
+    piece.style.left = left + 'vw';
+    piece.style.background = color;
+    piece.style.borderRadius = isCircle ? '50%' : '2px';
+    piece.style.setProperty('--drift', drift);
+    piece.style.animationDuration = duration + 's';
+    piece.style.animationDelay = delay + 's';
+
+    layer.appendChild(piece);
+
+    setTimeout(() => piece.remove(), (duration + delay) * 1000 + 200);
+  }
 }
 
 document.getElementById('restart-btn').onclick = () => {
