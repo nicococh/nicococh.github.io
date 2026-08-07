@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
-<!-- Version 7 août 2026 -->
+ <!-- Version 7 aout 2026 -->
 <head>
  <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
   <title>Générateur de quiz GN</title>
@@ -249,15 +249,15 @@ function triggerAutoSave() {
 }
 
 function saveCurrentState() {
-  localStorage.setItem('gn_quiz_title', document.getElementById('quiz-title-input').value);
+  localStorage.setItem('gn_quiz_title', document.getElementById('quiz-title-input').value.trim());
   
   // Sauvegarder les paliers
   const updatedRanges = [];
   scoreRanges.forEach((range, idx) => {
     updatedRanges.push({
       minPct: range.minPct,
-      emoji: document.getElementById(`range-emoji-${idx}`).value,
-      message: document.getElementById(`range-msg-${idx}`).value
+      emoji: document.getElementById(`range-emoji-${idx}`).value.trim(),
+      message: document.getElementById(`range-msg-${idx}`).value.trim()
     });
   });
   scoreRanges = updatedRanges;
@@ -267,17 +267,17 @@ function saveCurrentState() {
   const updatedQuestions = [];
   const blocks = document.querySelectorAll('.question-block');
   blocks.forEach((block, idx) => {
-    const qText = block.querySelector('.q-text').value;
+    const qText = block.querySelector('.q-text').value.trim();
     const aInputs = block.querySelectorAll('.a-input');
     const cSelect = block.querySelector('.c-select').value;
-    const explText = block.querySelector('.expl-text').value;
+    const explText = block.querySelector('.expl-text').value.trim();
     
-    const answers = Array.from(aInputs).map(input => input.value);
+    const answers = Array.from(aInputs).map(input => input.value.trim());
     
     const liens = [];
     for(let l=1; l<=2; l++) {
-      const txt = block.querySelector(`.link-txt-${l}`).value;
-      const url = block.querySelector(`.link-url-${l}`).value;
+      const txt = block.querySelector(`.link-txt-${l}`).value.trim();
+      const url = block.querySelector(`.link-url-${l}`).value.trim();
       if(txt || url) {
         liens.push({ texte: txt, url: url });
       }
@@ -403,7 +403,7 @@ function exportQuiz() {
   
   saveCurrentState();
   
-  const title = document.getElementById('quiz-title-input').value || "Quiz";
+  const title = document.getElementById('quiz-title-input').value.trim() || "Quiz";
   
   let scoreConditionJs = '';
   scoreRanges.forEach((range, idx) => {
