@@ -4,7 +4,7 @@
 const gameState = {
   keywords: [],      // Array of parsed keyword objects
   isPlaying: false,
-  timeLeft: 600,     // 10 minutes in seconds
+  timeLeft: 900,     // 10 minutes in seconds
   score: 0,
   timerInterval: null,
   revealed: false,
@@ -312,7 +312,7 @@ function startGame() {
 
   // Reset state
   gameState.isPlaying = true;
-  gameState.timeLeft = 600;
+  gameState.timeLeft = 900;
   gameState.score = 0;
   gameState.revealed = false;
   gameState.timeElapsed = 0;
