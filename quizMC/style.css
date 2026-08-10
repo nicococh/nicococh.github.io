@@ -96,6 +96,15 @@ body {
   font-size: 1.1rem;
 }
 
+/* Mascotte */
+.mascot-img {
+  width: 100px;
+  height: auto;
+  border-radius: 16px;
+  margin-left: 1rem;
+  flex-shrink: 0;
+}
+
 
 /* Glassmorphism Panel */
 .glass {
