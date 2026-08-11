@@ -1,10 +1,14 @@
 // APM Quiz Game Logic
 
 // Game state variables
+const DEFAULT_DURATION_MINUTES = 15;
+
 const gameState = {
   keywords: [],      // Array of parsed keyword objects
   isPlaying: false,
-  timeLeft: 900,     // 10 minutes in seconds
+  timeLeft: DEFAULT_DURATION_MINUTES * 60,
+  duration: DEFAULT_DURATION_MINUTES * 60, // Selected duration in seconds (null if infinite)
+  isInfinite: false,
   score: 0,
   timerInterval: null,
   revealed: false,
@@ -15,6 +19,10 @@ const gameState = {
 const btnStart = document.getElementById('btn-start');
 const btnGiveUp = document.getElementById('btn-give-up');
 const wordInput = document.getElementById('word-input');
+const durationContainer = document.getElementById('duration-container');
+const playContainer = document.getElementById('play-container');
+const durationInput = document.getElementById('duration-input');
+const btnInfinite = document.getElementById('btn-infinite');
 const timerDisplay = document.getElementById('timer-display');
 const scoreDisplay = document.getElementById('score-display');
 const percentageDisplay = document.getElementById('percentage-display');
@@ -310,9 +318,21 @@ function setupAlphabetNav(activeLetters) {
 function startGame() {
   if (gameState.isPlaying) return;
 
+  // Determine the chosen duration
+  gameState.isInfinite = btnInfinite.classList.contains('active');
+  if (gameState.isInfinite) {
+    gameState.duration = null; // No countdown
+  } else {
+    const minutesInput = parseInt(durationInput.value, 10);
+    const minutes = (Number.isFinite(minutesInput) && minutesInput > 0)
+      ? minutesInput
+      : DEFAULT_DURATION_MINUTES; // Falls back to 15 min if nothing/invalid was entered
+    gameState.duration = minutes * 60;
+  }
+
   // Reset state
   gameState.isPlaying = true;
-  gameState.timeLeft = 900;
+  gameState.timeLeft = gameState.duration;
   gameState.score = 0;
   gameState.revealed = false;
   gameState.timeElapsed = 0;
@@ -334,6 +354,10 @@ function startGame() {
     info.badgeElement.textContent = `(0 / ${info.total} trouvés)`;
   });
 
+  // Swap the duration setup for the guess input
+  durationContainer.classList.add('hidden');
+  playContainer.classList.remove('hidden');
+
   // Enable input & buttons
   wordInput.disabled = false;
   wordInput.value = '';
@@ -351,8 +375,14 @@ function startGame() {
 }
 
 function tick() {
-  gameState.timeLeft--;
   gameState.timeElapsed++;
+
+  if (gameState.isInfinite) {
+    updateTimerDisplay();
+    return; // No countdown, no time-up condition
+  }
+
+  gameState.timeLeft--;
   updateTimerDisplay();
 
   if (gameState.timeLeft <= 0) {
@@ -361,6 +391,10 @@ function tick() {
 }
 
 function updateTimerDisplay() {
+  if (gameState.isInfinite) {
+    timerDisplay.textContent = '∞';
+    return;
+  }
   const minutes = Math.floor(gameState.timeLeft / 60);
   const seconds = gameState.timeLeft % 60;
   timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
@@ -439,9 +473,14 @@ function endGame(isWin = false) {
   btnGiveUp.className += ' hidden';
   btnStart.classList.remove('hidden');
 
+  // Swap the guess input back for the duration setup
+  playContainer.classList.add('hidden');
+  durationContainer.classList.remove('hidden');
+
   // Compute stats for modal
   const total = gameState.keywords.length;
   const percentage = total > 0 ? Math.round((gameState.score / total) * 100) : 0;
+  const timeIsUp = !gameState.isInfinite && gameState.timeLeft <= 0;
   
   // Format elapsed time
   const minElapsed = Math.floor(gameState.timeElapsed / 60);
@@ -463,12 +502,12 @@ function endGame(isWin = false) {
   }
 
   // Populate modal and color code the title based on the result
-  const titleText = isWin ? "Victoire !" : (gameState.timeLeft <= 0 ? "Temps écoulé !" : "Jeu abandonné");
+  const titleText = isWin ? "Victoire !" : (timeIsUp ? "Temps écoulé !" : "Jeu abandonné");
   modalTitle.textContent = titleText;
   
   if (isWin) {
     modalTitle.style.color = '#059669'; // Vert émeraude pour la victoire
-  } else if (gameState.timeLeft <= 0) {
+  } else if (timeIsUp) {
     modalTitle.style.color = '#4f46e5'; // Indigo pour le temps écoulé
   } else {
     modalTitle.style.color = '#ea580c'; // Orange chaud pour l'abandon
@@ -505,9 +544,21 @@ btnStart.addEventListener('click', startGame);
 btnGiveUp.addEventListener('click', () => endGame(false));
 wordInput.addEventListener('input', handleInput);
 
+// Toggle infinite-time mode: disables/clears the minutes input while active
+btnInfinite.addEventListener('click', () => {
+  const isNowActive = !btnInfinite.classList.contains('active');
+  btnInfinite.classList.toggle('active', isNowActive);
+  btnInfinite.setAttribute('aria-pressed', String(isNowActive));
+  durationInput.disabled = isNowActive;
+  if (isNowActive) {
+    durationInput.value = '';
+  }
+});
+
 btnRestart.addEventListener('click', () => {
   endModal.className += ' hidden';
-  startGame();
+  // Retour à l'écran de réglage de la durée pour permettre d'en choisir une nouvelle
+  // (endGame() a déjà réaffiché duration-container et masqué play-container)
 });
 
 btnShowAnswers.addEventListener('click', revealAnswers);
