@@ -11,6 +11,38 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Contrôle de durée (ajouté) */
+    #duration-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #duration-container input#duration-input {
+      flex: 1;
+    }
+    #btn-infinite {
+      flex-shrink: 0;
+      width: 46px;
+      height: 46px;
+      font-size: 1.4rem;
+      line-height: 1;
+      border-radius: 10px;
+      border: 2px solid var(--border-color, #ccc);
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    #btn-infinite:hover {
+      background: rgba(0, 0, 0, 0.06);
+    }
+    #btn-infinite.active {
+      background: var(--primary, #4f46e5);
+      color: #fff;
+      border-color: var(--primary, #4f46e5);
+    }
+  </style>
 </head>
 <body>
   <div class="app-container">
@@ -43,8 +75,14 @@
             </button>
           </div>
 
-          <div class="input-container">
-            <input type="text" id="word-input" placeholder="Cliquez sur 'Commencer le jeu'..." disabled autocomplete="off" spellcheck="false">
+          <div class="input-container" id="duration-container">
+            <input type="number" id="duration-input" placeholder="Réglez la durée en minutes (15 par défaut)" min="1" step="1" autocomplete="off">
+            <button type="button" id="btn-infinite" aria-pressed="false" title="Temps infini">∞</button>
+            <div class="input-focus-border"></div>
+          </div>
+
+          <div class="input-container hidden" id="play-container">
+            <input type="text" id="word-input" placeholder="Saisissez un mot-clé APM..." disabled autocomplete="off" spellcheck="false">
             <div class="input-focus-border"></div>
           </div>
 
