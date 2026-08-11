@@ -434,5 +434,5 @@ const DEFAULT_KEYWORDS = [
   "[EC]",
   "[ES]",
   "[ME]",
-  "QA"
+  "[QA]"
 ];
