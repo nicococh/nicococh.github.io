@@ -1,4 +1,4 @@
-// APM Quiz Game Logic
+// APM Quiz Game Logic version 11 aout 2026
 
 // Game state variables
 const DEFAULT_DURATION_MINUTES = 15;
