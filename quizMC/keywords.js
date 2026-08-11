@@ -429,5 +429,10 @@ const DEFAULT_KEYWORDS = [
   "VIVALTO",
   "WALGREENS BOOTS ALLIANCE",
   "WELCOOP",
-  "ZAMBON"
+  "ZAMBON",
+  "[EA]",
+  "[EC]",
+  "[ES]",
+  "[ME]",
+  "QA"
 ];
