@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Version 6 août 2026 -->
+<!-- Version 12 août 2026 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -128,11 +128,13 @@
 Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
 
 <div id="actionbar">
-  <button id="undoBtn" type="button" disabled>Annuler (Ctrl+Z)</button>
-  <button id="redoBtn" type="button" disabled>Rétablir (Ctrl+Y)</button>
-  <button id="copyBtn" type="button">Copier tout</button>
-  <button id="planBtn" type="button">Insérer plan</button>
-  <button id="supprBtn" type="button">Suppr sauts de ligne (Ctrl+M) 💥</button>
+  <button id="undoBtn" type="button" disabled title="Ctrl+Z">Annuler (Ctrl+Z)</button>
+  <button id="redoBtn" type="button" disabled title="Ctrl+Y">Rétablir (Ctrl+Y)</button>
+  <button id="copyBtn" type="button" title="Ctrl+A puis Ctrl+C">Copier tout</button>
+  <button id="planBtn" type="button" title="Colle les rubriques vides">Insérer plan</button>
+  <button id="majBtn" type="button" title="Mettre la sélection en majuscules">A</button>
+  <button id="minBtn" type="button" title="Mettre la sélection en minuscules">a</button>
+  <button id="supprBtn" type="button" title="Ctrl+M">Suppr sauts de ligne (Ctrl+M) 💥</button>
 </div>
 
 <div id="editorWrap">
@@ -155,6 +157,8 @@ const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 const copyBtn = document.getElementById('copyBtn');
 const planBtn = document.getElementById('planBtn');
+const majBtn = document.getElementById('majBtn');
+const minBtn = document.getElementById('minBtn');
 const supprBtn = document.getElementById('supprBtn');
 const snippetBubble = document.getElementById('snippetBubble');
 
@@ -344,6 +348,37 @@ function supprimerSautsDeLigne() {
   sauvegarder();
 }
 
+function mettreEnCasse(transform, label) {
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  if (start === end) {
+    status.textContent = "Aucune sélection : sélectionnez du texte avant de cliquer sur " + label + ".";
+    return;
+  }
+
+  const selectedText = editor.value.substring(start, end);
+  const converti = transform(selectedText);
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.setRangeText(converti, start, end, 'select');
+
+  masquerBulle();
+  status.textContent = "Sélection mise en " + label + ".";
+  editor.focus();
+  sauvegarder();
+}
+
+function mettreEnMajuscules() {
+  mettreEnCasse(t => t.toLocaleUpperCase('fr-FR'), "majuscules");
+}
+
+function mettreEnMinuscules() {
+  mettreEnCasse(t => t.toLocaleLowerCase('fr-FR'), "minuscules");
+}
+
 function insererPlan() {
   const plan = `La santé dans la presse xxxx
 
@@ -400,6 +435,8 @@ async function copierContenu() {
 }
 
 planBtn.addEventListener('click', insererPlan);
+majBtn.addEventListener('click', mettreEnMajuscules);
+minBtn.addEventListener('click', mettreEnMinuscules);
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
 
