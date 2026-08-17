@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 12 août 2026 -->
+<!-- Version 17 août 2026 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -41,7 +41,7 @@
     border: 1px solid #ccc;
     border-radius: 6px;
     resize: vertical;
-    line-height: 1.4;
+    line-height: 2;
   }
   #status {
     margin-top: 8px;
@@ -134,6 +134,7 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="planBtn" type="button" title="Colle les rubriques vides">Insérer plan</button>
   <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
+  <button id="typoBtn" type="button" title="Corrige automatiquement la typo du document entier">Correc typo</button>
   <button id="supprBtn" type="button" title="Ctrl+M">Suppr sauts de ligne 💥</button>
 </div>
 
@@ -159,6 +160,7 @@ const copyBtn = document.getElementById('copyBtn');
 const planBtn = document.getElementById('planBtn');
 const majBtn = document.getElementById('majBtn');
 const minBtn = document.getElementById('minBtn');
+const typoBtn = document.getElementById('typoBtn');
 const supprBtn = document.getElementById('supprBtn');
 const snippetBubble = document.getElementById('snippetBubble');
 
@@ -379,6 +381,95 @@ function mettreEnMinuscules() {
   mettreEnCasse(t => t.toLocaleLowerCase('fr-FR'), "minuscules");
 }
 
+function corrigerTypo() {
+  if (editor.value.length === 0) {
+    status.textContent = "Le document est vide, rien à corriger.";
+    return;
+  }
+
+  if (!confirm("Souhaites-tu corriger la typo ?")) {
+    return;
+  }
+
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  // --- 1re boucle de remplacements ---
+  const expressions = [
+    "le Parisien", "l'Opinion", "l'Humanité", "L'humanité", "le Figaro", "la Croix", " brève,", "bréve", // spécifique revue de presse
+    /\n\s*\n/g, // Enlever les doubles sauts de ligne
+    /\)\.\n/g, ",p", ", p ", "et p ", ";L", // parenthèse et point en fin de ligne ; espace avant "page..."
+    "’", /«\s+/g, /«/g, /\s+»/g, /»/g, "“", "”", // apostrophes et guillemets
+    /\n-/g, // Le tiret en début de ligne doit être suivi d'un espace
+    /n°\s/g, // Pas d'espace après n°
+    " ,", /\(\s+/g, /\s+\)/g, // pas d'espace avant une virgule, espace avant-après parenthèse
+    "'Assurance maladie", "'Assurance Maladie", "ssurance-maladie", "a Sécurité sociale", "Premier ministre",
+    "Conseil des ministres", "loi de finances de la sécurité sociale",
+    "startup", ", Une et p",
+    "Echos", "Etat", "Ecole",
+    " dix ", " onze ", " douze ", " treize ", " quatorze ", " quinze ", " seize ", " 000",
+    "1er", " 2e ", " 3e ", " 4e ", " 5e ", " 6e ", " 7e ", " 8e ", " 9e ",
+    " m2", " m3", "CO2", "NO2", "SaO2",
+    /\r/g // De vrais beaux retours à la ligne, sinon certains remplacements ne se font pas
+  ];
+
+  const replacements = [
+    "Le Parisien", "L'Opinion", "L'Humanité", "L'Humanité", "Le Figaro", "La Croix", " brève", "brève",
+    '\n',
+    ")\n", ", p", ", p", "et p", "; L",
+    "'", '"', '"', '"', '"', '"', '"',
+    "\n- ",
+    "n°",
+    ",", "(", ")",
+    "'assurance maladie", "'assurance maladie", "ssurance maladie", "a sécurité sociale", "premier ministre",
+    "conseil des ministres", "loi de financement de la sécurité sociale",
+    "start-up", ", une et p",
+    "Échos", "État", "École",
+    " 10 ", " 11 ", " 12 ", " 13 ", " 14 ", " 15 ", " 16 ", ".000",
+    "1ᵉʳ", " deuxième ", " troisième ", " quatrième ", " cinquième ", " sixième ", " septième ", " huitième ", " neuvième ",
+    " m²", " m³", "CO₂", "NO₂", "SaO₂",
+    "\n"
+  ];
+
+  let texte = editor.value;
+  for (let i = 0; i < expressions.length; i++) {
+    texte = texte.replace(new RegExp(expressions[i], "g"), replacements[i]);
+  }
+
+  // --- 2e boucle qui répare les bêtises de la première ---
+  const expressions2 = [
+    "  ", "   ", "    ", // Supprimer doubles, triples et quadruples espaces
+    "POLITIQUE DE SANTE", "ETABLISSEMENTS - SOINS DE VILLE", "SANTE - MEDECINE",
+    "'Assurance maladie",
+    "1ère ", "2ème ", "3ème ", "4ème ", "5ème ", "6ème ", "7ème ", "8ème ", "9ème "
+  ];
+
+  const replacements2 = [
+    " ", " ", " ",
+    "POLITIQUE DE SANTÉ", "ÉTABLISSEMENTS - SOINS DE VILLE", "SANTÉ - MÉDECINE",
+    "'assurance maladie",
+    "1re ", "2e ", "3e ", "4e ", "5e ", "6e ", "7e ", "8e ", "9e "
+  ];
+
+  for (let j = 0; j < expressions2.length; j++) {
+    texte = texte.replace(new RegExp(expressions2[j], "g"), replacements2[j]);
+  }
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.value = texte;
+  // On essaie de garder la position du curseur à peu près cohérente,
+  // sans dépasser la nouvelle longueur du texte.
+  const nouvellePosition = Math.min(end, texte.length);
+  editor.setSelectionRange(nouvellePosition, nouvellePosition);
+
+  masquerBulle();
+  status.textContent = "Typo corrigée sur l'ensemble du document.";
+  editor.focus();
+  sauvegarder();
+}
+
 function insererPlan() {
   const plan = `La santé dans la presse xxxx
 
@@ -437,6 +528,7 @@ async function copierContenu() {
 planBtn.addEventListener('click', insererPlan);
 majBtn.addEventListener('click', mettreEnMajuscules);
 minBtn.addEventListener('click', mettreEnMinuscules);
+typoBtn.addEventListener('click', corrigerTypo);
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
 
