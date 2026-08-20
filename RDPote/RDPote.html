@@ -302,6 +302,92 @@
     color: #aaa;
     cursor: default;
   }
+  #dictionnaireModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #dictionnaireBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 560px;
+    height: 80vh;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+  #dictionnaireBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #003087;
+  }
+  #dictionnaireClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+  #dictionnaireClose:hover {
+    color: #a33;
+  }
+  #dictionnaireSearch {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  #dictionnaireCount {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  #dictionnaireResults {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+  }
+  #dictionnaireResults p {
+    font-size: 13px;
+    color: #888;
+    padding: 10px 2px;
+  }
+  .dict-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 9px 6px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #222;
+  }
+  .dict-item:hover {
+    background: #e6ecf9;
+  }
+  .dict-item mark {
+    background: #ffe08a;
+    color: inherit;
+    border-radius: 2px;
+  }
 </style>
 </head>
 <body>
@@ -319,6 +405,7 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
   <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
   <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
+  <button id="dictionnaireBtn" type="button" title="Rechercher et insérer une expression du dictionnaire">Dictionnaire</button>
   <button id="planBtn" type="button" title="Insérer les rubriques vides">🗒</button>
   <button id="supprBtn" type="button" title="Supprimer les sauts de ligne. Ctrl+M">💥↵</button>
   <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes">💾</button>
@@ -359,6 +446,17 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   </div>
 </div>
 
+<div id="dictionnaireModal">
+  <div id="dictionnaireBox">
+    <button id="dictionnaireClose" type="button" title="Fermer sans insérer">✕</button>
+    <h2>Insérer une expression du dictionnaire</h2>
+    <input id="dictionnaireSearch" type="text" placeholder="Tapez pour rechercher (ex. : « ARS », « hôpital »)…" autocomplete="off">
+    <div id="dictionnaireCount"></div>
+    <div id="dictionnaireResults"></div>
+  </div>
+</div>
+
+<script src="dictionnaire-medical.js"></script>
 <script>
 const editor = document.getElementById('editor');
 const status = document.getElementById('status');
@@ -802,7 +900,7 @@ specialCharModal.addEventListener('click', function(e) {
     editor.focus();
   }
 });
-// Fermer avec Échap (couvre aussi la fenêtre d'historique, définie plus bas)
+// Fermer avec Échap (couvre aussi les fenêtres d'historique et de dictionnaire, définies plus bas)
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Escape') return;
   if (specialCharModal.style.display !== 'none') {
@@ -811,6 +909,10 @@ document.addEventListener('keydown', function(e) {
   }
   if (historyModal.style.display !== 'none') {
     masquerModalHistorique();
+    editor.focus();
+  }
+  if (dictionnaireModal.style.display !== 'none') {
+    masquerModalDictionnaire();
     editor.focus();
   }
 });
@@ -965,6 +1067,131 @@ historyModal.addEventListener('click', function(e) {
 historyCopyBtn.addEventListener('click', copierApercuHistorique);
 
 chargerHistorique();
+
+// --- Dictionnaire d'expressions (recherche + insertion au curseur) ---
+// La liste des expressions vit dans le fichier séparé dictionnaire-medical.js
+// (variable globale DICTIONNAIRE_EXPRESSIONS) : pour l'enrichir, il suffit de
+// modifier ce fichier, aucune autre modification n'est nécessaire ici.
+
+const dictionnaireModal = document.getElementById('dictionnaireModal');
+const dictionnaireBtn = document.getElementById('dictionnaireBtn');
+const dictionnaireClose = document.getElementById('dictionnaireClose');
+const dictionnaireSearch = document.getElementById('dictionnaireSearch');
+const dictionnaireCount = document.getElementById('dictionnaireCount');
+const dictionnaireResults = document.getElementById('dictionnaireResults');
+
+const DICTIONNAIRE_MAX_AFFICHES = 200; // évite de peindre des milliers de lignes inutilement
+
+function normaliserRecherche(texte) {
+  // Ignore accents et casse, pour que "hopital" trouve "hôpital".
+  return texte
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function echapperHtml(texte) {
+  const div = document.createElement('div');
+  div.textContent = texte;
+  return div.innerHTML;
+}
+
+function surlignerCorrespondance(expression, requeteNormalisee) {
+  if (!requeteNormalisee) return echapperHtml(expression);
+  const normalisee = normaliserRecherche(expression);
+  const idx = normalisee.indexOf(requeteNormalisee);
+  if (idx === -1) return echapperHtml(expression);
+  const avant = expression.slice(0, idx);
+  const trouve = expression.slice(idx, idx + requeteNormalisee.length);
+  const apres = expression.slice(idx + requeteNormalisee.length);
+  return echapperHtml(avant) + '<mark>' + echapperHtml(trouve) + '</mark>' + echapperHtml(apres);
+}
+
+function insererExpression(expression) {
+  // Comme pour les caractères spéciaux : editor.selectionStart/End reflètent
+  // la dernière position du curseur, même sans focus (modale ouverte).
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.setRangeText(expression, start, end, 'end');
+
+  masquerModalDictionnaire();
+  status.textContent = "Expression insérée : " + expression;
+  editor.focus();
+  sauvegarder();
+}
+
+function actualiserResultatsDictionnaire() {
+  const requeteBrute = dictionnaireSearch.value.trim();
+  const requete = normaliserRecherche(requeteBrute);
+
+  const correspondances = (typeof DICTIONNAIRE_EXPRESSIONS !== 'undefined' ? DICTIONNAIRE_EXPRESSIONS : [])
+    .filter(function(expression) {
+      return requete === '' || normaliserRecherche(expression).indexOf(requete) !== -1;
+    });
+
+  dictionnaireResults.innerHTML = '';
+
+  if (correspondances.length === 0) {
+    const vide = document.createElement('p');
+    vide.textContent = "Aucune expression ne correspond à cette recherche.";
+    dictionnaireResults.appendChild(vide);
+    dictionnaireCount.textContent = '';
+    return;
+  }
+
+  const aAfficher = correspondances.slice(0, DICTIONNAIRE_MAX_AFFICHES);
+
+  dictionnaireCount.textContent = correspondances.length > DICTIONNAIRE_MAX_AFFICHES
+    ? correspondances.length + " résultats (les " + DICTIONNAIRE_MAX_AFFICHES + " premiers sont affichés, précisez la recherche pour affiner)"
+    : correspondances.length + (correspondances.length > 1 ? " résultats" : " résultat");
+
+  aAfficher.forEach(function(expression) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'dict-item';
+    item.innerHTML = surlignerCorrespondance(expression, requete);
+    item.addEventListener('click', function() {
+      insererExpression(expression);
+    });
+    dictionnaireResults.appendChild(item);
+  });
+}
+
+function afficherModalDictionnaire() {
+  dictionnaireSearch.value = '';
+  actualiserResultatsDictionnaire();
+  dictionnaireModal.style.display = 'flex';
+  dictionnaireSearch.focus();
+}
+
+function masquerModalDictionnaire() {
+  dictionnaireModal.style.display = 'none';
+}
+
+dictionnaireBtn.addEventListener('click', afficherModalDictionnaire);
+dictionnaireClose.addEventListener('click', function() {
+  masquerModalDictionnaire();
+  editor.focus();
+});
+dictionnaireModal.addEventListener('click', function(e) {
+  if (e.target === dictionnaireModal) {
+    masquerModalDictionnaire();
+    editor.focus();
+  }
+});
+dictionnaireSearch.addEventListener('input', actualiserResultatsDictionnaire);
+// Entrée insère directement le premier résultat, pour aller vite au clavier.
+dictionnaireSearch.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const premier = dictionnaireResults.querySelector('.dict-item');
+    if (premier) premier.click();
+  }
+});
 
 // --- Saisie rapide (bulle de suggestion) ---
 // Dès que le texte tapé juste avant le curseur correspond exactement (casse
