@@ -180,6 +180,128 @@
     background: #e6ecf9;
     border-color: #003087;
   }
+  #historyModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #historyBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 640px;
+    height: 80vh;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+  #historyBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #003087;
+  }
+  #historyClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+  #historyClose:hover {
+    color: #a33;
+  }
+  #historyContent {
+    display: flex;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+  }
+  #historyList {
+    width: 150px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-right: 1px solid #e0e0e0;
+    padding-right: 10px;
+  }
+  #historyList p {
+    font-size: 13px;
+    color: #888;
+  }
+  .history-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+  }
+  .history-item:hover {
+    background: #f0f0f0;
+  }
+  .history-item.selected {
+    background: #003087;
+    color: #fff;
+  }
+  .history-item .heure {
+    font-weight: 700;
+    display: block;
+  }
+  .history-item .relatif {
+    font-size: 11px;
+    opacity: 0.8;
+  }
+  #historyPreviewCol {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #historyPreview {
+    flex: 1;
+    resize: none;
+    box-sizing: border-box;
+    padding: 10px;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+    line-height: 1.5;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fafafa;
+    color: #333;
+  }
+  #historyPreviewActions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  #historyCopyBtn {
+    font-size: 13px;
+    padding: 6px 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+  }
+  #historyCopyBtn:disabled {
+    color: #aaa;
+    cursor: default;
+  }
 </style>
 </head>
 <body>
@@ -198,6 +320,7 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
   <button id="typoBtn" type="button" title="Corrige automatiquement la typo du document entier">Correc typo</button>
   <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
+  <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes">Sauvegardes</button>
   <button id="supprBtn" type="button" title="Ctrl+M">Suppr sauts de ligne 💥</button>
 </div>
 
@@ -217,6 +340,22 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
     <button id="specialCharClose" type="button" title="Fermer sans insérer">✕</button>
     <h2>Insérer un caractère spécial</h2>
     <div id="specialCharGrid"></div>
+  </div>
+</div>
+
+<div id="historyModal">
+  <div id="historyBox">
+    <button id="historyClose" type="button" title="Fermer">✕</button>
+    <h2>Sauvegardes (les 100 dernières)</h2>
+    <div id="historyContent">
+      <div id="historyList"></div>
+      <div id="historyPreviewCol">
+        <textarea id="historyPreview" readonly placeholder="Sélectionnez une sauvegarde à gauche pour la prévisualiser."></textarea>
+        <div id="historyPreviewActions">
+          <button id="historyCopyBtn" type="button" disabled>Copier</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -388,9 +527,11 @@ window.addEventListener('beforeunload', sauvegarder);
 
 // Effacer la sauvegarde manuellement
 clearsave.addEventListener('click', function() {
-  if (confirm("Effacer la sauvegarde automatique enregistrée dans ce navigateur ?")) {
+  if (confirm("Effacer la sauvegarde automatique et l'historique enregistrés dans ce navigateur ?")) {
     localStorage.removeItem(STORAGE_KEY);
-    savestatus.textContent = "Sauvegarde effacée.";
+    localStorage.removeItem(HISTORY_KEY);
+    historique = [];
+    savestatus.textContent = "Sauvegarde et historique effacés.";
   }
 });
 
@@ -661,13 +802,169 @@ specialCharModal.addEventListener('click', function(e) {
     editor.focus();
   }
 });
-// Fermer avec Échap
+// Fermer avec Échap (couvre aussi la fenêtre d'historique, définie plus bas)
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && specialCharModal.style.display !== 'none') {
+  if (e.key !== 'Escape') return;
+  if (specialCharModal.style.display !== 'none') {
     masquerModalCarSpeciaux();
     editor.focus();
   }
+  if (historyModal.style.display !== 'none') {
+    masquerModalHistorique();
+    editor.focus();
+  }
 });
+
+// --- Historique des sauvegardes (un instantané par minute, les 100 dernières) ---
+// Distinct de la sauvegarde "à chaque frappe" ci-dessus (qui sert à la
+// récupération après fermeture inopinée) : celui-ci garde une trace de
+// versions successives du texte, consultables et copiables, sans jamais
+// écraser le contenu actuel de l'éditeur.
+
+const HISTORY_KEY = 'editeur-texte-historique';
+const HISTORY_INTERVALLE_MS = 60 * 1000;       // un instantané par minute
+const HISTORY_MAX_ENTREES = 100;               // au-delà, les plus anciennes sont purgées
+
+const historyModal = document.getElementById('historyModal');
+const historyBtn = document.getElementById('historyBtn');
+const historyClose = document.getElementById('historyClose');
+const historyList = document.getElementById('historyList');
+const historyPreview = document.getElementById('historyPreview');
+const historyCopyBtn = document.getElementById('historyCopyBtn');
+
+let historique = [];       // [{ texte, date }], du plus ancien au plus récent
+let instantaneSelectionne = null;
+
+function chargerHistorique() {
+  try {
+    const brut = localStorage.getItem(HISTORY_KEY);
+    historique = brut ? JSON.parse(brut) : [];
+  } catch (err) {
+    historique = [];
+  }
+  elaguerHistorique();
+}
+
+function elaguerHistorique() {
+  if (historique.length > HISTORY_MAX_ENTREES) {
+    historique = historique.slice(historique.length - HISTORY_MAX_ENTREES);
+  }
+}
+
+function sauvegarderHistorique() {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(historique));
+  } catch (err) {
+    // Espace de stockage plein ou indisponible : on ignore silencieusement,
+    // la sauvegarde "à chaque frappe" continue de fonctionner de son côté.
+  }
+}
+
+function enregistrerInstantane() {
+  if (editor.value.length === 0) return;
+  const dernier = historique[historique.length - 1];
+  // Pas la peine de garder deux instantanés identiques à la suite.
+  if (dernier && dernier.texte === editor.value) return;
+
+  historique.push({ texte: editor.value, date: new Date().toISOString() });
+  elaguerHistorique();
+  sauvegarderHistorique();
+}
+
+setInterval(enregistrerInstantane, HISTORY_INTERVALLE_MS);
+
+function formatRelatif(date) {
+  const minutes = Math.round((Date.now() - date.getTime()) / 60000);
+  if (minutes <= 0) return "à l'instant";
+  if (minutes === 1) return "il y a 1 min";
+  return "il y a " + minutes + " min";
+}
+
+function construireListeHistorique() {
+  elaguerHistorique();
+  historyList.innerHTML = '';
+  instantaneSelectionne = null;
+  historyPreview.value = '';
+  historyCopyBtn.disabled = true;
+
+  if (historique.length === 0) {
+    const vide = document.createElement('p');
+    vide.textContent = "Aucune sauvegarde pour l'instant. Reviens dans une minute.";
+    historyList.appendChild(vide);
+    return;
+  }
+
+  // Du plus récent au plus ancien
+  const entrees = historique.slice().reverse();
+  entrees.forEach(function(entree) {
+    const date = new Date(entree.date);
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'history-item';
+
+    const heure = document.createElement('span');
+    heure.className = 'heure';
+    heure.textContent = formatHeure(date);
+
+    const relatif = document.createElement('span');
+    relatif.className = 'relatif';
+    relatif.textContent = formatRelatif(date);
+
+    item.appendChild(heure);
+    item.appendChild(relatif);
+
+    item.addEventListener('click', function() {
+      document.querySelectorAll('.history-item.selected').forEach(function(el) {
+        el.classList.remove('selected');
+      });
+      item.classList.add('selected');
+      instantaneSelectionne = entree;
+      historyPreview.value = entree.texte;
+      historyCopyBtn.disabled = false;
+    });
+
+    historyList.appendChild(item);
+  });
+
+  // On présélectionne la sauvegarde la plus récente pour éviter un clic inutile.
+  historyList.querySelector('.history-item').click();
+}
+
+function afficherModalHistorique() {
+  construireListeHistorique();
+  historyModal.style.display = 'flex';
+}
+
+function masquerModalHistorique() {
+  historyModal.style.display = 'none';
+}
+
+async function copierApercuHistorique() {
+  if (!instantaneSelectionne) return;
+  try {
+    await navigator.clipboard.writeText(instantaneSelectionne.texte);
+    status.textContent = "Sauvegarde de " + formatHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
+  } catch (err) {
+    historyPreview.select();
+    document.execCommand('copy');
+    status.textContent = "Sauvegarde de " + formatHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
+  }
+}
+
+historyBtn.addEventListener('click', afficherModalHistorique);
+historyClose.addEventListener('click', function() {
+  masquerModalHistorique();
+  editor.focus();
+});
+historyModal.addEventListener('click', function(e) {
+  if (e.target === historyModal) {
+    masquerModalHistorique();
+    editor.focus();
+  }
+});
+historyCopyBtn.addEventListener('click', copierApercuHistorique);
+
+chargerHistorique();
 
 // --- Saisie rapide (bulle de suggestion) ---
 // Dès que le texte tapé juste avant le curseur correspond exactement (casse
