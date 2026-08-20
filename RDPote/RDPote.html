@@ -118,6 +118,67 @@
     font-size: 11px;
     margin-left: 8px;
   }
+  #specialCharModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #specialCharBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  #specialCharBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #003087;
+  }
+  #specialCharClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+  #specialCharClose:hover {
+    color: #a33;
+  }
+  .spec-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .spec-btn {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 6px;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f8f8f8;
+    cursor: pointer;
+    font-family: Arial, sans-serif;
+  }
+  .spec-btn:hover {
+    background: #e6ecf9;
+    border-color: #003087;
+  }
 </style>
 </head>
 <body>
@@ -135,6 +196,7 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
   <button id="typoBtn" type="button" title="Corrige automatiquement la typo du document entier">Correc typo</button>
+  <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
   <button id="supprBtn" type="button" title="Ctrl+M">Suppr sauts de ligne 💥</button>
 </div>
 
@@ -147,6 +209,14 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
 <div id="savebar">
   <span id="savestatus"></span>
   <button id="clearsave" type="button">Effacer la sauvegarde</button>
+</div>
+
+<div id="specialCharModal">
+  <div id="specialCharBox">
+    <button id="specialCharClose" type="button" title="Fermer sans insérer">✕</button>
+    <h2>Insérer un caractère spécial</h2>
+    <div id="specialCharGrid"></div>
+  </div>
 </div>
 
 <script>
@@ -514,6 +584,89 @@ minBtn.addEventListener('click', mettreEnMinuscules);
 typoBtn.addEventListener('click', corrigerTypo);
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
+
+// --- Caractères spéciaux ---
+
+const specialCharModal = document.getElementById('specialCharModal');
+const specialCharGrid = document.getElementById('specialCharGrid');
+const specialCharBtn = document.getElementById('specialCharBtn');
+const specialCharClose = document.getElementById('specialCharClose');
+
+// Chaque tableau est un groupe, affiché sur sa propre ligne dans la grille.
+// Pour ajouter/retirer des caractères : modifier les tableaux ci-dessous.
+const SPECIAL_CHAR_GROUPS = [
+  ["ᵉ", "1ᵉʳ", "1ʳᵉ", "2ᵉ", "2ᵉˢ", "2ᵈ", "2ᵈᵉˢ", "1ᴱᴿ", "²", "³", "₂", "₃"],
+  ["À", "É", "È", "Ê", "Ë", "Î", "Ù", "Œ", "Æ", "á", "ó", "ú", "í", "œ", "æ"],
+  ["–", "×", "≥", "≤", "¥"],
+  ["Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ", "Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο", "Π", "Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω"],
+  ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ", "ν", "ξ", "ο", "π", "ρ", "σ", "τ", "υ", "φ", "χ", "ψ", "ω"],
+  ["·", "•"]
+];
+
+function construireGrilleCarSpeciaux() {
+  SPECIAL_CHAR_GROUPS.forEach(function(groupe) {
+    const ligne = document.createElement('div');
+    ligne.className = 'spec-group';
+    groupe.forEach(function(car) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'spec-btn';
+      btn.textContent = car;
+      btn.title = 'Insérer ' + car;
+      btn.addEventListener('click', function() {
+        insererCaractereSpecial(car);
+      });
+      ligne.appendChild(btn);
+    });
+    specialCharGrid.appendChild(ligne);
+  });
+}
+construireGrilleCarSpeciaux();
+
+function afficherModalCarSpeciaux() {
+  specialCharModal.style.display = 'flex';
+}
+
+function masquerModalCarSpeciaux() {
+  specialCharModal.style.display = 'none';
+}
+
+function insererCaractereSpecial(car) {
+  // editor.selectionStart/End reflètent la dernière position du curseur
+  // dans le textarea, même si celui-ci a perdu le focus au profit de la modale.
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.setRangeText(car, start, end, 'end');
+
+  masquerModalCarSpeciaux();
+  status.textContent = "Caractère inséré : " + car;
+  editor.focus();
+  sauvegarder();
+}
+
+specialCharBtn.addEventListener('click', afficherModalCarSpeciaux);
+specialCharClose.addEventListener('click', function() {
+  masquerModalCarSpeciaux();
+  editor.focus();
+});
+// Fermer en cliquant en dehors de la boîte (sur le fond assombri)
+specialCharModal.addEventListener('click', function(e) {
+  if (e.target === specialCharModal) {
+    masquerModalCarSpeciaux();
+    editor.focus();
+  }
+});
+// Fermer avec Échap
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && specialCharModal.style.display !== 'none') {
+    masquerModalCarSpeciaux();
+    editor.focus();
+  }
+});
 
 // --- Saisie rapide (bulle de suggestion) ---
 // Dès que le texte tapé juste avant le curseur correspond exactement (casse
