@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 restauree -->
+<!-- Version 21 août 2026 logout -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -96,6 +96,26 @@
     color: #2a7a2a;
     min-height: 18px;
   }
+  #logoutBtn {
+    position: fixed;
+    top: 10px;
+    right: 18px;
+    z-index: 51;
+    display: none;
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    color: #555;
+    cursor: pointer;
+  }
+
+  #logoutBtn:hover {
+    background: #f3f3f3;
+    color: #a33;
+  }
+
   #connectedUsers {
     position: fixed;
     top: 14px;
@@ -152,14 +172,7 @@
     background: #dbe5f7;
     border-color: #003087;
   }
-  
- #ZoomInBtn {
-    margin-left: auto;
-  }
- #ZoomOutBtn {
-    margin-left: auto;
-  }
- #historyBtn {
+  #historyBtn {
     margin-left: auto;
   }
   #savebar {
@@ -210,6 +223,61 @@
     font-size: 14px;
     margin-left: 8px;
   }
+  #helpModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  #helpBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px 24px;
+    width: 90%;
+    max-width: 700px;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  #helpBox h2 {
+    margin: 0 0 14px 0;
+    font-size: 18px;
+    color: #003087;
+  }
+
+  #helpBox p {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+  }
+
+  #helpBox p:last-child {
+    margin-bottom: 0;
+  }
+
+  #helpClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+
+  #helpClose:hover {
+    color: #a33;
+  }
+
   #specialCharModal {
     display: none;
     position: fixed;
@@ -559,11 +627,8 @@
 <body>
 
 <h1>RDPote, l'assistant de la revue de presse</h1>
-<p class="info">
-  Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).<br>
-Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
-
 <div id="connectedUsers" title="Utilisateurs connectés"></div>
+<button id="logoutBtn" type="button" title="Se déconnecter">Déconnecter</button>
 <div id="actionbar">
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
   <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
@@ -576,11 +641,12 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="dictionnaireBtn" type="button" title="Dico des sigles">📖</button>
   <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
   <button id="planBtn" type="button" title="Insérer les rubriques vides">🗒</button>
-  <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
- 
- <button id="zoomInBtn" type="button" title="Agrandir le texte de l’éditeur">🔎➕</button>
- <button id="zoomOutBtn" type="button" title="Réduire le texte de l’éditeur">🔍➖</button>
- <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes">🕑</button>
+  
+   <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
+  <button id="zoomInBtn" type="button" title="Agrandir le texte de l’éditeur">🔎➕</button>
+<button id="zoomOutBtn" type="button" title="Réduire le texte de l’éditeur">🔍➖</button>
+<button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes">🕑</button>
+  <button id="helpBtn" type="button" title="Afficher l’aide">❓</button>
 </div>
 
 <div id="editorWrap">
@@ -594,6 +660,15 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
 <div id="savebar">
   <span id="savestatus"></span>
   
+</div>
+
+<div id="helpModal">
+  <div id="helpBox">
+    <button id="helpClose" type="button" title="Fermer">✕</button>
+    <h2>Aide</h2>
+    <p>Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).</p>
+    <p>Saisie automatique : si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
+  </div>
 </div>
 
 <div id="specialCharModal">
@@ -758,6 +833,9 @@ const savestatus = document.getElementById('savestatus');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 const copyBtn = document.getElementById('copyBtn');
+const zoomInBtn = document.getElementById('zoomInBtn');
+const zoomOutBtn = document.getElementById('zoomOutBtn');
+const helpBtn = document.getElementById('helpBtn');
 const planBtn = document.getElementById('planBtn');
 const majBtn = document.getElementById('majBtn');
 const minBtn = document.getElementById('minBtn');
@@ -977,6 +1055,36 @@ function mettreEnCasse(transform, label) {
   sauvegarder();
 }
 
+
+const EDITOR_ZOOM_KEY = 'rdpote-editor-zoom';
+const EDITOR_ZOOM_MIN = 12;
+const EDITOR_ZOOM_MAX = 32;
+const EDITOR_ZOOM_STEP = 1;
+
+function obtenirTaillePoliceEditeur() {
+  const taille = parseFloat(window.getComputedStyle(editor).fontSize);
+  return Number.isFinite(taille) ? taille : 17;
+}
+
+function appliquerZoomEditeur(taille) {
+  const nouvelleTaille = Math.max(
+    EDITOR_ZOOM_MIN,
+    Math.min(EDITOR_ZOOM_MAX, taille)
+  );
+
+  editor.style.fontSize = nouvelleTaille + 'px';
+
+  try {
+    localStorage.setItem(EDITOR_ZOOM_KEY, String(nouvelleTaille));
+  } catch (err) {
+    // Le zoom fonctionne même si localStorage n'est pas disponible.
+  }
+
+  if (typeof redrawAllRemoteCursors === 'function') {
+    requestAnimationFrame(redrawAllRemoteCursors);
+  }
+}
+
 function zoomerEditeur() {
   appliquerZoomEditeur(obtenirTaillePoliceEditeur() + EDITOR_ZOOM_STEP);
 }
@@ -986,11 +1094,16 @@ function dezoomerEditeur() {
 }
 
 function restaurerZoomEditeur() {
-  const sauvegarde = parseFloat(localStorage.getItem(EDITOR_ZOOM_KEY));
-  if (Number.isFinite(sauvegarde)) appliquerZoomEditeur(sauvegarde);
+  try {
+    const sauvegarde = parseFloat(localStorage.getItem(EDITOR_ZOOM_KEY));
+    if (Number.isFinite(sauvegarde)) {
+      appliquerZoomEditeur(sauvegarde);
+    }
+  } catch (err) {
+    // Taille CSS par défaut conservée.
+  }
 }
 
- 
 function mettreEnMajuscules() {
   mettreEnCasse(t => t.toLocaleUpperCase('fr-FR'), "majuscules");
 }
@@ -1151,7 +1264,6 @@ copyBtn.addEventListener('click', copierContenu);
 zoomInBtn.addEventListener('click', zoomerEditeur);
 zoomOutBtn.addEventListener('click', dezoomerEditeur);
 restaurerZoomEditeur();
- 
 
 // --- Mise en forme riche ---
 function basculerFormat(format) {
@@ -1190,6 +1302,31 @@ editor.addEventListener('mouseup', mettreAJourEtatFormat);
 editor.addEventListener('input', mettreAJourEtatFormat);
 
 // --- Caractères spéciaux ---
+
+const helpModal = document.getElementById('helpModal');
+const helpClose = document.getElementById('helpClose');
+
+function afficherAide() {
+  helpModal.style.display = 'flex';
+}
+
+function masquerAide() {
+  helpModal.style.display = 'none';
+}
+
+helpBtn.addEventListener('click', afficherAide);
+
+helpClose.addEventListener('click', function() {
+  masquerAide();
+  editor.focus();
+});
+
+helpModal.addEventListener('click', function(e) {
+  if (e.target === helpModal) {
+    masquerAide();
+    editor.focus();
+  }
+});
 
 const specialCharModal = document.getElementById('specialCharModal');
 const specialCharGrid = document.getElementById('specialCharGrid');
@@ -1267,6 +1404,11 @@ specialCharModal.addEventListener('click', function(e) {
 // Fermer avec Échap (couvre aussi les fenêtres d'historique et de dictionnaire, définies plus bas)
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Escape') return;
+  if (helpModal.style.display !== 'none') {
+    masquerAide();
+    editor.focus();
+  }
+
   if (specialCharModal.style.display !== 'none') {
     masquerModalCarSpeciaux();
     editor.focus();
@@ -1786,9 +1928,7 @@ mettreAJourBoutons();
     <input id="supabaseEmail" type="email" autocomplete="username" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
     <label for="supabasePassword" style="display:block; margin-bottom:6px;">Mot de passe</label>
     <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:10px;">
-    <label for="supabaseUsername" style="display:block; margin-bottom:6px;">Nom d'utilisateur</label>
-    <input id="supabaseUsername" type="text" maxlength="40" autocomplete="nickname" placeholder="Ex. Nico" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
-    <button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
+<button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
     <button id="supabaseForgotBtn" type="button" style="margin-left:10px; padding:9px 0; cursor:pointer; border:0; background:none; color:#003087; text-decoration:underline;">Mot de passe oublié ?</button>
     <div id="supabaseLoginMsg" style="margin-top:12px; color:#b00020; min-height:18px;"></div>
 
@@ -1821,7 +1961,6 @@ mettreAJourBoutons();
   const LOGIN = document.getElementById('supabaseLogin');
   const EMAIL = document.getElementById('supabaseEmail');
   const PASSWORD = document.getElementById('supabasePassword');
-  const USERNAME = document.getElementById('supabaseUsername');
   const LOGIN_BTN = document.getElementById('supabaseLoginBtn');
   const FORGOT_BTN = document.getElementById('supabaseForgotBtn');
   const LOGIN_MSG = document.getElementById('supabaseLoginMsg');
@@ -1839,6 +1978,7 @@ mettreAJourBoutons();
   const UPDATE_PASSWORD_MSG = document.getElementById('supabaseUpdatePasswordMsg');
 
   const syncstatus = document.getElementById('syncstatus');
+  const logoutBtn = document.getElementById('logoutBtn');
 
   const APP_URL = 'https://nicococh.github.io/RDPote/RDPote.html';
 
@@ -1849,7 +1989,7 @@ mettreAJourBoutons();
   }
 
 
-  async function chargerProfilUtilisateur(user, remplirChampConnexion = false) {
+  async function chargerProfilUtilisateur(user) {
     if (!user) return null;
 
     const { data, error } = await supabaseClient
@@ -1864,33 +2004,17 @@ mettreAJourBoutons();
     }
 
     const username = (data && data.username) ? data.username.trim() : '';
-
-    if (remplirChampConnexion && USERNAME) {
-      USERNAME.value = username;
-    }
-
     return username;
   }
 
-  async function enregistrerNomUtilisateur(user, username) {
-    if (!user || !username) return;
-
-    const propre = username.trim();
-    if (!propre) return;
-
-    const { error } = await supabaseClient
-      .from('profiles')
-      .upsert(
-        { id: user.id, username: propre, updated_at: new Date().toISOString() },
-        { onConflict: 'id' }
-      );
-
-    if (error) {
-      console.error('Erreur lors de l’enregistrement du nom d’utilisateur :', error);
+    function actualiserBoutonDeconnexion(connecte) {
+    if (logoutBtn) {
+      logoutBtn.style.display = connecte ? 'block' : 'none';
     }
   }
 
-  function showLogin(message) {
+function showLogin(message) {
+    actualiserBoutonDeconnexion(false);
     LOGIN.style.display = 'flex';
     LOGIN_MSG.textContent = message || '';
     setTimeout(() => EMAIL.focus(), 50);
@@ -1898,9 +2022,11 @@ mettreAJourBoutons();
 
   function hideLogin() {
     LOGIN.style.display = 'none';
+    actualiserBoutonDeconnexion(true);
   }
 
   function showResetPasswordScreen() {
+    actualiserBoutonDeconnexion(false);
     LOGIN.style.display = 'none';
     NEW_PASSWORD.style.display = 'flex';
     UPDATE_PASSWORD_MSG.textContent = '';
@@ -2065,7 +2191,51 @@ mettreAJourBoutons();
     }
   }
 
-  async function signIn() {
+    async function seDeconnecter() {
+    if (logoutBtn) logoutBtn.disabled = true;
+
+    try {
+      // Si une sauvegarde distante est en attente, on la lance avant de partir.
+      if (typeof saveRemoteDocument === 'function' &&
+          typeof saveTimer !== 'undefined') {
+        clearTimeout(saveTimer);
+        await saveRemoteDocument();
+      }
+
+      // Arrête proprement la présence et les canaux temps réel.
+      if (typeof stopRealtime === 'function') {
+        stopRealtime();
+      }
+      if (typeof stopPresence === 'function') {
+        await stopPresence();
+      }
+
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) throw error;
+
+      window.RDPoteSupabaseUser = null;
+
+      if (typeof actualiserBoutonDeconnexion === 'function') {
+        actualiserBoutonDeconnexion(false);
+      }
+
+      // Efface le contenu de l'écran de connexion sans toucher à la sauvegarde locale.
+      EMAIL.value = '';
+      PASSWORD.value = '';
+      LOGIN_MSG.textContent = '';
+
+      showLogin('');
+    } catch (error) {
+      console.error('Erreur de déconnexion :', error);
+      LOGIN_MSG.style.color = '#b00020';
+      LOGIN_MSG.textContent =
+        'Impossible de se déconnecter : ' + (error.message || '');
+    } finally {
+      if (logoutBtn) logoutBtn.disabled = false;
+    }
+  }
+
+async function signIn() {
     LOGIN_BTN.disabled = true;
     LOGIN_MSG.style.color = '#555';
     LOGIN_MSG.textContent = 'Connexion…';
@@ -2081,16 +2251,11 @@ mettreAJourBoutons();
       const { data: sessionData } = await supabaseClient.auth.getSession();
       window.RDPoteSupabaseUser = sessionData.session.user;
 
-      const usernameSaisi = USERNAME.value.trim();
-      const usernameExistant = await chargerProfilUtilisateur(window.RDPoteSupabaseUser, false);
-      if (usernameSaisi) {
-        await enregistrerNomUtilisateur(window.RDPoteSupabaseUser, usernameSaisi);
-        window.RDPoteSupabaseUser.username = usernameSaisi;
-      } else {
-        window.RDPoteSupabaseUser.username = usernameExistant || window.RDPoteSupabaseUser.email || 'Utilisateur';
-      }
-
-      hideLogin();
+      window.RDPoteSupabaseUser.username =
+        await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
+        window.RDPoteSupabaseUser.email ||
+        'Utilisateur';
+hideLogin();
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
@@ -2171,7 +2336,7 @@ mettreAJourBoutons();
           if (recoverySession.session) {
             window.RDPoteSupabaseUser = recoverySession.session.user;
             window.RDPoteSupabaseUser.username =
-              await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
+              await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
               window.RDPoteSupabaseUser.email ||
               'Utilisateur';
           }
@@ -2213,6 +2378,7 @@ mettreAJourBoutons();
   });
 
   LOGIN_BTN.addEventListener('click', signIn);
+  logoutBtn.addEventListener('click', seDeconnecter);
 
   PASSWORD.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') signIn();
@@ -2653,7 +2819,7 @@ mettreAJourBoutons();
     try {
       window.RDPoteSupabaseUser = session.user;
       window.RDPoteSupabaseUser.username =
-        await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
+        await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
       await loadRemoteDocument();
