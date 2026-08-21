@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 PRESENCE-->
+<!-- Version 20 août 2026 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1758,7 +1758,9 @@ mettreAJourBoutons();
     <label for="supabaseEmail" style="display:block; margin-bottom:6px;">E-mail</label>
     <input id="supabaseEmail" type="email" autocomplete="username" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
     <label for="supabasePassword" style="display:block; margin-bottom:6px;">Mot de passe</label>
-    <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
+    <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:10px;">
+    <label for="supabaseUsername" style="display:block; margin-bottom:6px;">Nom d'utilisateur</label>
+    <input id="supabaseUsername" type="text" maxlength="40" autocomplete="nickname" placeholder="Ex. Nico" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
     <button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
     <button id="supabaseForgotBtn" type="button" style="margin-left:10px; padding:9px 0; cursor:pointer; border:0; background:none; color:#003087; text-decoration:underline;">Mot de passe oublié ?</button>
     <div id="supabaseLoginMsg" style="margin-top:12px; color:#b00020; min-height:18px;"></div>
@@ -1792,6 +1794,7 @@ mettreAJourBoutons();
   const LOGIN = document.getElementById('supabaseLogin');
   const EMAIL = document.getElementById('supabaseEmail');
   const PASSWORD = document.getElementById('supabasePassword');
+  const USERNAME = document.getElementById('supabaseUsername');
   const LOGIN_BTN = document.getElementById('supabaseLoginBtn');
   const FORGOT_BTN = document.getElementById('supabaseForgotBtn');
   const LOGIN_MSG = document.getElementById('supabaseLoginMsg');
@@ -1816,6 +1819,48 @@ mettreAJourBoutons();
 
   function getEditor() {
     return document.querySelector('[contenteditable="true"]');
+  }
+
+
+  async function chargerProfilUtilisateur(user, remplirChampConnexion = false) {
+    if (!user) return null;
+
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('username')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Erreur lors du chargement du profil :', error);
+      return null;
+    }
+
+    const username = (data && data.username) ? data.username.trim() : '';
+
+    if (remplirChampConnexion && USERNAME) {
+      USERNAME.value = username;
+    }
+
+    return username;
+  }
+
+  async function enregistrerNomUtilisateur(user, username) {
+    if (!user || !username) return;
+
+    const propre = username.trim();
+    if (!propre) return;
+
+    const { error } = await supabaseClient
+      .from('profiles')
+      .upsert(
+        { id: user.id, username: propre, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      );
+
+    if (error) {
+      console.error('Erreur lors de l’enregistrement du nom d’utilisateur :', error);
+    }
   }
 
   function showLogin(message) {
@@ -2008,6 +2053,16 @@ mettreAJourBoutons();
 
       const { data: sessionData } = await supabaseClient.auth.getSession();
       window.RDPoteSupabaseUser = sessionData.session.user;
+
+      const usernameSaisi = USERNAME.value.trim();
+      const usernameExistant = await chargerProfilUtilisateur(window.RDPoteSupabaseUser, false);
+      if (usernameSaisi) {
+        await enregistrerNomUtilisateur(window.RDPoteSupabaseUser, usernameSaisi);
+        window.RDPoteSupabaseUser.username = usernameSaisi;
+      } else {
+        window.RDPoteSupabaseUser.username = usernameExistant || window.RDPoteSupabaseUser.email || 'Utilisateur';
+      }
+
       hideLogin();
       await loadRemoteDocument();
       attachEditorListener();
@@ -2086,7 +2141,13 @@ mettreAJourBoutons();
         NEW_PASSWORD.style.display = 'none';
         try {
           const { data: recoverySession } = await supabaseClient.auth.getSession();
-          if (recoverySession.session) window.RDPoteSupabaseUser = recoverySession.session.user;
+          if (recoverySession.session) {
+            window.RDPoteSupabaseUser = recoverySession.session.user;
+            window.RDPoteSupabaseUser.username =
+              await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
+              window.RDPoteSupabaseUser.email ||
+              'Utilisateur';
+          }
           await loadRemoteDocument();
           attachEditorListener();
           subscribeToRealtime();
@@ -2233,7 +2294,7 @@ mettreAJourBoutons();
     if (window.RDPoteSupabaseUser) {
       bySession.set(LOCAL_SESSION_ID, {
         sessionId: LOCAL_SESSION_ID,
-        email: window.RDPoteSupabaseUser.email || ''
+        username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur'
       });
     }
 
@@ -2241,7 +2302,7 @@ mettreAJourBoutons();
     connectedUsersEl.innerHTML = '';
 
     Array.from(bySession.values()).sort(function (a, b) {
-      return String(a.email || '').localeCompare(String(b.email || ''), 'fr');
+      return String(a.username || '').localeCompare(String(b.username || ''), 'fr');
     }).forEach(function (item) {
       const wrapper = document.createElement('span');
       wrapper.className = 'connected-user';
@@ -2252,8 +2313,8 @@ mettreAJourBoutons();
 
       const text = document.createElement('span');
       text.textContent = item.sessionId === LOCAL_SESSION_ID
-        ? (item.email || 'Vous')
-        : (item.email || 'Utilisateur');
+        ? (item.username || 'Vous')
+        : (item.username || 'Utilisateur');
 
       wrapper.appendChild(dot);
       wrapper.appendChild(text);
@@ -2320,7 +2381,7 @@ mettreAJourBoutons();
       event: 'cursor',
       payload: {
         sessionId: LOCAL_SESSION_ID,
-        email: window.RDPoteSupabaseUser.email || '',
+        username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur',
         path: cursor.path,
         offset: cursor.offset,
         active: cursor.active
@@ -2410,15 +2471,15 @@ mettreAJourBoutons();
       const presence = getPresenceEntries().find(function (item) {
         return item.sessionId === sessionId;
       });
-      const email = (presence && presence.email) || entry.email || 'Utilisateur';
+      const email = (presence && presence.email) || entry.username || 'Utilisateur';
 
-      entry.label.textContent = email;
+      entry.label.textContent = username;
 
       entry.el.style.display = 'block';
       entry.el.style.left = (rect.left - editorRect.left) + 'px';
       entry.el.style.top = (rect.top - editorRect.top) + 'px';
       entry.el.style.height = Math.max(20, rect.height || 22) + 'px';
-      entry.el.title = email;
+      entry.el.title = username;
     } catch (error) {
       console.warn('Impossible de positionner le curseur distant :', error);
     }
@@ -2480,7 +2541,7 @@ mettreAJourBoutons();
           path: Array.isArray(payload.path) ? payload.path : [],
           offset: Number.isFinite(payload.offset) ? payload.offset : 0,
           active: true,
-          email: payload.email || previous.email || 'Utilisateur',
+          username: payload.username || previous.username || 'Utilisateur',
           el: previous.el || null,
           dot: previous.dot || null,
           label: previous.label || null
@@ -2493,7 +2554,7 @@ mettreAJourBoutons();
         if (state === 'SUBSCRIBED') {
           await presenceChannel.track({
             sessionId: LOCAL_SESSION_ID,
-            email: window.RDPoteSupabaseUser.email || ''
+            username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur'
           });
           renderConnectedUsers();
           scheduleCursorSend(true);
@@ -2564,6 +2625,10 @@ mettreAJourBoutons();
 
     try {
       window.RDPoteSupabaseUser = session.user;
+      window.RDPoteSupabaseUser.username =
+        await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
+        window.RDPoteSupabaseUser.email ||
+        'Utilisateur';
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
