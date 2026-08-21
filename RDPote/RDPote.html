@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 21 août 2026 CURSEURS -->
+<!-- Version 20 août 2026 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -96,6 +96,35 @@
     color: #2a7a2a;
     min-height: 18px;
   }
+  #connectedUsers {
+    position: fixed;
+    top: 14px;
+    right: 18px;
+    z-index: 50;
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    font-size: 12px;
+    color: #555;
+    max-width: 55vw;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .connected-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .connected-user-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.2);
+  }
+
   #actionbar {
     margin-bottom: 8px;
     display: flex;
@@ -527,6 +556,7 @@
   Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).<br>
 Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
 
+<div id="connectedUsers" title="Utilisateurs connectés"></div>
 <div id="actionbar">
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
   <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
@@ -1982,7 +2012,7 @@ mettreAJourBoutons();
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
-      subscribeToCursorChannel();
+      subscribeToPresence();
     } catch (error) {
       console.error(error);
       LOGIN_MSG.style.color = '#b00020';
@@ -2060,7 +2090,7 @@ mettreAJourBoutons();
           await loadRemoteDocument();
           attachEditorListener();
           subscribeToRealtime();
-          subscribeToCursorChannel();
+          subscribeToPresence();
         } catch (loadError) {
           console.error(loadError);
           showLogin('Mot de passe modifié. Connecte-toi avec le nouveau mot de passe.');
@@ -2107,10 +2137,12 @@ mettreAJourBoutons();
   });
 
 
-  // --- Curseurs distants : Broadcast pour les mises à jour rapides ---
-  // Supabase recommande Broadcast pour les curseurs temps réel, plutôt que Presence
-  // qui est destiné à un état plus lent (en ligne/hors ligne, etc.).
-  const CURSOR_CHANNEL_NAME = 'rdpote-cursors-1';
+
+  // --- Présence + curseurs distants ---
+  // Chaque onglet reçoit un identifiant de session différent.
+  // Deux navigateurs utilisant le même compte ont donc chacun leur
+  // couleur, leur curseur et leur présence.
+  const CURSOR_CHANNEL_NAME = 'rdpote-presence-1';
   const CURSOR_PALETTE = [
     '#003087', // bleu foncé
     '#00A6A6', // bleu turquoise
@@ -2121,46 +2153,116 @@ mettreAJourBoutons();
     '#F57C00'  // orange
   ];
 
+  const connectedUsersEl = document.getElementById('connectedUsers');
   const remoteCursorsEl = document.getElementById('remoteCursors');
   const remoteCursors = new Map();
-  let cursorChannel = null;
+
+  const LOCAL_SESSION_ID = (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : 'session-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+
+  let presenceChannel = null;
   let cursorSendTimer = null;
   let localCursorActive = false;
 
-  function hashUserId(userId) {
+  function hashString(text) {
     let h = 0;
-    for (let i = 0; i < userId.length; i++) {
-      h = ((h << 5) - h) + userId.charCodeAt(i);
+    for (let i = 0; i < text.length; i++) {
+      h = ((h << 5) - h) + text.charCodeAt(i);
       h |= 0;
     }
     return Math.abs(h);
   }
 
-  function colorAssignments(userIds) {
-    const groups = new Map();
+  function getPresenceEntries() {
+    if (!presenceChannel) return [];
+    const state = presenceChannel.presenceState();
+    const entries = [];
 
-    userIds.forEach(function (userId) {
-      const baseIndex = hashUserId(userId) % CURSOR_PALETTE.length;
-      if (!groups.has(baseIndex)) groups.set(baseIndex, []);
-      groups.get(baseIndex).push(userId);
-    });
-
-    const assignments = new Map();
-    const used = new Set();
-
-    groups.forEach(function (ids, baseIndex) {
-      ids.sort();
-      ids.forEach(function (userId, position) {
-        let index = (baseIndex + position) % CURSOR_PALETTE.length;
-        while (used.has(index)) {
-          index = (index + 1) % CURSOR_PALETTE.length;
+    Object.keys(state).forEach(function (key) {
+      (state[key] || []).forEach(function (item) {
+        if (item && item.sessionId) {
+          entries.push(item);
         }
-        assignments.set(userId, CURSOR_PALETTE[index]);
-        used.add(index);
       });
     });
 
+    return entries;
+  }
+
+  function getAllSessionIds() {
+    const ids = [LOCAL_SESSION_ID];
+    getPresenceEntries().forEach(function (item) {
+      if (item.sessionId) ids.push(item.sessionId);
+    });
+    remoteCursors.forEach(function (_, sessionId) {
+      ids.push(sessionId);
+    });
+    return Array.from(new Set(ids));
+  }
+
+  function getColorAssignments() {
+    // Un identifiant de session est toujours unique. En cas de collision
+    // théorique sur l'index, on décale jusqu'à trouver une couleur libre.
+    const assignments = new Map();
+    const used = new Set();
+
+    getAllSessionIds().sort().forEach(function (sessionId) {
+      let index = hashString(sessionId) % CURSOR_PALETTE.length;
+      while (used.has(index) && used.size < CURSOR_PALETTE.length) {
+        index = (index + 1) % CURSOR_PALETTE.length;
+      }
+      assignments.set(sessionId, CURSOR_PALETTE[index]);
+      used.add(index);
+    });
+
     return assignments;
+  }
+
+  function renderConnectedUsers() {
+    if (!connectedUsersEl) return;
+
+    const entries = getPresenceEntries();
+    const bySession = new Map();
+
+    entries.forEach(function (item) {
+      bySession.set(item.sessionId, item);
+    });
+
+    // S'assurer que l'utilisateur local apparaît immédiatement.
+    if (window.RDPoteSupabaseUser) {
+      bySession.set(LOCAL_SESSION_ID, {
+        sessionId: LOCAL_SESSION_ID,
+        email: window.RDPoteSupabaseUser.email || ''
+      });
+    }
+
+    const assignments = getColorAssignments();
+    connectedUsersEl.innerHTML = '';
+
+    Array.from(bySession.values()).sort(function (a, b) {
+      return String(a.email || '').localeCompare(String(b.email || ''), 'fr');
+    }).forEach(function (item) {
+      const wrapper = document.createElement('span');
+      wrapper.className = 'connected-user';
+
+      const dot = document.createElement('span');
+      dot.className = 'connected-user-dot';
+      dot.style.backgroundColor = assignments.get(item.sessionId) || CURSOR_PALETTE[0];
+
+      const text = document.createElement('span');
+      text.textContent = item.sessionId === LOCAL_SESSION_ID
+        ? (item.email || 'Vous')
+        : (item.email || 'Utilisateur');
+
+      wrapper.appendChild(dot);
+      wrapper.appendChild(text);
+      connectedUsersEl.appendChild(wrapper);
+    });
+
+    remoteCursors.forEach(function (_, sessionId) {
+      updateRemoteCursorColor(sessionId, assignments.get(sessionId));
+    });
   }
 
   function nodePath(root, node) {
@@ -2208,16 +2310,17 @@ mettreAJourBoutons();
   function sendCursorNow() {
     cursorSendTimer = null;
 
-    if (!cursorChannel || !window.RDPoteSupabaseUser) return;
+    if (!presenceChannel || !window.RDPoteSupabaseUser) return;
 
     const cursor = getLocalCursorData();
     if (!cursor) return;
 
-    cursorChannel.send({
+    presenceChannel.send({
       type: 'broadcast',
       event: 'cursor',
       payload: {
-        userId: window.RDPoteSupabaseUser.id,
+        sessionId: LOCAL_SESSION_ID,
+        email: window.RDPoteSupabaseUser.email || '',
         path: cursor.path,
         offset: cursor.offset,
         active: cursor.active
@@ -2232,31 +2335,25 @@ mettreAJourBoutons();
     cursorSendTimer = setTimeout(sendCursorNow, 40);
   }
 
-  function removeRemoteCursor(userId) {
-    const entry = remoteCursors.get(userId);
+  function updateRemoteCursorColor(sessionId, color) {
+    const entry = remoteCursors.get(sessionId);
+    if (!entry || !entry.el) return;
+
+    const actualColor = color || CURSOR_PALETTE[0];
+    entry.color = actualColor;
+    entry.el.style.backgroundColor = actualColor;
+    if (entry.dot) entry.dot.style.backgroundColor = actualColor;
+    if (entry.label) entry.label.style.backgroundColor = actualColor;
+  }
+
+  function removeRemoteCursor(sessionId) {
+    const entry = remoteCursors.get(sessionId);
     if (entry && entry.el) entry.el.remove();
-    remoteCursors.delete(userId);
+    remoteCursors.delete(sessionId);
   }
 
-  function updateRemoteCursorColors() {
-    const ids = [window.RDPoteSupabaseUser && window.RDPoteSupabaseUser.id]
-      .concat(Array.from(remoteCursors.keys()))
-      .filter(Boolean);
-
-    const assignments = colorAssignments(Array.from(new Set(ids)));
-
-    remoteCursors.forEach(function (entry, userId) {
-      entry.color = assignments.get(userId) || CURSOR_PALETTE[0];
-      if (entry.el) {
-        entry.el.style.backgroundColor = entry.color;
-        if (entry.dot) entry.dot.style.backgroundColor = entry.color;
-        if (entry.label) entry.label.style.backgroundColor = entry.color;
-      }
-    });
-  }
-
-  function drawRemoteCursor(userId) {
-    const entry = remoteCursors.get(userId);
+  function drawRemoteCursor(sessionId) {
+    const entry = remoteCursors.get(sessionId);
     const editor = getEditor();
 
     if (!entry || !editor || !entry.active) {
@@ -2272,7 +2369,11 @@ mettreAJourBoutons();
 
     try {
       const range = document.createRange();
-      const safeOffset = Math.min(entry.offset, node.nodeType === Node.TEXT_NODE ? node.textContent.length : node.childNodes.length);
+      const maxOffset = node.nodeType === Node.TEXT_NODE
+        ? node.textContent.length
+        : node.childNodes.length;
+      const safeOffset = Math.min(entry.offset, maxOffset);
+
       range.setStart(node, safeOffset);
       range.collapse(true);
 
@@ -2293,7 +2394,6 @@ mettreAJourBoutons();
 
         const label = document.createElement('div');
         label.className = 'remote-cursor-label';
-        label.textContent = '●';
 
         caret.appendChild(dot);
         caret.appendChild(label);
@@ -2304,65 +2404,102 @@ mettreAJourBoutons();
         entry.label = label;
       }
 
-      updateRemoteCursorColors();
+      const assignments = getColorAssignments();
+      updateRemoteCursorColor(sessionId, assignments.get(sessionId));
+
+      const presence = getPresenceEntries().find(function (item) {
+        return item.sessionId === sessionId;
+      });
+      const email = (presence && presence.email) || entry.email || 'Utilisateur';
+
+      entry.label.textContent = email;
 
       entry.el.style.display = 'block';
       entry.el.style.left = (rect.left - editorRect.left) + 'px';
       entry.el.style.top = (rect.top - editorRect.top) + 'px';
       entry.el.style.height = Math.max(20, rect.height || 22) + 'px';
-      entry.el.title = 'Autre utilisateur en cours de modification';
+      entry.el.title = email;
     } catch (error) {
       console.warn('Impossible de positionner le curseur distant :', error);
     }
   }
 
   function redrawAllRemoteCursors() {
-    remoteCursors.forEach(function (_, userId) {
-      drawRemoteCursor(userId);
+    remoteCursors.forEach(function (_, sessionId) {
+      drawRemoteCursor(sessionId);
     });
   }
 
-  function subscribeToCursorChannel() {
+  async function subscribeToPresence() {
     if (!window.RDPoteSupabaseUser) return;
 
-    if (cursorChannel) {
-      supabaseClient.removeChannel(cursorChannel);
-      cursorChannel = null;
+    if (presenceChannel) {
+      await supabaseClient.removeChannel(presenceChannel);
+      presenceChannel = null;
     }
 
-    cursorChannel = supabaseClient
-      .channel(CURSOR_CHANNEL_NAME)
+    presenceChannel = supabaseClient
+      .channel(CURSOR_CHANNEL_NAME, {
+        config: {
+          presence: {
+            key: LOCAL_SESSION_ID
+          },
+          broadcast: {
+            self: false
+          }
+        }
+      })
+      .on('presence', { event: 'sync' }, function () {
+        renderConnectedUsers();
+        redrawAllRemoteCursors();
+      })
+      .on('presence', { event: 'join' }, function () {
+        renderConnectedUsers();
+      })
+      .on('presence', { event: 'leave' }, function (payload) {
+        (payload.leftPresences || []).forEach(function (item) {
+          if (item.sessionId && item.sessionId !== LOCAL_SESSION_ID) {
+            removeRemoteCursor(item.sessionId);
+          }
+        });
+        renderConnectedUsers();
+      })
       .on('broadcast', { event: 'cursor' }, function (message) {
         const payload = message.payload || {};
-        const myId = window.RDPoteSupabaseUser.id;
-
-        if (!payload.userId || payload.userId === myId) return;
+        if (!payload.sessionId || payload.sessionId === LOCAL_SESSION_ID) return;
 
         if (payload.active === false) {
-          removeRemoteCursor(payload.userId);
-          updateRemoteCursorColors();
+          removeRemoteCursor(payload.sessionId);
+          renderConnectedUsers();
           return;
         }
 
-        remoteCursors.set(payload.userId, {
+        const previous = remoteCursors.get(payload.sessionId) || {};
+
+        remoteCursors.set(payload.sessionId, {
           path: Array.isArray(payload.path) ? payload.path : [],
           offset: Number.isFinite(payload.offset) ? payload.offset : 0,
           active: true,
-          el: remoteCursors.get(payload.userId)?.el || null,
-          dot: remoteCursors.get(payload.userId)?.dot || null,
-          label: remoteCursors.get(payload.userId)?.label || null
+          email: payload.email || previous.email || 'Utilisateur',
+          el: previous.el || null,
+          dot: previous.dot || null,
+          label: previous.label || null
         });
 
-        updateRemoteCursorColors();
-        drawRemoteCursor(payload.userId);
+        renderConnectedUsers();
+        drawRemoteCursor(payload.sessionId);
       })
-      .subscribe(function (state) {
+      .subscribe(async function (state) {
         if (state === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            sessionId: LOCAL_SESSION_ID,
+            email: window.RDPoteSupabaseUser.email || ''
+          });
+          renderConnectedUsers();
           scheduleCursorSend(true);
         }
       });
 
-    // Le curseur doit suivre le défilement et les changements de taille.
     const editor = getEditor();
     if (editor && editor.dataset.cursorListeners !== '1') {
       editor.dataset.cursorListeners = '1';
@@ -2391,31 +2528,30 @@ mettreAJourBoutons();
         if (!selection || selection.rangeCount === 0) return;
         const range = selection.getRangeAt(0);
         if (editor.contains(range.startContainer)) {
-          scheduleCursorSend(editor === document.activeElement || document.activeElement === editor);
+          scheduleCursorSend(document.activeElement === editor);
         }
       });
     }
   }
 
-  function stopCursorChannel() {
-    if (cursorChannel) {
-      cursorChannel.send({
-        type: 'broadcast',
-        event: 'cursor',
-        payload: {
-          userId: window.RDPoteSupabaseUser && window.RDPoteSupabaseUser.id,
-          active: false
-        }
-      }).catch(function () {});
+  async function stopPresence() {
+    if (presenceChannel) {
+      try {
+        await presenceChannel.untrack();
+      } catch (e) {}
 
-      supabaseClient.removeChannel(cursorChannel);
-      cursorChannel = null;
+      try {
+        await supabaseClient.removeChannel(presenceChannel);
+      } catch (e) {}
+
+      presenceChannel = null;
     }
 
     remoteCursors.forEach(function (entry) {
       if (entry.el) entry.el.remove();
     });
     remoteCursors.clear();
+    renderConnectedUsers();
   }
 
   async function initSupabase() {
@@ -2431,7 +2567,7 @@ mettreAJourBoutons();
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
-      subscribeToCursorChannel();
+      subscribeToPresence();
     } catch (error) {
       console.error('Impossible de charger le document Supabase :', error);
       showLogin('Connexion établie, mais impossible de charger le document.');
@@ -2441,14 +2577,14 @@ mettreAJourBoutons();
   supabaseClient.auth.onAuthStateChange(function (event, session) {
     if (event === 'PASSWORD_RECOVERY') {
       stopRealtime();
-      stopCursorChannel();
+      stopPresence();
       showResetPasswordScreen();
       return;
     }
 
     if (!session && NEW_PASSWORD.style.display !== 'flex') {
       stopRealtime();
-      stopCursorChannel();
+      stopPresence();
       window.RDPoteSupabaseUser = null;
       showLogin('');
     }
