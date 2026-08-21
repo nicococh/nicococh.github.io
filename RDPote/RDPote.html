@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 21 août 2026 logout -->
+<!-- Version 20 août 2026 restauree -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2822,6 +2822,7 @@ hideLogin();
         await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
+      actualiserBoutonDeconnexion(true);
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
