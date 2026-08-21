@@ -96,10 +96,29 @@
     color: #2a7a2a;
     min-height: 18px;
   }
+  #supabaseLogoutBtn {
+    position: fixed;
+    top: 10px;
+    right: 18px;
+    z-index: 51;
+    display: none;
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    color: #555;
+    cursor: pointer;
+  }
+  #supabaseLogoutBtn:hover {
+    background: #f3f3f3;
+    color: #a33;
+  }
+
   #connectedUsers {
     position: fixed;
     top: 14px;
-    right: 18px;
+    right: 115px;
     z-index: 50;
     display: flex;
     gap: 9px;
@@ -557,6 +576,7 @@
 Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
 
 <div id="connectedUsers" title="Utilisateurs connectés"></div>
+<button id="supabaseLogoutBtn" type="button" title="Se déconnecter">Se déconnecter</button>
 <div id="actionbar">
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
   <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
@@ -571,6 +591,8 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="planBtn" type="button" title="Insérer les rubriques vides">🗒</button>
   
    <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
+  <button id="zoomInBtn" type="button" title="Agrandir le texte de l’éditeur">🔎➕</button>
+  <button id="zoomOutBtn" type="button" title="Réduire le texte de l’éditeur">🔍➖</button>
   <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes">🕑</button>
 </div>
 
@@ -753,6 +775,8 @@ const planBtn = document.getElementById('planBtn');
 const majBtn = document.getElementById('majBtn');
 const minBtn = document.getElementById('minBtn');
 const typoBtn = document.getElementById('typoBtn');
+const zoomInBtn = document.getElementById('zoomInBtn');
+const zoomOutBtn = document.getElementById('zoomOutBtn');
 const supprBtn = document.getElementById('supprBtn');
 const snippetBubble = document.getElementById('snippetBubble');
 
@@ -968,6 +992,46 @@ function mettreEnCasse(transform, label) {
   sauvegarder();
 }
 
+
+const EDITOR_ZOOM_KEY = 'rdpote-editor-zoom';
+const EDITOR_ZOOM_MIN = 12;
+const EDITOR_ZOOM_MAX = 32;
+const EDITOR_ZOOM_STEP = 1;
+
+function obtenirTaillePoliceEditeur() {
+  const valeur = parseFloat(window.getComputedStyle(editor).fontSize);
+  return Number.isFinite(valeur) ? valeur : 17;
+}
+
+function appliquerZoomEditeur(taille) {
+  const valeur = Math.max(EDITOR_ZOOM_MIN, Math.min(EDITOR_ZOOM_MAX, taille));
+  editor.style.fontSize = valeur + 'px';
+  localStorage.setItem(EDITOR_ZOOM_KEY, String(valeur));
+
+  if (typeof redrawAllRemoteCursors === 'function') {
+    requestAnimationFrame(redrawAllRemoteCursors);
+  }
+}
+
+function zoomerEditeur() {
+  appliquerZoomEditeur(obtenirTaillePoliceEditeur() + EDITOR_ZOOM_STEP);
+}
+
+function dezoomerEditeur() {
+  appliquerZoomEditeur(obtenirTaillePoliceEditeur() - EDITOR_ZOOM_STEP);
+}
+
+function restaurerZoomEditeur() {
+  try {
+    const sauvegarde = parseFloat(localStorage.getItem(EDITOR_ZOOM_KEY));
+    if (Number.isFinite(sauvegarde)) {
+      appliquerZoomEditeur(sauvegarde);
+    }
+  } catch (err) {
+    // Taille CSS par défaut conservée en cas de problème avec localStorage.
+  }
+}
+
 function mettreEnMajuscules() {
   mettreEnCasse(t => t.toLocaleUpperCase('fr-FR'), "majuscules");
 }
@@ -1125,6 +1189,10 @@ minBtn.addEventListener('click', mettreEnMinuscules);
 typoBtn.addEventListener('click', corrigerTypo);
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
+zoomInBtn.addEventListener('click', zoomerEditeur);
+zoomOutBtn.addEventListener('click', dezoomerEditeur);
+
+restaurerZoomEditeur();
 
 // --- Mise en forme riche ---
 function basculerFormat(format) {
@@ -1863,7 +1931,14 @@ mettreAJourBoutons();
     }
   }
 
+  function actualiserBoutonDeconnexion(connecte) {
+    if (LOGOUT_BTN) {
+      LOGOUT_BTN.style.display = connecte ? 'block' : 'none';
+    }
+  }
+
   function showLogin(message) {
+    actualiserBoutonDeconnexion(false);
     LOGIN.style.display = 'flex';
     LOGIN_MSG.textContent = message || '';
     setTimeout(() => EMAIL.focus(), 50);
@@ -1871,9 +1946,11 @@ mettreAJourBoutons();
 
   function hideLogin() {
     LOGIN.style.display = 'none';
+    actualiserBoutonDeconnexion(true);
   }
 
   function showResetPasswordScreen() {
+    actualiserBoutonDeconnexion(false);
     LOGIN.style.display = 'none';
     NEW_PASSWORD.style.display = 'flex';
     UPDATE_PASSWORD_MSG.textContent = '';
@@ -2038,6 +2115,37 @@ mettreAJourBoutons();
     }
   }
 
+  async function seDeconnecter() {
+    if (LOGOUT_BTN) LOGOUT_BTN.disabled = true;
+
+    try {
+      clearTimeout(saveTimer);
+      if (typeof stopRealtime === 'function') stopRealtime();
+      if (typeof stopPresence === 'function') await stopPresence();
+
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) throw error;
+
+      window.RDPoteSupabaseUser = null;
+      actualiserBoutonDeconnexion(false);
+
+      if (USERNAME) USERNAME.value = '';
+      if (PASSWORD) PASSWORD.value = '';
+      if (LOGIN_MSG) LOGIN_MSG.textContent = '';
+      if (RESET_REQUEST) RESET_REQUEST.style.display = 'none';
+
+      showLogin('');
+    } catch (error) {
+      console.error('Erreur de déconnexion :', error);
+      if (LOGIN_MSG) {
+        LOGIN_MSG.style.color = '#b00020';
+        LOGIN_MSG.textContent = 'Impossible de se déconnecter : ' + (error.message || '');
+      }
+    } finally {
+      if (LOGOUT_BTN) LOGOUT_BTN.disabled = false;
+    }
+  }
+
   async function signIn() {
     LOGIN_BTN.disabled = true;
     LOGIN_MSG.style.color = '#555';
@@ -2186,6 +2294,7 @@ mettreAJourBoutons();
   });
 
   LOGIN_BTN.addEventListener('click', signIn);
+  LOGOUT_BTN.addEventListener('click', seDeconnecter);
 
   PASSWORD.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') signIn();
@@ -2215,6 +2324,7 @@ mettreAJourBoutons();
   ];
 
   const connectedUsersEl = document.getElementById('connectedUsers');
+  const LOGOUT_BTN = document.getElementById('supabaseLogoutBtn');
   const remoteCursorsEl = document.getElementById('remoteCursors');
   const remoteCursors = new Map();
 
