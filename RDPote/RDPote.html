@@ -115,6 +115,27 @@
     color: #a33;
   }
 
+  #currentUserBadge {
+    position: fixed;
+    top: 10px;
+    right: 300px;
+    z-index: 51;
+    display: none;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: #333;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .current-user-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.2);
+  }
+
   #connectedUsers {
     position: fixed;
     top: 14px;
@@ -575,7 +596,8 @@
   Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).<br>
 Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
 
-<div id="connectedUsers" title="Utilisateurs connectés"></div>
+<div id="currentUserBadge" title="Utilisateur connecté"></div>
+<div id="connectedUsers" title="Autres utilisateurs connectés"></div>
 <button id="supabaseLogoutBtn" type="button" title="Se déconnecter">Se déconnecter</button>
 <div id="actionbar">
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
@@ -1931,13 +1953,46 @@ mettreAJourBoutons();
     }
   }
 
-  function actualiserBoutonDeconnexion(connecte) {
+    function actualiserUtilisateurCourant(connecte) {
+    if (!currentUserBadge) return;
+
+    if (!connecte || !window.RDPoteSupabaseUser) {
+      currentUserBadge.style.display = 'none';
+      currentUserBadge.innerHTML = '';
+      return;
+    }
+
+    const nom = window.RDPoteSupabaseUser.username ||
+      window.RDPoteSupabaseUser.email ||
+      'Utilisateur';
+
+    const sessionIds = getAllSessionIds ? getAllSessionIds() : [LOCAL_SESSION_ID];
+    const assignments = getColorAssignments ? getColorAssignments() : new Map();
+    const couleur = assignments.get(LOCAL_SESSION_ID) || CURSOR_PALETTE[0];
+
+    currentUserBadge.innerHTML = '';
+
+    const dot = document.createElement('span');
+    dot.className = 'current-user-dot';
+    dot.style.backgroundColor = couleur;
+
+    const text = document.createElement('span');
+    text.textContent = 'Connecté : ' + nom;
+    text.style.color = couleur;
+
+    currentUserBadge.appendChild(dot);
+    currentUserBadge.appendChild(text);
+    currentUserBadge.style.display = 'inline-flex';
+  }
+
+function actualiserBoutonDeconnexion(connecte) {
     if (LOGOUT_BTN) {
       LOGOUT_BTN.style.display = connecte ? 'block' : 'none';
     }
   }
 
   function showLogin(message) {
+    actualiserUtilisateurCourant(false);
     actualiserBoutonDeconnexion(false);
     LOGIN.style.display = 'flex';
     LOGIN_MSG.textContent = message || '';
@@ -1946,6 +2001,7 @@ mettreAJourBoutons();
 
   function hideLogin() {
     LOGIN.style.display = 'none';
+    actualiserUtilisateurCourant(true);
     actualiserBoutonDeconnexion(true);
   }
 
@@ -2127,6 +2183,7 @@ mettreAJourBoutons();
       if (error) throw error;
 
       window.RDPoteSupabaseUser = null;
+      actualiserUtilisateurCourant(false);
       actualiserBoutonDeconnexion(false);
 
       if (USERNAME) USERNAME.value = '';
@@ -2172,6 +2229,7 @@ mettreAJourBoutons();
       }
 
       hideLogin();
+      actualiserUtilisateurCourant(true);
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
@@ -2255,6 +2313,7 @@ mettreAJourBoutons();
               await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
               window.RDPoteSupabaseUser.email ||
               'Utilisateur';
+            actualiserUtilisateurCourant(true);
           }
           await loadRemoteDocument();
           attachEditorListener();
@@ -2324,6 +2383,7 @@ mettreAJourBoutons();
   ];
 
   const connectedUsersEl = document.getElementById('connectedUsers');
+  const currentUserBadge = document.getElementById('currentUserBadge');
   const LOGOUT_BTN = document.getElementById('supabaseLogoutBtn');
   const remoteCursorsEl = document.getElementById('remoteCursors');
   const remoteCursors = new Map();
@@ -2391,6 +2451,7 @@ mettreAJourBoutons();
   }
 
   function renderConnectedUsers() {
+    if (window.RDPoteSupabaseUser) actualiserUtilisateurCourant(true);
     if (!connectedUsersEl) return;
 
     const entries = getPresenceEntries();
@@ -2739,6 +2800,7 @@ mettreAJourBoutons();
         await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
+      actualiserUtilisateurCourant(true);
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
