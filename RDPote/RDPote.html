@@ -420,7 +420,7 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
 <div id="status"></div>
 <div id="savebar">
   <span id="savestatus"></span>
-  <button id="clearsave" type="button">Effacer la sauvegarde</button>
+  
 </div>
 
 <div id="specialCharModal">
@@ -462,7 +462,6 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
 const editor = document.getElementById('editor');
 const status = document.getElementById('status');
 const savestatus = document.getElementById('savestatus');
-const clearsave = document.getElementById('clearsave');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 const copyBtn = document.getElementById('copyBtn');
@@ -623,16 +622,6 @@ editor.addEventListener('input', planifierSauvegarde);
 
 // Sauvegarde immédiate si l'utilisateur quitte/ferme la page
 window.addEventListener('beforeunload', sauvegarder);
-
-// Effacer la sauvegarde manuellement
-clearsave.addEventListener('click', function() {
-  if (confirm("Effacer la sauvegarde automatique et l'historique enregistrés dans ce navigateur ?")) {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(HISTORY_KEY);
-    historique = [];
-    savestatus.textContent = "Sauvegarde et historique effacés.";
-  }
-});
 
 function supprimerSautsDeLigne() {
   const start = editor.selectionStart;
