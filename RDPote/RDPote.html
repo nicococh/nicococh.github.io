@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 21 août 2026 -->
+<!-- Version 21 août 2026 CURSEURS -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -21,7 +21,7 @@
   p.info {
     color: #555;
     font-size: 16px;
-    font-weight: 500;
+    font-weight: 700;
     line-height: 1.5;
   }
   kbd {
@@ -48,6 +48,44 @@
   }
   #editor:focus {
     border-color: #8aa4d6;
+  }
+  #remoteCursors {
+    position: absolute;
+    inset: 0;
+    z-index: 9;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .remote-cursor {
+    position: absolute;
+    width: 3px;
+    min-height: 22px;
+    border-radius: 2px;
+    transform: translateX(-1px);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.75);
+  }
+  .remote-cursor-dot {
+    position: absolute;
+    top: -5px;
+    left: -3px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.9);
+  }
+  .remote-cursor-label {
+    position: absolute;
+    left: 7px;
+    top: -12px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1.1;
+    white-space: nowrap;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
   }
   #editor p {
     margin: 0;
@@ -486,8 +524,8 @@
 
 <h1>RDPote, l'assistant de la revue de presse</h1>
 <p class="info">
-<b>Pour supprimer les sauts de ligne,</b> colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd>. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).<br>
-<b>Saisie automatique:</b> si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
+  Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).<br>
+Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
 
 <div id="actionbar">
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
@@ -508,6 +546,7 @@
 
 <div id="editorWrap">
   <div id="editor" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="false"></div>
+  <div id="remoteCursors" aria-hidden="true"></div>
   <div id="snippetBubble" class="snippet-bubble" style="display: none;"></div>
 </div>
 
@@ -1937,10 +1976,13 @@ mettreAJourBoutons();
 
       if (error) throw error;
 
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      window.RDPoteSupabaseUser = sessionData.session.user;
       hideLogin();
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
+      subscribeToCursorChannel();
     } catch (error) {
       console.error(error);
       LOGIN_MSG.style.color = '#b00020';
@@ -2013,9 +2055,12 @@ mettreAJourBoutons();
       setTimeout(async function () {
         NEW_PASSWORD.style.display = 'none';
         try {
+          const { data: recoverySession } = await supabaseClient.auth.getSession();
+          if (recoverySession.session) window.RDPoteSupabaseUser = recoverySession.session.user;
           await loadRemoteDocument();
           attachEditorListener();
           subscribeToRealtime();
+          subscribeToCursorChannel();
         } catch (loadError) {
           console.error(loadError);
           showLogin('Mot de passe modifié. Connecte-toi avec le nouveau mot de passe.');
@@ -2061,6 +2106,318 @@ mettreAJourBoutons();
     if (e.key === 'Enter') updatePassword();
   });
 
+
+  // --- Curseurs distants : Broadcast pour les mises à jour rapides ---
+  // Supabase recommande Broadcast pour les curseurs temps réel, plutôt que Presence
+  // qui est destiné à un état plus lent (en ligne/hors ligne, etc.).
+  const CURSOR_CHANNEL_NAME = 'rdpote-cursors-1';
+  const CURSOR_PALETTE = [
+    '#003087', // bleu foncé
+    '#00A6A6', // bleu turquoise
+    '#D81B60', // rose
+    '#D71920', // rouge
+    '#2E7D32', // vert
+    '#B28A00', // jaune moutarde
+    '#F57C00'  // orange
+  ];
+
+  const remoteCursorsEl = document.getElementById('remoteCursors');
+  const remoteCursors = new Map();
+  let cursorChannel = null;
+  let cursorSendTimer = null;
+  let localCursorActive = false;
+
+  function hashUserId(userId) {
+    let h = 0;
+    for (let i = 0; i < userId.length; i++) {
+      h = ((h << 5) - h) + userId.charCodeAt(i);
+      h |= 0;
+    }
+    return Math.abs(h);
+  }
+
+  function colorAssignments(userIds) {
+    const groups = new Map();
+
+    userIds.forEach(function (userId) {
+      const baseIndex = hashUserId(userId) % CURSOR_PALETTE.length;
+      if (!groups.has(baseIndex)) groups.set(baseIndex, []);
+      groups.get(baseIndex).push(userId);
+    });
+
+    const assignments = new Map();
+    const used = new Set();
+
+    groups.forEach(function (ids, baseIndex) {
+      ids.sort();
+      ids.forEach(function (userId, position) {
+        let index = (baseIndex + position) % CURSOR_PALETTE.length;
+        while (used.has(index)) {
+          index = (index + 1) % CURSOR_PALETTE.length;
+        }
+        assignments.set(userId, CURSOR_PALETTE[index]);
+        used.add(index);
+      });
+    });
+
+    return assignments;
+  }
+
+  function nodePath(root, node) {
+    const path = [];
+    let current = node;
+
+    while (current && current !== root) {
+      const parent = current.parentNode;
+      if (!parent) return null;
+      path.unshift(Array.prototype.indexOf.call(parent.childNodes, current));
+      current = parent;
+    }
+
+    return current === root ? path : null;
+  }
+
+  function nodeFromPath(root, path) {
+    let current = root;
+    for (const index of path) {
+      if (!current || !current.childNodes || !current.childNodes[index]) return null;
+      current = current.childNodes[index];
+    }
+    return current;
+  }
+
+  function getLocalCursorData() {
+    const editor = getEditor();
+    const selection = window.getSelection();
+
+    if (!editor || !selection || selection.rangeCount === 0) return null;
+
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.startContainer)) return null;
+
+    const path = nodePath(editor, range.startContainer);
+    if (!path) return null;
+
+    return {
+      path: path,
+      offset: range.startOffset,
+      active: localCursorActive
+    };
+  }
+
+  function sendCursorNow() {
+    cursorSendTimer = null;
+
+    if (!cursorChannel || !window.RDPoteSupabaseUser) return;
+
+    const cursor = getLocalCursorData();
+    if (!cursor) return;
+
+    cursorChannel.send({
+      type: 'broadcast',
+      event: 'cursor',
+      payload: {
+        userId: window.RDPoteSupabaseUser.id,
+        path: cursor.path,
+        offset: cursor.offset,
+        active: cursor.active
+      }
+    });
+  }
+
+  function scheduleCursorSend(active) {
+    localCursorActive = active;
+
+    if (cursorSendTimer !== null) return;
+    cursorSendTimer = setTimeout(sendCursorNow, 40);
+  }
+
+  function removeRemoteCursor(userId) {
+    const entry = remoteCursors.get(userId);
+    if (entry && entry.el) entry.el.remove();
+    remoteCursors.delete(userId);
+  }
+
+  function updateRemoteCursorColors() {
+    const ids = [window.RDPoteSupabaseUser && window.RDPoteSupabaseUser.id]
+      .concat(Array.from(remoteCursors.keys()))
+      .filter(Boolean);
+
+    const assignments = colorAssignments(Array.from(new Set(ids)));
+
+    remoteCursors.forEach(function (entry, userId) {
+      entry.color = assignments.get(userId) || CURSOR_PALETTE[0];
+      if (entry.el) {
+        entry.el.style.backgroundColor = entry.color;
+        if (entry.dot) entry.dot.style.backgroundColor = entry.color;
+        if (entry.label) entry.label.style.backgroundColor = entry.color;
+      }
+    });
+  }
+
+  function drawRemoteCursor(userId) {
+    const entry = remoteCursors.get(userId);
+    const editor = getEditor();
+
+    if (!entry || !editor || !entry.active) {
+      if (entry && entry.el) entry.el.style.display = 'none';
+      return;
+    }
+
+    const node = nodeFromPath(editor, entry.path);
+    if (!node) {
+      if (entry.el) entry.el.style.display = 'none';
+      return;
+    }
+
+    try {
+      const range = document.createRange();
+      const safeOffset = Math.min(entry.offset, node.nodeType === Node.TEXT_NODE ? node.textContent.length : node.childNodes.length);
+      range.setStart(node, safeOffset);
+      range.collapse(true);
+
+      const rect = range.getBoundingClientRect();
+      const editorRect = editor.getBoundingClientRect();
+
+      if (!rect || (!rect.width && !rect.height)) {
+        if (entry.el) entry.el.style.display = 'none';
+        return;
+      }
+
+      if (!entry.el) {
+        const caret = document.createElement('div');
+        caret.className = 'remote-cursor';
+
+        const dot = document.createElement('div');
+        dot.className = 'remote-cursor-dot';
+
+        const label = document.createElement('div');
+        label.className = 'remote-cursor-label';
+        label.textContent = '●';
+
+        caret.appendChild(dot);
+        caret.appendChild(label);
+        remoteCursorsEl.appendChild(caret);
+
+        entry.el = caret;
+        entry.dot = dot;
+        entry.label = label;
+      }
+
+      updateRemoteCursorColors();
+
+      entry.el.style.display = 'block';
+      entry.el.style.left = (rect.left - editorRect.left) + 'px';
+      entry.el.style.top = (rect.top - editorRect.top) + 'px';
+      entry.el.style.height = Math.max(20, rect.height || 22) + 'px';
+      entry.el.title = 'Autre utilisateur en cours de modification';
+    } catch (error) {
+      console.warn('Impossible de positionner le curseur distant :', error);
+    }
+  }
+
+  function redrawAllRemoteCursors() {
+    remoteCursors.forEach(function (_, userId) {
+      drawRemoteCursor(userId);
+    });
+  }
+
+  function subscribeToCursorChannel() {
+    if (!window.RDPoteSupabaseUser) return;
+
+    if (cursorChannel) {
+      supabaseClient.removeChannel(cursorChannel);
+      cursorChannel = null;
+    }
+
+    cursorChannel = supabaseClient
+      .channel(CURSOR_CHANNEL_NAME)
+      .on('broadcast', { event: 'cursor' }, function (message) {
+        const payload = message.payload || {};
+        const myId = window.RDPoteSupabaseUser.id;
+
+        if (!payload.userId || payload.userId === myId) return;
+
+        if (payload.active === false) {
+          removeRemoteCursor(payload.userId);
+          updateRemoteCursorColors();
+          return;
+        }
+
+        remoteCursors.set(payload.userId, {
+          path: Array.isArray(payload.path) ? payload.path : [],
+          offset: Number.isFinite(payload.offset) ? payload.offset : 0,
+          active: true,
+          el: remoteCursors.get(payload.userId)?.el || null,
+          dot: remoteCursors.get(payload.userId)?.dot || null,
+          label: remoteCursors.get(payload.userId)?.label || null
+        });
+
+        updateRemoteCursorColors();
+        drawRemoteCursor(payload.userId);
+      })
+      .subscribe(function (state) {
+        if (state === 'SUBSCRIBED') {
+          scheduleCursorSend(true);
+        }
+      });
+
+    // Le curseur doit suivre le défilement et les changements de taille.
+    const editor = getEditor();
+    if (editor && editor.dataset.cursorListeners !== '1') {
+      editor.dataset.cursorListeners = '1';
+
+      editor.addEventListener('scroll', redrawAllRemoteCursors);
+      window.addEventListener('resize', redrawAllRemoteCursors);
+
+      editor.addEventListener('focus', function () {
+        scheduleCursorSend(true);
+      });
+
+      editor.addEventListener('blur', function () {
+        scheduleCursorSend(false);
+      });
+
+      editor.addEventListener('keyup', function () {
+        scheduleCursorSend(true);
+      });
+
+      editor.addEventListener('mouseup', function () {
+        scheduleCursorSend(true);
+      });
+
+      document.addEventListener('selectionchange', function () {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        const range = selection.getRangeAt(0);
+        if (editor.contains(range.startContainer)) {
+          scheduleCursorSend(editor === document.activeElement || document.activeElement === editor);
+        }
+      });
+    }
+  }
+
+  function stopCursorChannel() {
+    if (cursorChannel) {
+      cursorChannel.send({
+        type: 'broadcast',
+        event: 'cursor',
+        payload: {
+          userId: window.RDPoteSupabaseUser && window.RDPoteSupabaseUser.id,
+          active: false
+        }
+      }).catch(function () {});
+
+      supabaseClient.removeChannel(cursorChannel);
+      cursorChannel = null;
+    }
+
+    remoteCursors.forEach(function (entry) {
+      if (entry.el) entry.el.remove();
+    });
+    remoteCursors.clear();
+  }
+
   async function initSupabase() {
     const { data: { session } } = await supabaseClient.auth.getSession();
 
@@ -2070,9 +2427,11 @@ mettreAJourBoutons();
     }
 
     try {
+      window.RDPoteSupabaseUser = session.user;
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
+      subscribeToCursorChannel();
     } catch (error) {
       console.error('Impossible de charger le document Supabase :', error);
       showLogin('Connexion établie, mais impossible de charger le document.');
@@ -2082,12 +2441,15 @@ mettreAJourBoutons();
   supabaseClient.auth.onAuthStateChange(function (event, session) {
     if (event === 'PASSWORD_RECOVERY') {
       stopRealtime();
+      stopCursorChannel();
       showResetPasswordScreen();
       return;
     }
 
     if (!session && NEW_PASSWORD.style.display !== 'flex') {
       stopRealtime();
+      stopCursorChannel();
+      window.RDPoteSupabaseUser = null;
       showLogin('');
     }
   });
