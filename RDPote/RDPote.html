@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 -->
+<!-- Version 21 août 2026 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -31,7 +31,7 @@
     padding: 2px 6px;
     font-family: monospace;
   }
-  textarea {
+  #editor {
     width: 100%;
     height: 500px;
     box-sizing: border-box;
@@ -40,8 +40,17 @@
     padding: 12px;
     border: 1px solid #ccc;
     border-radius: 6px;
-    resize: vertical;
+    overflow-y: auto;
     line-height: 2;
+    background: #fff;
+    white-space: pre-wrap;
+    outline: none;
+  }
+  #editor:focus {
+    border-color: #8aa4d6;
+  }
+  #editor p {
+    margin: 0;
   }
   #status {
     margin-top: 8px;
@@ -67,6 +76,14 @@
   #actionbar button:disabled {
     color: #aaa;
     cursor: default;
+  }
+  #boldBtn strong,
+  #italicBtn em {
+    font-size: 17px;
+  }
+  #actionbar button.active {
+    background: #dbe5f7;
+    border-color: #003087;
   }
   #historyBtn {
     margin-left: auto;
@@ -401,6 +418,8 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
   <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
   <button id="copyBtn" type="button" title="Copier tout. Ctrl+A puis Ctrl+C">⿻</button>
+  <button id="boldBtn" type="button" title="Gras. Ctrl+B"><strong>G</strong></button>
+  <button id="italicBtn" type="button" title="Italique. Ctrl+I"><em>I</em></button>
   <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
   <button id="supprBtn" type="button" title="Supprimer les sauts de ligne. Ctrl+M">💥↵</button>
@@ -413,7 +432,7 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
 </div>
 
 <div id="editorWrap">
-  <textarea id="editor" placeholder="Collez ou tapez votre texte ici..."></textarea>
+  <div id="editor" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="false"></div>
   <div id="snippetBubble" class="snippet-bubble" style="display: none;"></div>
 </div>
 
@@ -461,6 +480,119 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
 <script>
 const editor = document.getElementById('editor');
 const status = document.getElementById('status');
+const boldBtn = document.getElementById('boldBtn');
+const italicBtn = document.getElementById('italicBtn');
+
+/*
+ * L'ancien éditeur était un <textarea>. Pour conserver tout le reste du
+ * programme (sélectionStart/End, setRangeText, editor.value...), on fournit
+ * une petite couche de compatibilité autour du contenteditable.
+ */
+function texteEditeur() {
+  return editor.innerText.replace(/\\u00a0/g, ' ');
+}
+
+function echapperTextePourHtml(texte) {
+  const div = document.createElement('div');
+  div.textContent = texte;
+  return div.innerHTML.replace(/\\n/g, '<br>');
+}
+
+function positionTexteDepuisNoeud(noeud, offset) {
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.setEnd(noeud, offset);
+  return range.toString().length;
+}
+
+function trouverPositionTexte(position) {
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let restant = position;
+  let node;
+  while ((node = walker.nextNode())) {
+    if (restant <= node.nodeValue.length) return { node, offset: restant };
+    restant -= node.nodeValue.length;
+  }
+  return { node: editor, offset: editor.childNodes.length };
+}
+
+function selectionTexte() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return { start: 0, end: 0 };
+  const range = sel.getRangeAt(0);
+  if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) {
+    return { start: 0, end: 0 };
+  }
+  return {
+    start: positionTexteDepuisNoeud(range.startContainer, range.startOffset),
+    end: positionTexteDepuisNoeud(range.endContainer, range.endOffset)
+  };
+}
+
+Object.defineProperty(editor, 'value', {
+  configurable: true,
+  get: texteEditeur,
+  set: function(texte) {
+    editor.innerHTML = echapperTextePourHtml(String(texte));
+  }
+});
+
+Object.defineProperty(editor, 'selectionStart', {
+  configurable: true,
+  get: function() { return selectionTexte().start; }
+});
+
+Object.defineProperty(editor, 'selectionEnd', {
+  configurable: true,
+  get: function() { return selectionTexte().end; }
+});
+
+editor.setSelectionRange = function(start, end) {
+  const a = trouverPositionTexte(start);
+  const b = trouverPositionTexte(end);
+  const range = document.createRange();
+  range.setStart(a.node, a.offset);
+  range.setEnd(b.node, b.offset);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+};
+
+editor.select = function() {
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+};
+
+editor.setRangeText = function(texte, start, end, mode) {
+  const a = trouverPositionTexte(start);
+  const b = trouverPositionTexte(end);
+  const range = document.createRange();
+  range.setStart(a.node, a.offset);
+  range.setEnd(b.node, b.offset);
+  range.deleteContents();
+  if (texte) range.insertNode(document.createTextNode(texte));
+  const nouvellePosition = start + texte.length;
+  const pos = trouverPositionTexte(nouvellePosition);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  const r2 = document.createRange();
+  r2.setStart(pos.node, pos.offset);
+  r2.collapse(true);
+  if (mode === 'select') {
+    const debut = trouverPositionTexte(start);
+    r2.setStart(debut.node, debut.offset);
+    r2.setEnd(pos.node, pos.offset);
+  }
+  sel.addRange(r2);
+};
+
+function selectionActive() {
+  const sel = window.getSelection();
+  return sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode);
+}
 const savestatus = document.getElementById('savestatus');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
@@ -492,6 +624,7 @@ const GROUPE_DELAI = 500; // ms de pause avant de considérer qu'un nouveau grou
 function etatActuel() {
   return {
     texte: editor.value,
+    html: editor.innerHTML,
     start: editor.selectionStart,
     end: editor.selectionEnd
   };
@@ -528,7 +661,7 @@ function annuler() {
     redoStack.shift();
   }
   const precedent = undoStack.pop();
-  editor.value = precedent.texte;
+  editor.innerHTML = precedent.html || echapperTextePourHtml(precedent.texte);
   editor.setSelectionRange(precedent.start, precedent.end);
   terminerGroupe();
   mettreAJourBoutons();
@@ -548,7 +681,7 @@ function retablir() {
     undoStack.shift();
   }
   const suivant = redoStack.pop();
-  editor.value = suivant.texte;
+  editor.innerHTML = suivant.html || echapperTextePourHtml(suivant.texte);
   editor.setSelectionRange(suivant.start, suivant.end);
   terminerGroupe();
   mettreAJourBoutons();
@@ -578,10 +711,20 @@ function formatHeure(date) {
   return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+// Format compact utilisé dans le menu des sauvegardes : "20/08 14:28"
+function formatDateHeure(date) {
+  const jour = String(date.getDate()).padStart(2, '0');
+  const mois = String(date.getMonth() + 1).padStart(2, '0');
+  const heures = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return jour + '/' + mois + ' ' + heures + ':' + minutes;
+}
+
 function sauvegarder() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       texte: editor.value,
+      html: editor.innerHTML,
       date: new Date().toISOString()
     }));
     savestatus.textContent = "Sauvegardé automatiquement à " + formatHeure(new Date());
@@ -604,7 +747,7 @@ window.addEventListener('DOMContentLoaded', function() {
     if (saved) {
       const data = JSON.parse(saved);
       if (data.texte && data.texte !== editor.value) {
-        editor.value = data.texte;
+        editor.innerHTML = data.html || echapperTextePourHtml(data.texte);
         status.textContent = "Texte restauré depuis la sauvegarde automatique (" + formatHeure(new Date(data.date)) + ").";
         // Nouveau point de départ : on repart avec des piles vides
         undoStack = [];
@@ -797,14 +940,30 @@ ET AUSSI...
 
 async function copierContenu() {
   try {
-    await navigator.clipboard.writeText(editor.value);
-    status.textContent = "Contenu copié dans le presse-papier.";
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(range.cloneContents());
+    const html = wrapper.innerHTML;
+    const plain = editor.innerText;
+
+    if (navigator.clipboard && window.ClipboardItem) {
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' })
+      });
+      await navigator.clipboard.write([item]);
+    } else {
+      editor.focus();
+      editor.select();
+      document.execCommand('copy');
+      editor.setSelectionRange(editor.value.length, editor.value.length);
+    }
+
+    status.textContent = "Contenu enrichi copié dans le presse-papier.";
   } catch (err) {
-    // Solution de repli si l'API Clipboard n'est pas disponible
-    editor.select();
-    document.execCommand('copy');
-    editor.setSelectionRange(editor.value.length, editor.value.length);
-    status.textContent = "Contenu copié dans le presse-papier.";
+    status.textContent = "Impossible de copier le contenu.";
   }
 }
 
@@ -814,6 +973,42 @@ minBtn.addEventListener('click', mettreEnMinuscules);
 typoBtn.addEventListener('click', corrigerTypo);
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
+
+// --- Mise en forme riche ---
+function basculerFormat(format) {
+  editor.focus();
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !selectionActive()) {
+    status.textContent = "Sélectionne du texte avant de choisir " + (format === 'bold' ? "le gras." : "l'italique.");
+    return;
+  }
+
+  // execCommand est ici volontairement utilisé : il conserve la sélection
+  // et produit du HTML standard (<b>/<i>) que Word et Google Docs savent coller.
+  document.execCommand(format, false, null);
+  mettreAJourEtatFormat();
+  planifierSauvegarde();
+}
+
+function mettreAJourEtatFormat() {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || !selectionActive()) return;
+  boldBtn.classList.toggle('active', document.queryCommandState('bold'));
+  italicBtn.classList.toggle('active', document.queryCommandState('italic'));
+}
+
+boldBtn.addEventListener('mousedown', function(e) {
+  e.preventDefault(); // ne fait pas perdre la sélection dans l'éditeur
+  basculerFormat('bold');
+});
+italicBtn.addEventListener('mousedown', function(e) {
+  e.preventDefault();
+  basculerFormat('italic');
+});
+
+editor.addEventListener('keyup', mettreAJourEtatFormat);
+editor.addEventListener('mouseup', mettreAJourEtatFormat);
+editor.addEventListener('input', mettreAJourEtatFormat);
 
 // --- Caractères spéciaux ---
 
@@ -956,9 +1151,9 @@ function enregistrerInstantane() {
   if (editor.value.length === 0) return;
   const dernier = historique[historique.length - 1];
   // Pas la peine de garder deux instantanés identiques à la suite.
-  if (dernier && dernier.texte === editor.value) return;
+  if (dernier && dernier.texte === editor.value && dernier.html === editor.innerHTML) return;
 
-  historique.push({ texte: editor.value, date: new Date().toISOString() });
+  historique.push({ texte: editor.value, html: editor.innerHTML, date: new Date().toISOString() });
   elaguerHistorique();
   sauvegarderHistorique();
 }
@@ -966,10 +1161,21 @@ function enregistrerInstantane() {
 setInterval(enregistrerInstantane, HISTORY_INTERVALLE_MS);
 
 function formatRelatif(date) {
-  const minutes = Math.round((Date.now() - date.getTime()) / 60000);
-  if (minutes <= 0) return "à l'instant";
-  if (minutes === 1) return "il y a 1 min";
-  return "il y a " + minutes + " min";
+  const totalMinutes = Math.round((Date.now() - date.getTime()) / 60000);
+  if (totalMinutes <= 0) return "à l'instant";
+
+  const jours = Math.floor(totalMinutes / 1440);
+  const heures = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  // On affiche au plus les deux unités les plus significatives
+  // (ex. "1j 3h", "2h 15min", "45min"), jamais les secondes.
+  const parts = [];
+  if (jours > 0) parts.push(jours + "j");
+  if (heures > 0) parts.push(heures + "h");
+  if (minutes > 0 && parts.length < 2) parts.push(minutes + "min");
+
+  return "il y a " + parts.join(' ');
 }
 
 function construireListeHistorique() {
@@ -996,7 +1202,7 @@ function construireListeHistorique() {
 
     const heure = document.createElement('span');
     heure.className = 'heure';
-    heure.textContent = formatHeure(date);
+    heure.textContent = formatDateHeure(date);
 
     const relatif = document.createElement('span');
     relatif.className = 'relatif';
@@ -1035,11 +1241,11 @@ async function copierApercuHistorique() {
   if (!instantaneSelectionne) return;
   try {
     await navigator.clipboard.writeText(instantaneSelectionne.texte);
-    status.textContent = "Sauvegarde de " + formatHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
+    status.textContent = "Sauvegarde de " + formatDateHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
   } catch (err) {
     historyPreview.select();
     document.execCommand('copy');
-    status.textContent = "Sauvegarde de " + formatHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
+    status.textContent = "Sauvegarde de " + formatDateHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
   }
 }
 
@@ -1352,10 +1558,24 @@ editor.addEventListener('keydown', function(e) {
     return;
   }
 
+  const isCtrlB = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'B');
+  const isCtrlI = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'i' || e.key === 'I');
   const isCtrlM = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'm' || e.key === 'M');
   const isCtrlZ = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z');
   const isCtrlY = (e.ctrlKey || e.metaKey) && !e.altKey &&
     ((!e.shiftKey && (e.key === 'y' || e.key === 'Y')) || (e.shiftKey && (e.key === 'z' || e.key === 'Z')));
+
+  if (isCtrlB) {
+    e.preventDefault();
+    basculerFormat('bold');
+    return;
+  }
+
+  if (isCtrlI) {
+    e.preventDefault();
+    basculerFormat('italic');
+    return;
+  }
 
   if (isCtrlM) {
     e.preventDefault(); // empêche l'ouverture d'un nouvel onglet
