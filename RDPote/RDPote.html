@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 21 août 2026 CORRIGE -->
+<!-- Version 20 août 2026 restauree -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -96,49 +96,10 @@
     color: #2a7a2a;
     min-height: 18px;
   }
-  #supabaseLogoutBtn {
-    position: fixed;
-    top: 10px;
-    right: 18px;
-    z-index: 51;
-    display: none;
-    font-size: 12px;
-    padding: 4px 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: #fff;
-    color: #555;
-    cursor: pointer;
-  }
-  #supabaseLogoutBtn:hover {
-    background: #f3f3f3;
-    color: #a33;
-  }
-
-  #currentUserBadge {
-    position: fixed;
-    top: 10px;
-    right: 285px;
-    z-index: 51;
-    display: none;
-    align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .current-user-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.2);
-  }
-
   #connectedUsers {
     position: fixed;
     top: 14px;
-    right: 115px;
+    right: 18px;
     z-index: 50;
     display: flex;
     gap: 9px;
@@ -595,9 +556,7 @@
   Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).<br>
 Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
 
-<div id="currentUserBadge" title="Utilisateur connecté"></div>
 <div id="connectedUsers" title="Utilisateurs connectés"></div>
-<button id="supabaseLogoutBtn" type="button" title="Se déconnecter">Se déconnecter</button>
 <div id="actionbar">
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
   <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
@@ -612,9 +571,7 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="planBtn" type="button" title="Insérer les rubriques vides">🗒</button>
   
    <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
-  <button id="zoomInBtn" type="button" title="Agrandir le texte de l’éditeur">🔎➕</button>
-<button id="zoomOutBtn" type="button" title="Réduire le texte de l’éditeur">🔍➖</button>
-<button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes">🕑</button>
+  <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes">🕑</button>
 </div>
 
 <div id="editorWrap">
@@ -1011,39 +968,6 @@ function mettreEnCasse(transform, label) {
   sauvegarder();
 }
 
-
-const EDITOR_ZOOM_KEY = 'rdpote-editor-zoom';
-const EDITOR_ZOOM_MIN = 12;
-const EDITOR_ZOOM_MAX = 32;
-const EDITOR_ZOOM_STEP = 1;
-
-function obtenirTaillePoliceEditeur() {
-  const taille = parseFloat(window.getComputedStyle(editor).fontSize);
-  return Number.isFinite(taille) ? taille : 17;
-}
-
-function appliquerZoomEditeur(taille) {
-  const valeur = Math.max(EDITOR_ZOOM_MIN, Math.min(EDITOR_ZOOM_MAX, taille));
-  editor.style.fontSize = valeur + 'px';
-  localStorage.setItem(EDITOR_ZOOM_KEY, String(valeur));
-  if (typeof redrawAllRemoteCursors === 'function') {
-    requestAnimationFrame(redrawAllRemoteCursors);
-  }
-}
-
-function zoomerEditeur() {
-  appliquerZoomEditeur(obtenirTaillePoliceEditeur() + EDITOR_ZOOM_STEP);
-}
-
-function dezoomerEditeur() {
-  appliquerZoomEditeur(obtenirTaillePoliceEditeur() - EDITOR_ZOOM_STEP);
-}
-
-function restaurerZoomEditeur() {
-  const sauvegarde = parseFloat(localStorage.getItem(EDITOR_ZOOM_KEY));
-  if (Number.isFinite(sauvegarde)) appliquerZoomEditeur(sauvegarde);
-}
-
 function mettreEnMajuscules() {
   mettreEnCasse(t => t.toLocaleUpperCase('fr-FR'), "majuscules");
 }
@@ -1201,9 +1125,6 @@ minBtn.addEventListener('click', mettreEnMinuscules);
 typoBtn.addEventListener('click', corrigerTypo);
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
-zoomInBtn.addEventListener('click', zoomerEditeur);
-zoomOutBtn.addEventListener('click', dezoomerEditeur);
-restaurerZoomEditeur();
 
 // --- Mise en forme riche ---
 function basculerFormat(format) {
@@ -1942,54 +1863,7 @@ mettreAJourBoutons();
     }
   }
 
-  function actualiserUtilisateurCourant(connecte) {
-    if (!currentUserBadge) return;
-
-    if (!connecte || !window.RDPoteSupabaseUser) {
-      currentUserBadge.style.display = 'none';
-      currentUserBadge.innerHTML = '';
-      return;
-    }
-
-    const nom = window.RDPoteSupabaseUser.username ||
-      window.RDPoteSupabaseUser.email ||
-      'Utilisateur';
-
-    // Couleur stable de la session locale. Le système Presence attribue
-    // déjà les couleurs des curseurs distants séparément.
-    const sessionKey = window.RDPoteSupabaseUser.id + ':' +
-      (window.RDPoteSessionId || '');
-    const palette = ['#003087','#00A6A6','#D81B60','#D71920','#2E7D32','#B28A00','#F57C00'];
-    let h = 0;
-    for (let i = 0; i < sessionKey.length; i++) {
-      h = ((h << 5) - h) + sessionKey.charCodeAt(i);
-      h |= 0;
-    }
-    const couleur = palette[Math.abs(h) % palette.length];
-
-    currentUserBadge.innerHTML = '';
-    const dot = document.createElement('span');
-    dot.className = 'current-user-dot';
-    dot.style.backgroundColor = couleur;
-
-    const text = document.createElement('span');
-    text.textContent = 'Connecté : ' + nom;
-    text.style.color = couleur;
-
-    currentUserBadge.appendChild(dot);
-    currentUserBadge.appendChild(text);
-    currentUserBadge.style.display = 'inline-flex';
-  }
-
-function actualiserBoutonDeconnexion(connecte) {
-    if (LOGOUT_BTN) {
-      LOGOUT_BTN.style.display = connecte ? 'block' : 'none';
-    }
-  }
-
   function showLogin(message) {
-    actualiserUtilisateurCourant(false);
-    actualiserBoutonDeconnexion(false);
     LOGIN.style.display = 'flex';
     LOGIN_MSG.textContent = message || '';
     setTimeout(() => EMAIL.focus(), 50);
@@ -1997,11 +1871,9 @@ function actualiserBoutonDeconnexion(connecte) {
 
   function hideLogin() {
     LOGIN.style.display = 'none';
-    actualiserBoutonDeconnexion(true);
   }
 
   function showResetPasswordScreen() {
-    actualiserBoutonDeconnexion(false);
     LOGIN.style.display = 'none';
     NEW_PASSWORD.style.display = 'flex';
     UPDATE_PASSWORD_MSG.textContent = '';
@@ -2166,38 +2038,6 @@ function actualiserBoutonDeconnexion(connecte) {
     }
   }
 
-  async function seDeconnecter() {
-    if (LOGOUT_BTN) LOGOUT_BTN.disabled = true;
-
-    try {
-      clearTimeout(saveTimer);
-      if (typeof stopRealtime === 'function') stopRealtime();
-      if (typeof stopPresence === 'function') await stopPresence();
-
-      const { error } = await supabaseClient.auth.signOut();
-      if (error) throw error;
-
-      window.RDPoteSupabaseUser = null;
-      actualiserUtilisateurCourant(false);
-      actualiserBoutonDeconnexion(false);
-
-      if (USERNAME) USERNAME.value = '';
-      if (PASSWORD) PASSWORD.value = '';
-      if (LOGIN_MSG) LOGIN_MSG.textContent = '';
-      if (RESET_REQUEST) RESET_REQUEST.style.display = 'none';
-
-      showLogin('');
-    } catch (error) {
-      console.error('Erreur de déconnexion :', error);
-      if (LOGIN_MSG) {
-        LOGIN_MSG.style.color = '#b00020';
-        LOGIN_MSG.textContent = 'Impossible de se déconnecter : ' + (error.message || '');
-      }
-    } finally {
-      if (LOGOUT_BTN) LOGOUT_BTN.disabled = false;
-    }
-  }
-
   async function signIn() {
     LOGIN_BTN.disabled = true;
     LOGIN_MSG.style.color = '#555';
@@ -2224,7 +2064,6 @@ function actualiserBoutonDeconnexion(connecte) {
       }
 
       hideLogin();
-      actualiserUtilisateurCourant(true);
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
@@ -2308,7 +2147,6 @@ function actualiserBoutonDeconnexion(connecte) {
               await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
               window.RDPoteSupabaseUser.email ||
               'Utilisateur';
-            actualiserUtilisateurCourant(true);
           }
           await loadRemoteDocument();
           attachEditorListener();
@@ -2348,7 +2186,6 @@ function actualiserBoutonDeconnexion(connecte) {
   });
 
   LOGIN_BTN.addEventListener('click', signIn);
-  LOGOUT_BTN.addEventListener('click', seDeconnecter);
 
   PASSWORD.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') signIn();
@@ -2378,8 +2215,6 @@ function actualiserBoutonDeconnexion(connecte) {
   ];
 
   const connectedUsersEl = document.getElementById('connectedUsers');
-  const currentUserBadge = document.getElementById('currentUserBadge');
-  const LOGOUT_BTN = document.getElementById('supabaseLogoutBtn');
   const remoteCursorsEl = document.getElementById('remoteCursors');
   const remoteCursors = new Map();
 
@@ -2794,7 +2629,6 @@ function actualiserBoutonDeconnexion(connecte) {
         await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
-      actualiserUtilisateurCourant(true);
       await loadRemoteDocument();
       attachEditorListener();
       subscribeToRealtime();
