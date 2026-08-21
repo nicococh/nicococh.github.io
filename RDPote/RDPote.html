@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 restauree -->
+<!-- Version 20 août 2026 curseur revenu -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -96,11 +96,46 @@
     color: #2a7a2a;
     min-height: 18px;
   }
-  #logoutBtn {
+  #topRightBar {
     position: fixed;
     top: 10px;
     right: 18px;
     z-index: 51;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: calc(100vw - 36px);
+  }
+
+  #connectedUsers {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    font-size: 12px;
+    color: #555;
+    max-width: calc(100vw - 150px);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .connected-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .connected-user-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.2);
+  }
+
+  #logoutBtn {
+    flex: 0 0 auto;
     display: none;
     font-size: 12px;
     padding: 4px 8px;
@@ -114,35 +149,6 @@
   #logoutBtn:hover {
     background: #f3f3f3;
     color: #a33;
-  }
-
-  #connectedUsers {
-    position: fixed;
-    top: 14px;
-    right: 18px;
-    z-index: 50;
-    display: flex;
-    gap: 9px;
-    align-items: center;
-    font-size: 12px;
-    color: #555;
-    max-width: 55vw;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-  .connected-user {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .connected-user-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex: 0 0 8px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.2);
   }
 
   #actionbar {
@@ -627,8 +633,10 @@
 <body>
 
 <h1>RDPote, l'assistant de la revue de presse</h1>
-<div id="connectedUsers" title="Utilisateurs connectés"></div>
-<button id="logoutBtn" type="button" title="Se déconnecter">Déconnecter</button>
+<div id="topRightBar">
+  <div id="connectedUsers" title="Utilisateurs connectés"></div>
+  <button id="logoutBtn" type="button" title="Se déconnecter">Déconnecter</button>
+</div>
 <div id="actionbar">
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
   <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
@@ -2392,10 +2400,8 @@ hideLogin();
 
 
 
+
   // --- Présence + curseurs distants ---
-  // Chaque onglet reçoit un identifiant de session différent.
-  // Deux navigateurs utilisant le même compte ont donc chacun leur
-  // couleur, leur curseur et leur présence.
   const CURSOR_CHANNEL_NAME = 'rdpote-presence-1';
   const CURSOR_PALETTE = [
     '#003087', // bleu foncé
@@ -2409,114 +2415,103 @@ hideLogin();
 
   const connectedUsersEl = document.getElementById('connectedUsers');
   const remoteCursorsEl = document.getElementById('remoteCursors');
+
+  const LOCAL_SESSION_ID =
+    (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'session-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+
+  window.RDPoteSessionId = LOCAL_SESSION_ID;
+
   const remoteCursors = new Map();
-
-  const LOCAL_SESSION_ID = (window.crypto && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : 'session-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-
   let presenceChannel = null;
   let cursorSendTimer = null;
   let localCursorActive = false;
 
-  function hashString(text) {
-    let h = 0;
-    for (let i = 0; i < text.length; i++) {
-      h = ((h << 5) - h) + text.charCodeAt(i);
-      h |= 0;
+  function couleurPourSession(sessionId, sessionIds) {
+    const ids = Array.from(new Set(sessionIds)).sort();
+    const indexInitial = Math.abs(
+      ids.indexOf(sessionId)
+    ) % CURSOR_PALETTE.length;
+
+    // On privilégie une couleur différente de toutes celles déjà attribuées.
+    const couleursUtilisees = new Set();
+    ids.forEach(function (id, index) {
+      if (id === sessionId) return;
+      const idx = index % CURSOR_PALETTE.length;
+      couleursUtilisees.add(CURSOR_PALETTE[idx]);
+    });
+
+    for (let i = 0; i < CURSOR_PALETTE.length; i++) {
+      const couleur = CURSOR_PALETTE[(indexInitial + i) % CURSOR_PALETTE.length];
+      if (!couleursUtilisees.has(couleur)) return couleur;
     }
-    return Math.abs(h);
+
+    return CURSOR_PALETTE[indexInitial];
   }
 
-  function getPresenceEntries() {
+  function etatPresence() {
     if (!presenceChannel) return [];
     const state = presenceChannel.presenceState();
     const entries = [];
 
-    Object.keys(state).forEach(function (key) {
-      (state[key] || []).forEach(function (item) {
+    Object.keys(state).forEach(function(key) {
+      (state[key] || []).forEach(function(item) {
         if (item && item.sessionId) {
           entries.push(item);
         }
       });
     });
 
-    return entries;
-  }
-
-  function getAllSessionIds() {
-    const ids = [LOCAL_SESSION_ID];
-    getPresenceEntries().forEach(function (item) {
-      if (item.sessionId) ids.push(item.sessionId);
-    });
-    remoteCursors.forEach(function (_, sessionId) {
-      ids.push(sessionId);
-    });
-    return Array.from(new Set(ids));
-  }
-
-  function getColorAssignments() {
-    // Un identifiant de session est toujours unique. En cas de collision
-    // théorique sur l'index, on décale jusqu'à trouver une couleur libre.
-    const assignments = new Map();
-    const used = new Set();
-
-    getAllSessionIds().sort().forEach(function (sessionId) {
-      let index = hashString(sessionId) % CURSOR_PALETTE.length;
-      while (used.has(index) && used.size < CURSOR_PALETTE.length) {
-        index = (index + 1) % CURSOR_PALETTE.length;
-      }
-      assignments.set(sessionId, CURSOR_PALETTE[index]);
-      used.add(index);
-    });
-
-    return assignments;
-  }
-
-  function renderConnectedUsers() {
-    if (!connectedUsersEl) return;
-
-    const entries = getPresenceEntries();
-    const bySession = new Map();
-
-    entries.forEach(function (item) {
-      bySession.set(item.sessionId, item);
-    });
-
-    // S'assurer que l'utilisateur local apparaît immédiatement.
+    // Garantit que la session locale est visible immédiatement.
     if (window.RDPoteSupabaseUser) {
-      bySession.set(LOCAL_SESSION_ID, {
+      entries.push({
         sessionId: LOCAL_SESSION_ID,
-        username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur'
+        username: window.RDPoteSupabaseUser.username ||
+          window.RDPoteSupabaseUser.email ||
+          'Utilisateur'
       });
     }
 
-    const assignments = getColorAssignments();
+    const uniques = new Map();
+    entries.forEach(function(item) {
+      uniques.set(item.sessionId, item);
+    });
+    return Array.from(uniques.values());
+  }
+
+  function rafraichirUtilisateursConnectes() {
+    if (!connectedUsersEl) return;
+
+    const entries = etatPresence();
+    const sessionIds = entries.map(function(item) { return item.sessionId; });
+
     connectedUsersEl.innerHTML = '';
 
-    Array.from(bySession.values()).sort(function (a, b) {
-      return String(a.username || '').localeCompare(String(b.username || ''), 'fr');
-    }).forEach(function (item) {
-      const wrapper = document.createElement('span');
-      wrapper.className = 'connected-user';
+    entries
+      .sort(function(a, b) {
+        return String(a.username || '').localeCompare(
+          String(b.username || ''), 'fr'
+        );
+      })
+      .forEach(function(item) {
+        const wrapper = document.createElement('span');
+        wrapper.className = 'connected-user';
 
-      const dot = document.createElement('span');
-      dot.className = 'connected-user-dot';
-      dot.style.backgroundColor = assignments.get(item.sessionId) || CURSOR_PALETTE[0];
+        const dot = document.createElement('span');
+        dot.className = 'connected-user-dot';
+        dot.style.backgroundColor =
+          couleurPourSession(item.sessionId, sessionIds);
 
-      const text = document.createElement('span');
-      text.textContent = item.sessionId === LOCAL_SESSION_ID
-        ? (item.username || 'Vous')
-        : (item.username || 'Utilisateur');
+        const text = document.createElement('span');
+        text.textContent = item.username || 'Utilisateur';
 
-      wrapper.appendChild(dot);
-      wrapper.appendChild(text);
-      connectedUsersEl.appendChild(wrapper);
-    });
+        wrapper.appendChild(dot);
+        wrapper.appendChild(text);
+        connectedUsersEl.appendChild(wrapper);
+      });
 
-    remoteCursors.forEach(function (_, sessionId) {
-      updateRemoteCursorColor(sessionId, assignments.get(sessionId));
-    });
+    rafraichirCouleursCurseurs();
   }
 
   function nodePath(root, node) {
@@ -2542,7 +2537,7 @@ hideLogin();
     return current;
   }
 
-  function getLocalCursorData() {
+  function lireCurseurLocal() {
     const editor = getEditor();
     const selection = window.getSelection();
 
@@ -2561,12 +2556,12 @@ hideLogin();
     };
   }
 
-  function sendCursorNow() {
+  function envoyerCurseur() {
     cursorSendTimer = null;
 
     if (!presenceChannel || !window.RDPoteSupabaseUser) return;
 
-    const cursor = getLocalCursorData();
+    const cursor = lireCurseurLocal();
     if (!cursor) return;
 
     presenceChannel.send({
@@ -2574,7 +2569,9 @@ hideLogin();
       event: 'cursor',
       payload: {
         sessionId: LOCAL_SESSION_ID,
-        username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur',
+        username: window.RDPoteSupabaseUser.username ||
+          window.RDPoteSupabaseUser.email ||
+          'Utilisateur',
         path: cursor.path,
         offset: cursor.offset,
         active: cursor.active
@@ -2582,31 +2579,32 @@ hideLogin();
     });
   }
 
-  function scheduleCursorSend(active) {
+  function planifierEnvoiCurseur(active) {
     localCursorActive = active;
-
     if (cursorSendTimer !== null) return;
-    cursorSendTimer = setTimeout(sendCursorNow, 40);
+    cursorSendTimer = setTimeout(envoyerCurseur, 35);
   }
 
-  function updateRemoteCursorColor(sessionId, color) {
-    const entry = remoteCursors.get(sessionId);
-    if (!entry || !entry.el) return;
+  function rafraichirCouleursCurseurs() {
+    const sessionIds = etatPresence().map(function(item) {
+      return item.sessionId;
+    });
 
-    const actualColor = color || CURSOR_PALETTE[0];
-    entry.color = actualColor;
-    entry.el.style.backgroundColor = actualColor;
-    if (entry.dot) entry.dot.style.backgroundColor = actualColor;
-    if (entry.label) entry.label.style.backgroundColor = actualColor;
+    remoteCursors.forEach(function(entry, sessionId) {
+      const couleur = couleurPourSession(sessionId, sessionIds);
+      if (entry.el) entry.el.style.backgroundColor = couleur;
+      if (entry.dot) entry.dot.style.backgroundColor = couleur;
+      if (entry.label) entry.label.style.backgroundColor = couleur;
+    });
   }
 
-  function removeRemoteCursor(sessionId) {
+  function supprimerCurseurDistant(sessionId) {
     const entry = remoteCursors.get(sessionId);
     if (entry && entry.el) entry.el.remove();
     remoteCursors.delete(sessionId);
   }
 
-  function drawRemoteCursor(sessionId) {
+  function dessinerCurseurDistant(sessionId) {
     const entry = remoteCursors.get(sessionId);
     const editor = getEditor();
 
@@ -2623,12 +2621,12 @@ hideLogin();
 
     try {
       const range = document.createRange();
-      const maxOffset = node.nodeType === Node.TEXT_NODE
-        ? node.textContent.length
-        : node.childNodes.length;
-      const safeOffset = Math.min(entry.offset, maxOffset);
+      const maxOffset =
+        node.nodeType === Node.TEXT_NODE
+          ? node.textContent.length
+          : node.childNodes.length;
 
-      range.setStart(node, safeOffset);
+      range.setStart(node, Math.min(entry.offset, maxOffset));
       range.collapse(true);
 
       const rect = range.getBoundingClientRect();
@@ -2658,29 +2656,28 @@ hideLogin();
         entry.label = label;
       }
 
-      const assignments = getColorAssignments();
-      updateRemoteCursorColor(sessionId, assignments.get(sessionId));
-
-      const presence = getPresenceEntries().find(function (item) {
-        return item.sessionId === sessionId;
+      const sessionIds = etatPresence().map(function(item) {
+        return item.sessionId;
       });
-      const email = (presence && presence.email) || entry.username || 'Utilisateur';
+      const couleur = couleurPourSession(sessionId, sessionIds);
 
-      entry.label.textContent = username;
+      entry.el.style.backgroundColor = couleur;
+      entry.dot.style.backgroundColor = couleur;
+      entry.label.style.backgroundColor = couleur;
+      entry.label.textContent = entry.username || 'Utilisateur';
 
       entry.el.style.display = 'block';
       entry.el.style.left = (rect.left - editorRect.left) + 'px';
       entry.el.style.top = (rect.top - editorRect.top) + 'px';
       entry.el.style.height = Math.max(20, rect.height || 22) + 'px';
-      entry.el.title = username;
     } catch (error) {
-      console.warn('Impossible de positionner le curseur distant :', error);
+      console.warn('Curseur distant :', error);
     }
   }
 
-  function redrawAllRemoteCursors() {
-    remoteCursors.forEach(function (_, sessionId) {
-      drawRemoteCursor(sessionId);
+  function redessinerTousLesCurseurs() {
+    remoteCursors.forEach(function(_, sessionId) {
+      dessinerCurseurDistant(sessionId);
     });
   }
 
@@ -2695,36 +2692,31 @@ hideLogin();
     presenceChannel = supabaseClient
       .channel(CURSOR_CHANNEL_NAME, {
         config: {
-          presence: {
-            key: LOCAL_SESSION_ID
-          },
-          broadcast: {
-            self: false
-          }
+          presence: { key: LOCAL_SESSION_ID },
+          broadcast: { self: false }
         }
       })
-      .on('presence', { event: 'sync' }, function () {
-        renderConnectedUsers();
-        redrawAllRemoteCursors();
+      .on('presence', { event: 'sync' }, function() {
+        rafraichirUtilisateursConnectes();
       })
-      .on('presence', { event: 'join' }, function () {
-        renderConnectedUsers();
+      .on('presence', { event: 'join' }, function() {
+        rafraichirUtilisateursConnectes();
       })
-      .on('presence', { event: 'leave' }, function (payload) {
-        (payload.leftPresences || []).forEach(function (item) {
+      .on('presence', { event: 'leave' }, function(payload) {
+        (payload.leftPresences || []).forEach(function(item) {
           if (item.sessionId && item.sessionId !== LOCAL_SESSION_ID) {
-            removeRemoteCursor(item.sessionId);
+            supprimerCurseurDistant(item.sessionId);
           }
         });
-        renderConnectedUsers();
+        rafraichirUtilisateursConnectes();
       })
-      .on('broadcast', { event: 'cursor' }, function (message) {
+      .on('broadcast', { event: 'cursor' }, function(message) {
         const payload = message.payload || {};
         if (!payload.sessionId || payload.sessionId === LOCAL_SESSION_ID) return;
 
         if (payload.active === false) {
-          removeRemoteCursor(payload.sessionId);
-          renderConnectedUsers();
+          supprimerCurseurDistant(payload.sessionId);
+          rafraichirUtilisateursConnectes();
           return;
         }
 
@@ -2740,17 +2732,19 @@ hideLogin();
           label: previous.label || null
         });
 
-        renderConnectedUsers();
-        drawRemoteCursor(payload.sessionId);
+        rafraichirUtilisateursConnectes();
+        dessinerCurseurDistant(payload.sessionId);
       })
-      .subscribe(async function (state) {
+      .subscribe(async function(state) {
         if (state === 'SUBSCRIBED') {
           await presenceChannel.track({
             sessionId: LOCAL_SESSION_ID,
-            username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur'
+            username: window.RDPoteSupabaseUser.username ||
+              window.RDPoteSupabaseUser.email ||
+              'Utilisateur'
           });
-          renderConnectedUsers();
-          scheduleCursorSend(true);
+          rafraichirUtilisateursConnectes();
+          planifierEnvoiCurseur(true);
         }
       });
 
@@ -2758,31 +2752,32 @@ hideLogin();
     if (editor && editor.dataset.cursorListeners !== '1') {
       editor.dataset.cursorListeners = '1';
 
-      editor.addEventListener('scroll', redrawAllRemoteCursors);
-      window.addEventListener('resize', redrawAllRemoteCursors);
+      editor.addEventListener('scroll', redessinerTousLesCurseurs);
+      window.addEventListener('resize', redessinerTousLesCurseurs);
 
-      editor.addEventListener('focus', function () {
-        scheduleCursorSend(true);
+      editor.addEventListener('focus', function() {
+        planifierEnvoiCurseur(true);
       });
 
-      editor.addEventListener('blur', function () {
-        scheduleCursorSend(false);
+      editor.addEventListener('blur', function() {
+        planifierEnvoiCurseur(false);
       });
 
-      editor.addEventListener('keyup', function () {
-        scheduleCursorSend(true);
+      editor.addEventListener('keyup', function() {
+        planifierEnvoiCurseur(true);
       });
 
-      editor.addEventListener('mouseup', function () {
-        scheduleCursorSend(true);
+      editor.addEventListener('mouseup', function() {
+        planifierEnvoiCurseur(true);
       });
 
-      document.addEventListener('selectionchange', function () {
+      document.addEventListener('selectionchange', function() {
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
+
         const range = selection.getRangeAt(0);
         if (editor.contains(range.startContainer)) {
-          scheduleCursorSend(document.activeElement === editor);
+          planifierEnvoiCurseur(document.activeElement === editor);
         }
       });
     }
@@ -2801,11 +2796,12 @@ hideLogin();
       presenceChannel = null;
     }
 
-    remoteCursors.forEach(function (entry) {
+    remoteCursors.forEach(function(entry) {
       if (entry.el) entry.el.remove();
     });
     remoteCursors.clear();
-    renderConnectedUsers();
+
+    if (connectedUsersEl) connectedUsersEl.innerHTML = '';
   }
 
   async function initSupabase() {
