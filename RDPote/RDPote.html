@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 21 août 2026 -->
+<!-- Version 20 août 2026 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -419,7 +419,7 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
   <button id="copyBtn" type="button" title="Copier tout. Ctrl+A puis Ctrl+C">⿻</button>
   <button id="boldBtn" type="button" title="Gras. Ctrl+B"><strong>G</strong></button>
-  <button id="italicBtn" type="button" title="Italique. Ctrl+I">I</button>
+  <button id="italicBtn" type="button" title="Italique. Ctrl+I"><em>I</em></button>
   <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
   <button id="supprBtn" type="button" title="Supprimer les sauts de ligne. Ctrl+M">💥↵</button>
@@ -476,6 +476,13 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   </div>
 </div>
 
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://cvknbeisuecvuihuolft.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_qXkHPd-8vm-cEbdVcNBtDw_ZIqaoLZc';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
 <script src="dictionnaire-medical.js"></script>
 <script>
 const editor = document.getElementById('editor');
@@ -1597,6 +1604,184 @@ editor.addEventListener('keydown', function(e) {
 });
 
 mettreAJourBoutons();
+</script>
+
+
+<div id="supabaseLogin" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(255,255,255,.97); align-items:center; justify-content:center; font-family:Arial,sans-serif;">
+  <div style="width:340px; max-width:90vw; padding:28px; border:1px solid #ddd; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.12); background:white;">
+    <h2 style="margin:0 0 18px; color:#4a5e81;">RDPote</h2>
+    <label for="supabaseEmail" style="display:block; margin-bottom:6px;">E-mail</label>
+    <input id="supabaseEmail" type="email" autocomplete="username" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
+    <label for="supabasePassword" style="display:block; margin-bottom:6px;">Mot de passe</label>
+    <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
+    <button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
+    <div id="supabaseLoginMsg" style="margin-top:12px; color:#b00020; min-height:18px;"></div>
+  </div>
+</div>
+
+
+<script>
+(function () {
+  const LOGIN = document.getElementById('supabaseLogin');
+  const EMAIL = document.getElementById('supabaseEmail');
+  const PASSWORD = document.getElementById('supabasePassword');
+  const LOGIN_BTN = document.getElementById('supabaseLoginBtn');
+  const LOGIN_MSG = document.getElementById('supabaseLoginMsg');
+
+  // Cherche l'éditeur contenteditable utilisé par RDPote.
+  function getEditor() {
+    return document.querySelector('[contenteditable="true"]');
+  }
+
+  function showLogin(message) {
+    LOGIN.style.display = 'flex';
+    LOGIN_MSG.textContent = message || '';
+    setTimeout(() => EMAIL.focus(), 50);
+  }
+
+  function hideLogin() {
+    LOGIN.style.display = 'none';
+  }
+
+  async function loadRemoteDocument() {
+    const { data, error } = await supabaseClient
+      .from('documents')
+      .select('id, contenu_html, updated_at')
+      .order('id', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error) throw error;
+
+    const editor = getEditor();
+    if (!editor) throw new Error("Éditeur RDPote introuvable.");
+
+    // Ne remplace le contenu local que si le document distant contient quelque chose.
+    // Cela préserve la sauvegarde locale existante lors d'une première connexion.
+    if (data && data.contenu_html && data.contenu_html.trim() !== '') {
+      editor.innerHTML = data.contenu_html;
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    window.RDPoteRemoteDocument = {
+      id: data.id,
+      updated_at: data.updated_at
+    };
+  }
+
+  let saveTimer = null;
+  let saving = false;
+  let pendingSave = false;
+
+  async function saveRemoteDocument() {
+    const editor = getEditor();
+    if (!editor) return;
+
+    const remote = window.RDPoteRemoteDocument;
+    if (!remote) return;
+
+    const contenu_html = editor.innerHTML;
+
+    if (saving) {
+      pendingSave = true;
+      return;
+    }
+
+    saving = true;
+
+    try {
+      const { error } = await supabaseClient
+        .from('documents')
+        .update({
+          contenu_html: contenu_html,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', remote.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Erreur de sauvegarde Supabase :', error);
+      console.warn('La sauvegarde locale de RDPote continue de fonctionner.');
+    } finally {
+      saving = false;
+      if (pendingSave) {
+        pendingSave = false;
+        scheduleRemoteSave();
+      }
+    }
+  }
+
+  function scheduleRemoteSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveRemoteDocument, 900);
+  }
+
+  function attachEditorListener() {
+    const editor = getEditor();
+    if (!editor || editor.dataset.supabaseListener === '1') return;
+
+    editor.dataset.supabaseListener = '1';
+    editor.addEventListener('input', scheduleRemoteSave);
+  }
+
+  async function signIn() {
+    LOGIN_BTN.disabled = true;
+    LOGIN_MSG.style.color = '#555';
+    LOGIN_MSG.textContent = 'Connexion…';
+
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email: EMAIL.value.trim(),
+        password: PASSWORD.value
+      });
+
+      if (error) throw error;
+
+      hideLogin();
+      await loadRemoteDocument();
+      attachEditorListener();
+    } catch (error) {
+      console.error(error);
+      LOGIN_MSG.style.color = '#b00020';
+      LOGIN_MSG.textContent = 'Connexion impossible : ' + (error.message || 'identifiants incorrects');
+    } finally {
+      LOGIN_BTN.disabled = false;
+    }
+  }
+
+  LOGIN_BTN.addEventListener('click', signIn);
+  PASSWORD.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') signIn();
+  });
+
+  async function initSupabase() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (!session) {
+      showLogin('');
+      return;
+    }
+
+    try {
+      await loadRemoteDocument();
+      attachEditorListener();
+    } catch (error) {
+      console.error('Impossible de charger le document Supabase :', error);
+      showLogin('Connexion établie, mais impossible de charger le document.');
+    }
+  }
+
+  supabaseClient.auth.onAuthStateChange(function (_event, session) {
+    if (!session) showLogin('');
+  });
+
+  // Attend que le DOM et l'éditeur RDPote soient disponibles.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSupabase);
+  } else {
+    initSupabase();
+  }
+})();
 </script>
 
 </body>
