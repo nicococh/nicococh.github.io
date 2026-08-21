@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 EN RESEAU -->
+<!-- Version 20 août 2026 AVEC RESET -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1615,7 +1615,16 @@ mettreAJourBoutons();
     <label for="supabasePassword" style="display:block; margin-bottom:6px;">Mot de passe</label>
     <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
     <button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
+    <button id="supabaseForgotBtn" type="button" style="margin-left:10px; padding:9px 0; cursor:pointer; border:0; background:none; color:#003087; text-decoration:underline;">Mot de passe oublié ?</button>
     <div id="supabaseLoginMsg" style="margin-top:12px; color:#b00020; min-height:18px;"></div>
+
+    <div id="supabaseResetRequest" style="display:none; margin-top:18px; padding-top:16px; border-top:1px solid #eee;">
+      <label for="supabaseResetEmail" style="display:block; margin-bottom:6px;">E-mail de récupération</label>
+      <input id="supabaseResetEmail" type="email" autocomplete="email" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:12px;">
+      <button id="supabaseResetRequestBtn" type="button" style="padding:9px 16px; cursor:pointer;">Envoyer le lien</button>
+      <button id="supabaseResetCancelBtn" type="button" style="margin-left:10px; padding:9px 0; cursor:pointer; border:0; background:none; color:#555;">Annuler</button>
+      <div id="supabaseResetRequestMsg" style="margin-top:10px; min-height:18px;"></div>
+    </div>
   </div>
 </div>
 
@@ -1626,9 +1635,23 @@ mettreAJourBoutons();
   const EMAIL = document.getElementById('supabaseEmail');
   const PASSWORD = document.getElementById('supabasePassword');
   const LOGIN_BTN = document.getElementById('supabaseLoginBtn');
+  const FORGOT_BTN = document.getElementById('supabaseForgotBtn');
   const LOGIN_MSG = document.getElementById('supabaseLoginMsg');
 
-  // Cherche l'éditeur contenteditable utilisé par RDPote.
+  const RESET_REQUEST = document.getElementById('supabaseResetRequest');
+  const RESET_EMAIL = document.getElementById('supabaseResetEmail');
+  const RESET_REQUEST_BTN = document.getElementById('supabaseResetRequestBtn');
+  const RESET_CANCEL_BTN = document.getElementById('supabaseResetCancelBtn');
+  const RESET_REQUEST_MSG = document.getElementById('supabaseResetRequestMsg');
+
+  const NEW_PASSWORD = document.getElementById('supabaseNewPassword');
+  const NEW_PASSWORD_INPUT = document.getElementById('supabaseNewPasswordInput');
+  const NEW_PASSWORD_CONFIRM = document.getElementById('supabaseNewPasswordConfirm');
+  const UPDATE_PASSWORD_BTN = document.getElementById('supabaseUpdatePasswordBtn');
+  const UPDATE_PASSWORD_MSG = document.getElementById('supabaseUpdatePasswordMsg');
+
+  const APP_URL = 'https://nicococh.github.io/RDPote/RDPote.html';
+
   function getEditor() {
     return document.querySelector('[contenteditable="true"]');
   }
@@ -1641,6 +1664,13 @@ mettreAJourBoutons();
 
   function hideLogin() {
     LOGIN.style.display = 'none';
+  }
+
+  function showResetPasswordScreen() {
+    LOGIN.style.display = 'none';
+    NEW_PASSWORD.style.display = 'flex';
+    UPDATE_PASSWORD_MSG.textContent = '';
+    setTimeout(() => NEW_PASSWORD_INPUT.focus(), 50);
   }
 
   async function loadRemoteDocument() {
@@ -1656,8 +1686,6 @@ mettreAJourBoutons();
     const editor = getEditor();
     if (!editor) throw new Error("Éditeur RDPote introuvable.");
 
-    // Ne remplace le contenu local que si le document distant contient quelque chose.
-    // Cela préserve la sauvegarde locale existante lors d'une première connexion.
     if (data && data.contenu_html && data.contenu_html.trim() !== '') {
       editor.innerHTML = data.contenu_html;
       editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1749,9 +1777,114 @@ mettreAJourBoutons();
     }
   }
 
+  async function requestPasswordReset() {
+    const email = RESET_EMAIL.value.trim() || EMAIL.value.trim();
+
+    if (!email) {
+      RESET_REQUEST_MSG.style.color = '#b00020';
+      RESET_REQUEST_MSG.textContent = 'Saisis ton adresse e-mail.';
+      RESET_EMAIL.focus();
+      return;
+    }
+
+    RESET_REQUEST_BTN.disabled = true;
+    RESET_REQUEST_MSG.style.color = '#555';
+    RESET_REQUEST_MSG.textContent = 'Envoi du lien…';
+
+    try {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: APP_URL
+      });
+
+      if (error) throw error;
+
+      RESET_REQUEST_MSG.style.color = '#2a7a2a';
+      RESET_REQUEST_MSG.textContent = 'Un lien de réinitialisation vient d’être envoyé.';
+    } catch (error) {
+      console.error(error);
+      RESET_REQUEST_MSG.style.color = '#b00020';
+      RESET_REQUEST_MSG.textContent = 'Impossible d’envoyer le lien : ' + (error.message || '');
+    } finally {
+      RESET_REQUEST_BTN.disabled = false;
+    }
+  }
+
+  async function updatePassword() {
+    const password = NEW_PASSWORD_INPUT.value;
+    const confirmation = NEW_PASSWORD_CONFIRM.value;
+
+    if (password.length < 6) {
+      UPDATE_PASSWORD_MSG.style.color = '#b00020';
+      UPDATE_PASSWORD_MSG.textContent = 'Le mot de passe doit comporter au moins 6 caractères.';
+      return;
+    }
+
+    if (password !== confirmation) {
+      UPDATE_PASSWORD_MSG.style.color = '#b00020';
+      UPDATE_PASSWORD_MSG.textContent = 'Les deux mots de passe ne correspondent pas.';
+      return;
+    }
+
+    UPDATE_PASSWORD_BTN.disabled = true;
+    UPDATE_PASSWORD_MSG.style.color = '#555';
+    UPDATE_PASSWORD_MSG.textContent = 'Enregistrement…';
+
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password: password });
+
+      if (error) throw error;
+
+      UPDATE_PASSWORD_MSG.style.color = '#2a7a2a';
+      UPDATE_PASSWORD_MSG.textContent = 'Mot de passe modifié.';
+
+      setTimeout(async function () {
+        NEW_PASSWORD.style.display = 'none';
+        try {
+          await loadRemoteDocument();
+          attachEditorListener();
+        } catch (loadError) {
+          console.error(loadError);
+          showLogin('Mot de passe modifié. Connecte-toi avec le nouveau mot de passe.');
+        }
+      }, 900);
+    } catch (error) {
+      console.error(error);
+      UPDATE_PASSWORD_MSG.style.color = '#b00020';
+      UPDATE_PASSWORD_MSG.textContent = 'Impossible de modifier le mot de passe : ' + (error.message || '');
+    } finally {
+      UPDATE_PASSWORD_BTN.disabled = false;
+    }
+  }
+
+  FORGOT_BTN.addEventListener('click', function () {
+    RESET_REQUEST.style.display = 'block';
+    RESET_EMAIL.value = EMAIL.value.trim();
+    RESET_EMAIL.focus();
+    LOGIN_MSG.textContent = '';
+  });
+
+  RESET_CANCEL_BTN.addEventListener('click', function () {
+    RESET_REQUEST.style.display = 'none';
+    RESET_REQUEST_MSG.textContent = '';
+    EMAIL.focus();
+  });
+
+  RESET_REQUEST_BTN.addEventListener('click', requestPasswordReset);
+
+  RESET_EMAIL.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') requestPasswordReset();
+  });
+
   LOGIN_BTN.addEventListener('click', signIn);
+
   PASSWORD.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') signIn();
+  });
+
+  UPDATE_PASSWORD_BTN.addEventListener('click', updatePassword);
+
+  NEW_PASSWORD_CONFIRM.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') updatePassword();
   });
 
   async function initSupabase() {
@@ -1771,11 +1904,17 @@ mettreAJourBoutons();
     }
   }
 
-  supabaseClient.auth.onAuthStateChange(function (_event, session) {
-    if (!session) showLogin('');
+  supabaseClient.auth.onAuthStateChange(function (event, session) {
+    if (event === 'PASSWORD_RECOVERY') {
+      showResetPasswordScreen();
+      return;
+    }
+
+    if (!session && NEW_PASSWORD.style.display !== 'flex') {
+      showLogin('');
+    }
   });
 
-  // Attend que le DOM et l'éditeur RDPote soient disponibles.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initSupabase);
   } else {
@@ -1783,6 +1922,19 @@ mettreAJourBoutons();
   }
 })();
 </script>
+
+
+<div id="supabaseNewPassword" style="display:none; position:fixed; inset:0; z-index:100000; background:rgba(255,255,255,.97); align-items:center; justify-content:center; font-family:Arial,sans-serif;">
+  <div style="width:340px; max-width:90vw; padding:28px; border:1px solid #ddd; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.12); background:white;">
+    <h2 style="margin:0 0 18px; color:#4a5e81;">Nouveau mot de passe</h2>
+    <label for="supabaseNewPasswordInput" style="display:block; margin-bottom:6px;">Nouveau mot de passe</label>
+    <input id="supabaseNewPasswordInput" type="password" autocomplete="new-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
+    <label for="supabaseNewPasswordConfirm" style="display:block; margin-bottom:6px;">Confirmer le mot de passe</label>
+    <input id="supabaseNewPasswordConfirm" type="password" autocomplete="new-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
+    <button id="supabaseUpdatePasswordBtn" type="button" style="padding:9px 16px; cursor:pointer;">Enregistrer</button>
+    <div id="supabaseUpdatePasswordMsg" style="margin-top:12px; min-height:18px;"></div>
+  </div>
+</div>
 
 </body>
 </html>
