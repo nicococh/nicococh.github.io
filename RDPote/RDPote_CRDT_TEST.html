@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 11 bis -->
+<!-- V12 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2579,14 +2579,9 @@ mettreAJourBoutons();
       const deletedLength = oldEnd - prefix;
       const insertedText = html.slice(prefix, newEnd);
 
-      // Les curseurs distants doivent suivre exactement la même opération.
-      // Sans cette transformation, un caractère inséré avant leur position
-      // faisait visuellement reculer leur curseur d'un caractère.
-      transformerCurseurs(
-        prefix,
-        deletedLength,
-        insertedText.length
-      );
+      // Les curseurs distants utilisent désormais les RelativePosition Yjs.
+      // On ne décale donc plus leurs positions avec un simple +1/-1 :
+      // Yjs conserve leur position logique à travers les opérations concurrentes.
 
       crdtDoc.transact(function() {
         if (deletedLength > 0) {
@@ -2944,6 +2939,42 @@ mettreAJourBoutons();
     rafraichirCouleursCurseurs();
   }
 
+
+  function encoderPositionRelativeYjs(position) {
+    if (!crdtText || !window.Y || typeof Y.createRelativePositionFromTypeIndex !== 'function') {
+      return null;
+    }
+
+    try {
+      const rel = Y.createRelativePositionFromTypeIndex(
+        crdtText,
+        Math.max(0, Math.min(position, crdtText.length))
+      );
+      return Array.from(Y.encodeRelativePosition(rel));
+    } catch (error) {
+      console.warn('RelativePosition Yjs :', error);
+      return null;
+    }
+  }
+
+  function decoderPositionRelativeYjs(encoded) {
+    if (!encoded || !crdtDoc || !window.Y ||
+        typeof Y.createAbsolutePositionFromRelativePosition !== 'function') {
+      return null;
+    }
+
+    try {
+      const rel = Y.decodeRelativePosition(Uint8Array.from(encoded));
+      const abs = Y.createAbsolutePositionFromRelativePosition(rel, crdtDoc);
+
+      if (!abs || !abs.type || abs.type !== crdtText) return null;
+      return abs.index;
+    } catch (error) {
+      console.warn('Décodage RelativePosition Yjs :', error);
+      return null;
+    }
+  }
+
   function lireCurseurLocal() {
     const editor = getEditor();
     const selection = window.getSelection();
@@ -2981,6 +3012,7 @@ mettreAJourBoutons();
           window.RDPoteSupabaseUser.email ||
           'Utilisateur',
         position: cursor.position,
+        relativePosition: encoderPositionRelativeYjs(cursor.position),
         active: cursor.active
       }
     });
@@ -3080,7 +3112,13 @@ mettreAJourBoutons();
   }
 
   function redessinerTousLesCurseurs() {
-    remoteCursors.forEach(function(_, sessionId) {
+    remoteCursors.forEach(function(entry, sessionId) {
+      if (entry.relativePosition) {
+        const resolved = decoderPositionRelativeYjs(entry.relativePosition);
+        if (resolved != null) {
+          entry.position = resolved;
+        }
+      }
       dessinerCurseurDistant(sessionId);
     });
   }
@@ -3160,10 +3198,17 @@ mettreAJourBoutons();
 
         const previous = remoteCursors.get(payload.sessionId) || {};
 
+        const relativePosition = decoderPositionRelativeYjs(
+          payload.relativePosition
+        );
+
         remoteCursors.set(payload.sessionId, {
-          position: Number.isFinite(Number(payload.position))
-            ? Number(payload.position)
-            : (previous.position || 0),
+          position: relativePosition != null
+            ? relativePosition
+            : (Number.isFinite(Number(payload.position))
+                ? Number(payload.position)
+                : (previous.position || 0)),
+          relativePosition: payload.relativePosition || previous.relativePosition || null,
           active: true,
           username: payload.username || previous.username || 'Utilisateur',
           el: previous.el || null,
