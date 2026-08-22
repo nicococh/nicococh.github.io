@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 restauree V13 -->
+<!-- Version 20 août 2026 restauree V14 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2706,7 +2706,19 @@ mettreAJourBoutons();
 
         try {
           const update = crdtBase64ToBytes(payload.update);
+          const ancienTexteDistant =
+            crdtCursorText ? crdtCursorText.toString() : '';
+
           Y.applyUpdate(crdtDoc, update, 'remote');
+
+          const nouveauTexteDistant =
+            crdtCursorText ? crdtCursorText.toString() : '';
+
+          corrigerCurseursApresModificationDistante(
+            ancienTexteDistant,
+            nouveauTexteDistant
+          );
+
           crdtApplyHtmlToEditor(crdtCurrentHtml());
           redessinerTousLesCurseurs();
           setSyncStatus('Synchronisé', '#2a7a2a');
@@ -2730,11 +2742,23 @@ mettreAJourBoutons();
         if (!payload.update || !crdtDoc) return;
 
         try {
+          const ancienTexteDistant =
+            crdtCursorText ? crdtCursorText.toString() : '';
+
           Y.applyUpdate(
             crdtDoc,
             crdtBase64ToBytes(payload.update),
             'remote'
           );
+
+          const nouveauTexteDistant =
+            crdtCursorText ? crdtCursorText.toString() : '';
+
+          corrigerCurseursApresModificationDistante(
+            ancienTexteDistant,
+            nouveauTexteDistant
+          );
+
           crdtApplyHtmlToEditor(crdtCurrentHtml());
           redessinerTousLesCurseurs();
           crdtSaveLocalState();
@@ -3182,6 +3206,71 @@ mettreAJourBoutons();
     } catch (error) {
       console.warn('Curseur distant :', error);
     }
+  }
+
+
+  function texteVisibleDepuisHtml(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html || '';
+    return temp.textContent || '';
+  }
+
+  function calculerDeltaTexteVisible(ancienTexte, nouveauTexte) {
+    if (ancienTexte === nouveauTexte) {
+      return null;
+    }
+
+    let prefix = 0;
+    const maxPrefix = Math.min(ancienTexte.length, nouveauTexte.length);
+
+    while (
+      prefix < maxPrefix &&
+      ancienTexte.charCodeAt(prefix) === nouveauTexte.charCodeAt(prefix)
+    ) {
+      prefix++;
+    }
+
+    let ancienFin = ancienTexte.length;
+    let nouveauFin = nouveauTexte.length;
+
+    while (
+      ancienFin > prefix &&
+      nouveauFin > prefix &&
+      ancienTexte.charCodeAt(ancienFin - 1) ===
+        nouveauTexte.charCodeAt(nouveauFin - 1)
+    ) {
+      ancienFin--;
+      nouveauFin--;
+    }
+
+    return {
+      start: prefix,
+      deletedLength: ancienFin - prefix,
+      insertedLength: nouveauFin - prefix
+    };
+  }
+
+  function corrigerCurseursApresModificationDistante(
+    ancienTexte,
+    nouveauTexte
+  ) {
+    const delta = calculerDeltaTexteVisible(
+      ancienTexte,
+      nouveauTexte
+    );
+
+    if (!delta) return;
+
+    // Ici on corrige la position AU MOMENT où la modification distante
+    // vient d'être appliquée. Cela évite de dépendre du DOM reconstruit.
+    remoteCursors.forEach(function(entry) {
+      entry.position = transformerPositionCurseur(
+        entry.position,
+        delta.start,
+        delta.deletedLength,
+        delta.insertedLength
+      );
+    });
   }
 
   function redessinerTousLesCurseurs() {
