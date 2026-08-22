@@ -1,16 +1,3631 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
+<!-- Version 20 août 2026 restauree 14ter -->
 <html lang="fr">
-  
 <head>
-<meta http-equiv="refresh" content="0;URL=https://nicococh.github.io/RDPote/RDPote.html">
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
+<link rel="shortcut icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Linecons_daily-newspaper.svg/250px-Linecons_daily-newspaper.svg.png">
 
-<title>RDPote</title>
+ <title>RDPote</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 1000px; 
+    margin: 30px auto;
+    padding: 0 20px;
+    background: #F5F5F5;
+  }
+  h1 {
+    font-size: 32px;
+    color: #003087;
+  }
+  p.info {
+    color: #555;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  kbd {
+    background: #eee;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: monospace;
+  }
+  #editor {
+    width: 100%;
+    height: 500px;
+    box-sizing: border-box;
+    font-size: 17px;
+    font-family: Arial, sans-serif;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    overflow-y: auto;
+    line-height: 2;
+    background: #fff;
+    white-space: pre-wrap;
+    outline: none;
+  }
+  #editor:focus {
+    border-color: #8aa4d6;
+  }
+  #remoteCursors {
+    position: absolute;
+    inset: 0;
+    z-index: 9;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .remote-cursor {
+    position: absolute;
+    width: 3px;
+    min-height: 22px;
+    border-radius: 2px;
+    transform: translateX(-1px);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.75);
+  }
+  .remote-cursor-dot {
+    position: absolute;
+    top: -5px;
+    left: -3px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.9);
+  }
+  .remote-cursor-label {
+    position: absolute;
+    left: 7px;
+    top: -12px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1.1;
+    white-space: nowrap;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  }
+  #editor p {
+    margin: 0;
+  }
+  #status {
+    margin-top: 8px;
+    font-size: 15px;
+    color: #2a7a2a;
+    min-height: 18px;
+  }
+  #connectedUsers {
+    position: fixed;
+    top: 14px;
+    right: 18px;
+    z-index: 50;
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    font-size: 12px;
+    color: #555;
+    max-width: 55vw;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .connected-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .connected-user-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.2);
+  }
+
+  #actionbar {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #actionbar button {
+    font-size: 15px;
+    font-weight: bold;
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+  }
+  #actionbar button:disabled {
+    color: #aaa;
+    cursor: default;
+  }
+  #boldBtn strong,
+  #italicBtn em {
+    font-size: 17px;
+  }
+  #actionbar button.active {
+    background: #dbe5f7;
+    border-color: #003087;
+  }
+  #historyBtn {
+    margin-left: auto;
+  }
+  #savebar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #888;
+  }
+  #savebar button {
+    font-size: 12px;
+    color: #a33;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+  #editorWrap {
+    position: relative;
+  }
+  .snippet-bubble {
+    position: absolute;
+    z-index: 10;
+    background: #003087;
+    color: #fff;
+    font-size: 15px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    transform: translateY(-100%);
+    margin-top: -8px;
+  }
+  .snippet-bubble::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 14px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #003087 transparent transparent transparent;
+  }
+  .snippet-bubble .hint {
+    opacity: 0.7;
+    font-size: 14px;
+    margin-left: 8px;
+  }
+  #specialCharModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #specialCharBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  #specialCharBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #003087;
+  }
+  #specialCharClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+  #specialCharClose:hover {
+    color: #a33;
+  }
+  .spec-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .spec-btn {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 6px;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f8f8f8;
+    cursor: pointer;
+    font-family: Arial, sans-serif;
+  }
+  .spec-btn:hover {
+    background: #e6ecf9;
+    border-color: #003087;
+  }
+  #historyModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #historyBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 640px;
+    height: 80vh;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+  #historyBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #003087;
+  }
+  #historyClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+  #historyClose:hover {
+    color: #a33;
+  }
+  #historyContent {
+    display: flex;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+  }
+  #historyList {
+    width: 150px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-right: 1px solid #e0e0e0;
+    padding-right: 10px;
+  }
+  #historyList p {
+    font-size: 13px;
+    color: #888;
+  }
+  .history-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+  }
+  .history-item:hover {
+    background: #f0f0f0;
+  }
+  .history-item.selected {
+    background: #003087;
+    color: #fff;
+  }
+  .history-item .heure {
+    font-weight: 700;
+    display: block;
+  }
+  .history-item .relatif {
+    font-size: 11px;
+    opacity: 0.8;
+  }
+  #historyPreviewCol {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #historyPreview {
+    flex: 1;
+    resize: none;
+    box-sizing: border-box;
+    padding: 10px;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+    line-height: 1.5;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fafafa;
+    color: #333;
+  }
+  #historyPreviewActions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  #historyCopyBtn {
+    font-size: 13px;
+    padding: 6px 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+  }
+  #historyCopyBtn:disabled {
+    color: #aaa;
+    cursor: default;
+  }
+  #nnaireModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #nnaireBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 560px;
+    height: 80vh;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+  #nnaireBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #003087;
+  }
+  #nnaireClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+  #nnaireClose:hover {
+    color: #a33;
+  }
+  #nnaireSearch {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  #nnaireCount {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  #nnaireResults {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+  }
+  #nnaireResults p {
+    font-size: 13px;
+    color: #888;
+    padding: 10px 2px;
+  }
+  #dictionnaireModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  #dictionnaireBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 560px;
+    height: 80vh;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #dictionnaireBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #003087;
+  }
+
+  #dictionnaireClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+
+  #dictionnaireClose:hover {
+    color: #a33;
+  }
+
+  #dictionnaireSearch {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+
+  #dictionnaireCount {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 8px;
+  }
+
+  #dictionnaireResults {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+  }
+
+  #dictionnaireResults p {
+    font-size: 13px;
+    color: #888;
+    padding: 10px 2px;
+  }
+
+  .dict-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 9px 6px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #222;
+  }
+  .dict-item:hover {
+    background: #e6ecf9;
+  }
+  .dict-item mark {
+    background: #ffe08a;
+    color: inherit;
+    border-radius: 2px;
+  }
+
+    .top-right-users {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: calc(100% - 20px);
+    }
+
+    #connectedUsers {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .logout-btn {
+      display: inline-block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: relative;
+      z-index: 1001;
+      flex: 0 0 auto;
+      white-space: nowrap;
+      border: 1px solid #999;
+      background: #fff;
+      color: #333;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 12px;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .logout-btn:hover {
+      background: #eee;
+    }
+</style>
 </head>
 <body>
 
-<p><a href="https://nicococh.github.io/RDPote/RDPote.html">Redirection, clique ici si ça ne se charge pas</a></p>
+<h1>RDPote, l'assistant de la revue de presse</h1>
+<p class="info">
+  Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).<br>
+Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
+
+<div id="topRightUsers" class="top-right-users">
+  <div id="connectedUsers" title="Utilisateurs connectés"></div>
+  <button id="logoutBtn" class="logout-btn" type="button">Déconnecter</button>
+</div>
+<div id="actionbar">
+  <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
+  <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
+  <button id="copyBtn" type="button" title="Copier tout. Ctrl+A puis Ctrl+C">⿻</button>
+  <button id="boldBtn" type="button" title="Gras. Ctrl+B"><strong>G</strong></button>
+  <button id="italicBtn" type="button" title="Italique. Ctrl+I"><em>I</em></button>
+  <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
+  <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
+  <button id="supprBtn" type="button" title="Supprimer les sauts de ligne. Ctrl+M">💥↵</button>
+  <button id="dictionnaireBtn" type="button" title="Dico des sigles">📖</button>
+  <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
+  <button id="planBtn" type="button" title="Insérer les rubriques vides">🗒</button>
+  
+   <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
+  <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes">🕑</button>
+</div>
+
+<div id="editorWrap">
+  <div id="editor" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="false"></div>
+  <div id="remoteCursors" aria-hidden="true"></div>
+  <div id="snippetBubble" class="snippet-bubble" style="display: none;"></div>
+</div>
+
+<div id="status"></div>
+<div id="syncstatus" style="margin-top:4px; font-size:12px; color:#888; min-height:16px;"></div>
+<div id="savebar">
+  <span id="savestatus"></span>
+  
+</div>
+
+<div id="specialCharModal">
+  <div id="specialCharBox">
+    <button id="specialCharClose" type="button" title="Fermer sans insérer">✕</button>
+    <h2>Insérer un caractère spécial</h2>
+    <div id="specialCharGrid"></div>
+  </div>
+</div>
+
+<div id="historyModal">
+  <div id="historyBox">
+    <button id="historyClose" type="button" title="Fermer">✕</button>
+    <h2>Sauvegardes (les 100 dernières)</h2>
+    <div id="historyContent">
+      <div id="historyList"></div>
+      <div id="historyPreviewCol">
+        <textarea id="historyPreview" readonly placeholder="Sélectionnez une sauvegarde à gauche pour la prévisualiser."></textarea>
+        <div id="historyPreviewActions">
+          <button id="historyCopyBtn" type="button" disabled>Copier</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dictionnaireModal">
+  <div id="dictionnaireBox">
+    <button id="dictionnaireClose" type="button" title="Fermer sans insérer">✕</button>
+    <h2>Insérer une expression du dictionnaire</h2>
+    <input id="dictionnaireSearch" type="text" placeholder="Tapez pour rechercher (ex. : « ARS », « hôpital »)…" autocomplete="off">
+    <div id="dictionnaireCount"></div>
+    <div id="dictionnaireResults"></div>
+  </div>
+</div>
+
+
+<script>
+  // Yjs 13.x fournit un bundle ESM pour le navigateur.
+  // On l'importe comme module puis on expose l'API sous window.Y pour
+  // le reste du fichier RDPote (qui est un script classique).
+  window.RDPoteYjsReady = import('https://esm.sh/yjs@13.6.27?bundle')
+    .then(function(Yjs) {
+      window.Y = Yjs;
+      return Yjs;
+    })
+    .catch(function(error) {
+      console.error('Impossible de charger Yjs :', error);
+      throw error;
+    });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://cvknbeisuecvuihuolft.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_qXkHPd-8vm-cEbdVcNBtDw_ZIqaoLZc';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
+<script src="dictionnaire-medical.js"></script>
+<script>
+const editor = document.getElementById('editor');
+const status = document.getElementById('status');
+const boldBtn = document.getElementById('boldBtn');
+const italicBtn = document.getElementById('italicBtn');
+
+/*
+ * L'ancien éditeur était un <textarea>. Pour conserver tout le reste du
+ * programme (sélectionStart/End, setRangeText, editor.value...), on fournit
+ * une petite couche de compatibilité autour du contenteditable.
+ */
+function texteEditeur() {
+  return editor.innerText.replace(/\\u00a0/g, ' ');
+}
+
+function echapperTextePourHtml(texte) {
+  const div = document.createElement('div');
+  div.textContent = texte;
+  return div.innerHTML.replace(/\\n/g, '<br>');
+}
+
+function positionTexteDepuisNoeud(noeud, offset) {
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.setEnd(noeud, offset);
+  return range.toString().length;
+}
+
+function trouverPositionTexte(position) {
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let restant = position;
+  let node;
+  while ((node = walker.nextNode())) {
+    if (restant <= node.nodeValue.length) return { node, offset: restant };
+    restant -= node.nodeValue.length;
+  }
+  return { node: editor, offset: editor.childNodes.length };
+}
+
+function selectionTexte() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return { start: 0, end: 0 };
+  const range = sel.getRangeAt(0);
+  if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) {
+    return { start: 0, end: 0 };
+  }
+  return {
+    start: positionTexteDepuisNoeud(range.startContainer, range.startOffset),
+    end: positionTexteDepuisNoeud(range.endContainer, range.endOffset)
+  };
+}
+
+Object.defineProperty(editor, 'value', {
+  configurable: true,
+  get: texteEditeur,
+  set: function(texte) {
+    editor.innerHTML = echapperTextePourHtml(String(texte));
+  }
+});
+
+Object.defineProperty(editor, 'selectionStart', {
+  configurable: true,
+  get: function() { return selectionTexte().start; }
+});
+
+Object.defineProperty(editor, 'selectionEnd', {
+  configurable: true,
+  get: function() { return selectionTexte().end; }
+});
+
+editor.setSelectionRange = function(start, end) {
+  const a = trouverPositionTexte(start);
+  const b = trouverPositionTexte(end);
+  const range = document.createRange();
+  range.setStart(a.node, a.offset);
+  range.setEnd(b.node, b.offset);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+};
+
+editor.select = function() {
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+};
+
+editor.setRangeText = function(texte, start, end, mode) {
+  const a = trouverPositionTexte(start);
+  const b = trouverPositionTexte(end);
+  const range = document.createRange();
+  range.setStart(a.node, a.offset);
+  range.setEnd(b.node, b.offset);
+  range.deleteContents();
+  if (texte) range.insertNode(document.createTextNode(texte));
+  const nouvellePosition = start + texte.length;
+  const pos = trouverPositionTexte(nouvellePosition);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  const r2 = document.createRange();
+  r2.setStart(pos.node, pos.offset);
+  r2.collapse(true);
+  if (mode === 'select') {
+    const debut = trouverPositionTexte(start);
+    r2.setStart(debut.node, debut.offset);
+    r2.setEnd(pos.node, pos.offset);
+  }
+  sel.addRange(r2);
+
+  // setRangeText modifie le DOM directement (Range.deleteContents /
+  // insertNode) : contrairement à une frappe clavier normale, cela ne
+  // déclenche PAS d'événement 'input' sur l'éditeur. Or c'est cet
+  // événement qui alimente la synchronisation CRDT (voir plus bas dans
+  // le fichier) : sans lui, les boutons "Insérer un caractère spécial",
+  // "dictionnaire des signes", "Supprimer les sauts de ligne", la
+  // correction de typo, les majuscules/minuscules et l'auto-expansion de
+  // snippet ne seraient PAS transmis aux autres utilisateurs, et ne
+  // passeraient pas non plus par la logique qui préserve la position de
+  // leur curseur. On déclenche donc ici un 'input' synthétique, pour que
+  // ces actions empruntent exactement le même chemin qu'une frappe
+  // clavier classique.
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+};
+
+function selectionActive() {
+  const sel = window.getSelection();
+  return sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode);
+}
+const savestatus = document.getElementById('savestatus');
+const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
+const copyBtn = document.getElementById('copyBtn');
+const planBtn = document.getElementById('planBtn');
+const majBtn = document.getElementById('majBtn');
+const minBtn = document.getElementById('minBtn');
+const typoBtn = document.getElementById('typoBtn');
+const supprBtn = document.getElementById('supprBtn');
+const snippetBubble = document.getElementById('snippetBubble');
+
+const STORAGE_KEY = 'editeur-texte-autosave';
+
+// --- Système unifié d'annulation / rétablissement ---
+// Couvre à la fois la frappe clavier normale et les nettoyages Ctrl+M.
+// On ne s'appuie pas sur l'historique natif du navigateur (qui ne connaît pas
+// les modifications faites via setRangeText), on gère donc tout nous-mêmes.
+
+const UNDO_LIMIT = 100;
+let undoStack = [];
+let redoStack = [];
+
+// Regroupe les frappes rapides et successives en une seule étape d'annulation,
+// comme le font la plupart des éditeurs de texte.
+let groupeEnCours = false;
+let groupeTimeout = null;
+const GROUPE_DELAI = 500; // ms de pause avant de considérer qu'un nouveau groupe commence
+
+function etatActuel() {
+  return {
+    texte: editor.value,
+    html: editor.innerHTML,
+    start: editor.selectionStart,
+    end: editor.selectionEnd
+  };
+}
+
+function mettreAJourBoutons() {
+  undoBtn.disabled = undoStack.length === 0;
+  redoBtn.disabled = redoStack.length === 0;
+}
+
+function empilerUndo(etat) {
+  undoStack.push(etat);
+  if (undoStack.length > UNDO_LIMIT) {
+    undoStack.shift();
+  }
+  // Toute nouvelle action invalide la pile de rétablissement
+  redoStack = [];
+  mettreAJourBoutons();
+}
+
+function terminerGroupe() {
+  groupeEnCours = false;
+  clearTimeout(groupeTimeout);
+  groupeTimeout = null;
+}
+
+function annuler() {
+  if (undoStack.length === 0) {
+    status.textContent = "Rien à annuler.";
+    return;
+  }
+  redoStack.push(etatActuel());
+  if (redoStack.length > UNDO_LIMIT) {
+    redoStack.shift();
+  }
+  const precedent = undoStack.pop();
+  editor.innerHTML = precedent.html || echapperTextePourHtml(precedent.texte);
+  editor.setSelectionRange(precedent.start, precedent.end);
+  terminerGroupe();
+  mettreAJourBoutons();
+  masquerBulle();
+  status.textContent = "Dernière action annulée.";
+  editor.focus();
+  sauvegarder();
+}
+
+function retablir() {
+  if (redoStack.length === 0) {
+    status.textContent = "Rien à rétablir.";
+    return;
+  }
+  undoStack.push(etatActuel());
+  if (undoStack.length > UNDO_LIMIT) {
+    undoStack.shift();
+  }
+  const suivant = redoStack.pop();
+  editor.innerHTML = suivant.html || echapperTextePourHtml(suivant.texte);
+  editor.setSelectionRange(suivant.start, suivant.end);
+  terminerGroupe();
+  mettreAJourBoutons();
+  masquerBulle();
+  status.textContent = "Action rétablie.";
+  editor.focus();
+  sauvegarder();
+}
+
+undoBtn.addEventListener('click', annuler);
+redoBtn.addEventListener('click', retablir);
+
+// Capture l'état AVANT chaque modification déclenchée par l'utilisateur
+// (frappe, collage, glisser-déposer, correction orthographique, etc.)
+editor.addEventListener('beforeinput', function() {
+  if (!groupeEnCours) {
+    empilerUndo(etatActuel());
+    groupeEnCours = true;
+  }
+  clearTimeout(groupeTimeout);
+  groupeTimeout = setTimeout(terminerGroupe, GROUPE_DELAI);
+});
+
+// --- Sauvegarde automatique ---
+
+function formatHeure(date) {
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// Format compact utilisé dans le menu des sauvegardes : "20/08 14:28"
+function formatDateHeure(date) {
+  const jour = String(date.getDate()).padStart(2, '0');
+  const mois = String(date.getMonth() + 1).padStart(2, '0');
+  const heures = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return jour + '/' + mois + ' ' + heures + ':' + minutes;
+}
+
+function sauvegarder() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      texte: editor.value,
+      html: editor.innerHTML,
+      date: new Date().toISOString()
+    }));
+    savestatus.textContent = "Sauvegardé automatiquement à " + formatHeure(new Date());
+  } catch (err) {
+    savestatus.textContent = "Échec de la sauvegarde automatique (mémoire du navigateur pleine ?).";
+  }
+}
+
+let saveTimeout = null;
+function planifierSauvegarde() {
+  savestatus.textContent = "Modification en cours...";
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(sauvegarder, 800); // sauvegarde 0.8s après la dernière frappe
+}
+
+// Restauration au chargement de la page
+window.addEventListener('DOMContentLoaded', function() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data.texte && data.texte !== editor.value) {
+        editor.innerHTML = data.html || echapperTextePourHtml(data.texte);
+        status.textContent = "Texte restauré depuis la sauvegarde automatique (" + formatHeure(new Date(data.date)) + ").";
+        // Nouveau point de départ : on repart avec des piles vides
+        undoStack = [];
+        redoStack = [];
+        mettreAJourBoutons();
+      }
+      savestatus.textContent = "Dernière sauvegarde : " + formatHeure(new Date(data.date));
+    }
+  } catch (err) {
+    // pas de sauvegarde valide, on ignore
+  }
+});
+
+editor.addEventListener('input', planifierSauvegarde);
+
+// Sauvegarde immédiate si l'utilisateur quitte/ferme la page
+window.addEventListener('beforeunload', sauvegarder);
+
+function supprimerSautsDeLigne() {
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  if (start === end) {
+    status.textContent = "Aucune sélection : sélectionnez du texte avec la souris avant Ctrl+M.";
+    return;
+  }
+
+  const value = editor.value;
+  const selectedText = value.substring(start, end);
+  const cleaned = nettoyerTexte(selectedText);
+
+  // setRangeText ne déclenche pas 'beforeinput', on empile donc l'état
+  // précédent nous-mêmes, et on clôt le groupe de frappe en cours.
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  // Remplacer la sélection par le texte nettoyé
+  editor.setRangeText(cleaned, start, end, 'select');
+
+  masquerBulle();
+  status.textContent = "Sauts de ligne supprimés dans la sélection (" + selectedText.length + " → " + cleaned.length + " caractères).";
+  editor.focus();
+  sauvegarder();
+}
+
+function mettreEnCasse(transform, label) {
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  if (start === end) {
+    status.textContent = "Aucune sélection : sélectionnez du texte avant de cliquer sur " + label + ".";
+    return;
+  }
+
+  const selectedText = editor.value.substring(start, end);
+  const converti = transform(selectedText);
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.setRangeText(converti, start, end, 'select');
+
+  masquerBulle();
+  status.textContent = "Sélection mise en " + label + ".";
+  editor.focus();
+  sauvegarder();
+}
+
+function mettreEnMajuscules() {
+  mettreEnCasse(t => t.toLocaleUpperCase('fr-FR'), "majuscules");
+}
+
+function mettreEnMinuscules() {
+  mettreEnCasse(t => t.toLocaleLowerCase('fr-FR'), "minuscules");
+}
+
+function corrigerTypo() {
+  if (editor.value.length === 0) {
+    status.textContent = "Le document est vide, rien à corriger.";
+    return;
+  }
+
+  if (!confirm("Souhaites-tu corriger la typo ?")) {
+    return;
+  }
+
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  // --- 1re boucle de remplacements ---
+  const expressions = [
+    "le Parisien", "l'Opinion", "l'Humanité", "L'humanité", "le Figaro", "la Croix", " brève,", "bréve", // spécifique revue de presse
+    /\n\s*\n/g, // Enlever les doubles sauts de ligne
+    /\)\.\n/g, ",p", ", p ", "et p ", ";L", // parenthèse et point en fin de ligne ; espace avant "page..."
+    "’", /«\s+/g, /«/g, /\s+»/g, /»/g, "“", "”", // apostrophes et guillemets
+    /\n-/g, // Le tiret en début de ligne doit être suivi d'un espace
+    /n°\s/g, // Pas d'espace après n°
+    " ,", /\(\s+/g, /\s+\)/g, // pas d'espace avant une virgule, espace avant-après parenthèse
+    "'Assurance maladie", "'Assurance Maladie", "ssurance-maladie", "a Sécurité sociale", "Premier ministre",
+    "Conseil des ministres", "loi de finances de la sécurité sociale",
+    "startup", ", Une et p",
+    "Echos", "Etat", "Ecole",
+    " dix ", " onze ", " douze ", " treize ", " quatorze ", " quinze ", " seize ", " 000",
+    "1er", " 2e ", " 3e ", " 4e ", " 5e ", " 6e ", " 7e ", " 8e ", " 9e ",
+    " m2", " m3", "CO2", "NO2", "SaO2",
+    /\r/g // De vrais beaux retours à la ligne, sinon certains remplacements ne se font pas
+  ];
+
+  const replacements = [
+    "Le Parisien", "L'Opinion", "L'Humanité", "L'Humanité", "Le Figaro", "La Croix", " brève", "brève",
+    '\n',
+    ")\n", ", p", ", p", "et p", "; L",
+    "'", '"', '"', '"', '"', '"', '"',
+    "\n- ",
+    "n°",
+    ",", "(", ")",
+    "'assurance maladie", "'assurance maladie", "ssurance maladie", "a sécurité sociale", "premier ministre",
+    "conseil des ministres", "loi de financement de la sécurité sociale",
+    "start-up", ", une et p",
+    "Échos", "État", "École",
+    " 10 ", " 11 ", " 12 ", " 13 ", " 14 ", " 15 ", " 16 ", ".000",
+    "1ᵉʳ", " deuxième ", " troisième ", " quatrième ", " cinquième ", " sixième ", " septième ", " huitième ", " neuvième ",
+    " m²", " m³", "CO₂", "NO₂", "SaO₂",
+    "\n"
+  ];
+
+  let texte = editor.value;
+  for (let i = 0; i < expressions.length; i++) {
+    texte = texte.replace(new RegExp(expressions[i], "g"), replacements[i]);
+  }
+
+  // --- 2e boucle qui répare les bêtises de la première ---
+  const expressions2 = [
+    "  ", "   ", "    ", // Supprimer doubles, triples et quadruples espaces
+    "POLITIQUE DE SANTE", "ETABLISSEMENTS - SOINS DE VILLE", "SANTE - MEDECINE",
+    "'Assurance maladie",
+    "1ère ", "2ème ", "3ème ", "4ème ", "5ème ", "6ème ", "7ème ", "8ème ", "9ème "
+  ];
+
+  const replacements2 = [
+    " ", " ", " ",
+    "POLITIQUE DE SANTÉ", "ÉTABLISSEMENTS - SOINS DE VILLE", "SANTÉ - MÉDECINE",
+    "'assurance maladie",
+    "1re ", "2e ", "3e ", "4e ", "5e ", "6e ", "7e ", "8e ", "9e "
+  ];
+
+  for (let j = 0; j < expressions2.length; j++) {
+    texte = texte.replace(new RegExp(expressions2[j], "g"), replacements2[j]);
+  }
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.value = texte;
+  // On essaie de garder la position du curseur à peu près cohérente,
+  // sans dépasser la nouvelle longueur du texte.
+  const nouvellePosition = Math.min(end, texte.length);
+  editor.setSelectionRange(nouvellePosition, nouvellePosition);
+
+  masquerBulle();
+  status.textContent = "Typo corrigée sur l'ensemble du document.";
+  editor.focus();
+  sauvegarder();
+}
+
+function insererPlan() {
+  const plan = `La santé dans la presse xxxx
+PARIS, xx xxx 2026 (APMnews) -
+POLITIQUE DE SANTÉ
+ÉTABLISSEMENTS - SOINS DE VILLE
+ENTREPRISES
+SANTÉ - MÉDECINE
+RECHERCHE
+ENVIRONNEMENT
+ET AUSSI...
+/xx/xx/APMnews
+`;
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.value = plan + editor.value;
+  editor.setSelectionRange(plan.length, plan.length);
+
+  masquerBulle();
+  status.textContent = "Plan inséré en tête du document.";
+  editor.focus();
+  sauvegarder();
+}
+
+async function copierContenu() {
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(range.cloneContents());
+    const html = wrapper.innerHTML;
+    const plain = editor.innerText;
+
+    if (navigator.clipboard && window.ClipboardItem) {
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' })
+      });
+      await navigator.clipboard.write([item]);
+    } else {
+      editor.focus();
+      editor.select();
+      document.execCommand('copy');
+      editor.setSelectionRange(editor.value.length, editor.value.length);
+    }
+
+    status.textContent = "Contenu enrichi copié dans le presse-papier.";
+  } catch (err) {
+    status.textContent = "Impossible de copier le contenu.";
+  }
+}
+
+planBtn.addEventListener('click', insererPlan);
+majBtn.addEventListener('click', mettreEnMajuscules);
+minBtn.addEventListener('click', mettreEnMinuscules);
+typoBtn.addEventListener('click', corrigerTypo);
+supprBtn.addEventListener('click', supprimerSautsDeLigne);
+copyBtn.addEventListener('click', copierContenu);
+
+// --- Mise en forme riche ---
+function basculerFormat(format) {
+  editor.focus();
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !selectionActive()) {
+    status.textContent = "Sélectionne du texte avant de choisir " + (format === 'bold' ? "le gras." : "l'italique.");
+    return;
+  }
+
+  // execCommand est ici volontairement utilisé : il conserve la sélection
+  // et produit du HTML standard (<b>/<i>) que Word et Google Docs savent coller.
+  document.execCommand(format, false, null);
+  mettreAJourEtatFormat();
+  planifierSauvegarde();
+}
+
+function mettreAJourEtatFormat() {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || !selectionActive()) return;
+  boldBtn.classList.toggle('active', document.queryCommandState('bold'));
+  italicBtn.classList.toggle('active', document.queryCommandState('italic'));
+}
+
+boldBtn.addEventListener('mousedown', function(e) {
+  e.preventDefault(); // ne fait pas perdre la sélection dans l'éditeur
+  basculerFormat('bold');
+});
+italicBtn.addEventListener('mousedown', function(e) {
+  e.preventDefault();
+  basculerFormat('italic');
+});
+
+editor.addEventListener('keyup', mettreAJourEtatFormat);
+editor.addEventListener('mouseup', mettreAJourEtatFormat);
+editor.addEventListener('input', mettreAJourEtatFormat);
+
+// --- Caractères spéciaux ---
+
+const specialCharModal = document.getElementById('specialCharModal');
+const specialCharGrid = document.getElementById('specialCharGrid');
+const specialCharBtn = document.getElementById('specialCharBtn');
+const specialCharClose = document.getElementById('specialCharClose');
+
+// Chaque tableau est un groupe, affiché sur sa propre ligne dans la grille.
+// Pour ajouter/retirer des caractères : modifier les tableaux ci-dessous.
+const SPECIAL_CHAR_GROUPS = [
+  ["ᵉ", "1ᵉʳ", "1ʳᵉ", "2ᵉ", "2ᵉˢ", "2ᵈ", "2ᵈᵉˢ", "1ᴱᴿ", "²", "³", "₂", "₃"],
+  ["À", "É", "È", "Ê", "Ë", "Î", "Ù", "Œ", "Æ", "á", "ó", "ú", "í", "œ", "æ"],
+  ["–", "×", "≥", "≤", "¥"],
+  ["Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ", "Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο", "Π", "Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω"],
+  ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ", "ν", "ξ", "ο", "π", "ρ", "σ", "τ", "υ", "φ", "χ", "ψ", "ω"],
+  ["·", "•"]
+];
+
+function construireGrilleCarSpeciaux() {
+  SPECIAL_CHAR_GROUPS.forEach(function(groupe) {
+    const ligne = document.createElement('div');
+    ligne.className = 'spec-group';
+    groupe.forEach(function(car) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'spec-btn';
+      btn.textContent = car;
+      btn.title = 'Insérer ' + car;
+      btn.addEventListener('click', function() {
+        insererCaractereSpecial(car);
+      });
+      ligne.appendChild(btn);
+    });
+    specialCharGrid.appendChild(ligne);
+  });
+}
+construireGrilleCarSpeciaux();
+
+function afficherModalCarSpeciaux() {
+  specialCharModal.style.display = 'flex';
+}
+
+function masquerModalCarSpeciaux() {
+  specialCharModal.style.display = 'none';
+}
+
+function insererCaractereSpecial(car) {
+  // editor.selectionStart/End reflètent la dernière position du curseur
+  // dans le textarea, même si celui-ci a perdu le focus au profit de la modale.
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.setRangeText(car, start, end, 'end');
+
+  masquerModalCarSpeciaux();
+  status.textContent = "Caractère inséré : " + car;
+  editor.focus();
+  sauvegarder();
+}
+
+specialCharBtn.addEventListener('click', afficherModalCarSpeciaux);
+specialCharClose.addEventListener('click', function() {
+  masquerModalCarSpeciaux();
+  editor.focus();
+});
+// Fermer en cliquant en dehors de la boîte (sur le fond assombri)
+specialCharModal.addEventListener('click', function(e) {
+  if (e.target === specialCharModal) {
+    masquerModalCarSpeciaux();
+    editor.focus();
+  }
+});
+// Fermer avec Échap (couvre aussi les fenêtres d'historique et de dictionnaire, définies plus bas)
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  if (specialCharModal.style.display !== 'none') {
+    masquerModalCarSpeciaux();
+    editor.focus();
+  }
+  if (historyModal.style.display !== 'none') {
+    masquerModalHistorique();
+    editor.focus();
+  }
+  if (dictionnaireModal.style.display !== 'none') {
+    masquerModalDictionnaire();
+    editor.focus();
+  }
+});
+
+// --- Historique des sauvegardes (un instantané par minute, les 100 dernières) ---
+// Distinct de la sauvegarde "à chaque frappe" ci-dessus (qui sert à la
+// récupération après fermeture inopinée) : celui-ci garde une trace de
+// versions successives du texte, consultables et copiables, sans jamais
+// écraser le contenu actuel de l'éditeur.
+
+const HISTORY_KEY = 'editeur-texte-historique';
+const HISTORY_INTERVALLE_MS = 60 * 1000;       // un instantané par minute
+const HISTORY_MAX_ENTREES = 100;               // au-delà, les plus anciennes sont purgées
+
+const historyModal = document.getElementById('historyModal');
+const historyBtn = document.getElementById('historyBtn');
+const historyClose = document.getElementById('historyClose');
+const historyList = document.getElementById('historyList');
+const historyPreview = document.getElementById('historyPreview');
+const historyCopyBtn = document.getElementById('historyCopyBtn');
+
+let historique = [];       // [{ texte, date }], du plus ancien au plus récent
+let instantaneSelectionne = null;
+
+function chargerHistorique() {
+  try {
+    const brut = localStorage.getItem(HISTORY_KEY);
+    historique = brut ? JSON.parse(brut) : [];
+  } catch (err) {
+    historique = [];
+  }
+  elaguerHistorique();
+}
+
+function elaguerHistorique() {
+  if (historique.length > HISTORY_MAX_ENTREES) {
+    historique = historique.slice(historique.length - HISTORY_MAX_ENTREES);
+  }
+}
+
+function sauvegarderHistorique() {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(historique));
+  } catch (err) {
+    // Espace de stockage plein ou indisponible : on ignore silencieusement,
+    // la sauvegarde "à chaque frappe" continue de fonctionner de son côté.
+  }
+}
+
+function enregistrerInstantane() {
+  if (editor.value.length === 0) return;
+  const dernier = historique[historique.length - 1];
+  // Pas la peine de garder deux instantanés identiques à la suite.
+  if (dernier && dernier.texte === editor.value && dernier.html === editor.innerHTML) return;
+
+  historique.push({ texte: editor.value, html: editor.innerHTML, date: new Date().toISOString() });
+  elaguerHistorique();
+  sauvegarderHistorique();
+}
+
+setInterval(enregistrerInstantane, HISTORY_INTERVALLE_MS);
+
+function formatRelatif(date) {
+  const totalMinutes = Math.round((Date.now() - date.getTime()) / 60000);
+  if (totalMinutes <= 0) return "à l'instant";
+
+  const jours = Math.floor(totalMinutes / 1440);
+  const heures = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  // On affiche au plus les deux unités les plus significatives
+  // (ex. "1j 3h", "2h 15min", "45min"), jamais les secondes.
+  const parts = [];
+  if (jours > 0) parts.push(jours + "j");
+  if (heures > 0) parts.push(heures + "h");
+  if (minutes > 0 && parts.length < 2) parts.push(minutes + "min");
+
+  return "il y a " + parts.join(' ');
+}
+
+function construireListeHistorique() {
+  elaguerHistorique();
+  historyList.innerHTML = '';
+  instantaneSelectionne = null;
+  historyPreview.value = '';
+  historyCopyBtn.disabled = true;
+
+  if (historique.length === 0) {
+    const vide = document.createElement('p');
+    vide.textContent = "Aucune sauvegarde pour l'instant. Reviens dans une minute.";
+    historyList.appendChild(vide);
+    return;
+  }
+
+  // Du plus récent au plus ancien
+  const entrees = historique.slice().reverse();
+  entrees.forEach(function(entree) {
+    const date = new Date(entree.date);
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'history-item';
+
+    const heure = document.createElement('span');
+    heure.className = 'heure';
+    heure.textContent = formatDateHeure(date);
+
+    const relatif = document.createElement('span');
+    relatif.className = 'relatif';
+    relatif.textContent = formatRelatif(date);
+
+    item.appendChild(heure);
+    item.appendChild(relatif);
+
+    item.addEventListener('click', function() {
+      document.querySelectorAll('.history-item.selected').forEach(function(el) {
+        el.classList.remove('selected');
+      });
+      item.classList.add('selected');
+      instantaneSelectionne = entree;
+      historyPreview.value = entree.texte;
+      historyCopyBtn.disabled = false;
+    });
+
+    historyList.appendChild(item);
+  });
+
+  // On présélectionne la sauvegarde la plus récente pour éviter un clic inutile.
+  historyList.querySelector('.history-item').click();
+}
+
+function afficherModalHistorique() {
+  construireListeHistorique();
+  historyModal.style.display = 'flex';
+}
+
+function masquerModalHistorique() {
+  historyModal.style.display = 'none';
+}
+
+async function copierApercuHistorique() {
+  if (!instantaneSelectionne) return;
+  try {
+    await navigator.clipboard.writeText(instantaneSelectionne.texte);
+    status.textContent = "Sauvegarde de " + formatDateHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
+  } catch (err) {
+    historyPreview.select();
+    document.execCommand('copy');
+    status.textContent = "Sauvegarde de " + formatDateHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
+  }
+}
+
+historyBtn.addEventListener('click', afficherModalHistorique);
+historyClose.addEventListener('click', function() {
+  masquerModalHistorique();
+  editor.focus();
+});
+historyModal.addEventListener('click', function(e) {
+  if (e.target === historyModal) {
+    masquerModalHistorique();
+    editor.focus();
+  }
+});
+historyCopyBtn.addEventListener('click', copierApercuHistorique);
+
+chargerHistorique();
+
+// --- Dictionnaire d'expressions (recherche + insertion au curseur) ---
+// La liste des expressions vit dans le fichier séparé dictionnaire-medical.js
+// (variable globale DICTIONNAIRE_EXPRESSIONS) : pour l'enrichir, il suffit de
+// modifier ce fichier, aucune autre modification n'est nécessaire ici.
+
+const dictionnaireModal = document.getElementById('dictionnaireModal');
+const dictionnaireBtn = document.getElementById('dictionnaireBtn');
+const dictionnaireClose = document.getElementById('dictionnaireClose');
+const dictionnaireSearch = document.getElementById('dictionnaireSearch');
+const dictionnaireCount = document.getElementById('dictionnaireCount');
+const dictionnaireResults = document.getElementById('dictionnaireResults');
+
+const DICTIONNAIRE_MAX_AFFICHES = 200; // évite de peindre des milliers de lignes inutilement
+
+function normaliserRecherche(texte) {
+  // Ignore accents et casse, pour que "hopital" trouve "hôpital".
+  return texte
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function echapperHtml(texte) {
+  const div = document.createElement('div');
+  div.textContent = texte;
+  return div.innerHTML;
+}
+
+function surlignerCorrespondance(expression, requeteNormalisee) {
+  if (!requeteNormalisee) return echapperHtml(expression);
+  const normalisee = normaliserRecherche(expression);
+  const idx = normalisee.indexOf(requeteNormalisee);
+  if (idx === -1) return echapperHtml(expression);
+  const avant = expression.slice(0, idx);
+  const trouve = expression.slice(idx, idx + requeteNormalisee.length);
+  const apres = expression.slice(idx + requeteNormalisee.length);
+  return echapperHtml(avant) + '<mark>' + echapperHtml(trouve) + '</mark>' + echapperHtml(apres);
+}
+
+function insererExpression(expression) {
+  // Comme pour les caractères spéciaux : editor.selectionStart/End reflètent
+  // la dernière position du curseur, même sans focus (modale ouverte).
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.setRangeText(expression, start, end, 'end');
+
+  masquerModalDictionnaire();
+  status.textContent = "Expression insérée : " + expression;
+  editor.focus();
+  sauvegarder();
+}
+
+function actualiserResultatsDictionnaire() {
+  const requeteBrute = dictionnaireSearch.value.trim();
+  const requete = normaliserRecherche(requeteBrute);
+
+  const correspondances = (typeof DICTIONNAIRE_EXPRESSIONS !== 'undefined' ? DICTIONNAIRE_EXPRESSIONS : [])
+    .filter(function(expression) {
+      return requete === '' || normaliserRecherche(expression).indexOf(requete) !== -1;
+    });
+
+  dictionnaireResults.innerHTML = '';
+
+  if (correspondances.length === 0) {
+    const vide = document.createElement('p');
+    vide.textContent = "Aucune expression ne correspond à cette recherche.";
+    dictionnaireResults.appendChild(vide);
+    dictionnaireCount.textContent = '';
+    return;
+  }
+
+  const aAfficher = correspondances.slice(0, DICTIONNAIRE_MAX_AFFICHES);
+
+  dictionnaireCount.textContent = correspondances.length > DICTIONNAIRE_MAX_AFFICHES
+    ? correspondances.length + " résultats (les " + DICTIONNAIRE_MAX_AFFICHES + " premiers sont affichés, précisez la recherche pour affiner)"
+    : correspondances.length + (correspondances.length > 1 ? " résultats" : " résultat");
+
+  aAfficher.forEach(function(expression) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'dict-item';
+    item.innerHTML = surlignerCorrespondance(expression, requete);
+    item.addEventListener('click', function() {
+      insererExpression(expression);
+    });
+    dictionnaireResults.appendChild(item);
+  });
+}
+
+function afficherModalDictionnaire() {
+  dictionnaireSearch.value = '';
+  actualiserResultatsDictionnaire();
+  dictionnaireModal.style.display = 'flex';
+  dictionnaireSearch.focus();
+}
+
+function masquerModalDictionnaire() {
+  dictionnaireModal.style.display = 'none';
+}
+
+dictionnaireBtn.addEventListener('click', afficherModalDictionnaire);
+dictionnaireClose.addEventListener('click', function() {
+  masquerModalDictionnaire();
+  editor.focus();
+});
+dictionnaireModal.addEventListener('click', function(e) {
+  if (e.target === dictionnaireModal) {
+    masquerModalDictionnaire();
+    editor.focus();
+  }
+});
+dictionnaireSearch.addEventListener('input', actualiserResultatsDictionnaire);
+// Entrée insère directement le premier résultat, pour aller vite au clavier.
+dictionnaireSearch.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const premier = dictionnaireResults.querySelector('.dict-item');
+    if (premier) premier.click();
+  }
+});
+
+// --- Saisie rapide (bulle de suggestion) ---
+// Dès que le texte tapé juste avant le curseur correspond exactement (casse
+// comprise) à un des déclencheurs ci-dessous, une bulle apparaît au-dessus
+// du curseur. Appuyer sur Entrée remplace le déclencheur par l'expansion.
+// Toute autre touche, ou un déplacement du curseur, referme la bulle.
+
+const SNIPPETS = [
+  { trigger: "Le M",   expansion: "(Le Monde, px)" },
+  { trigger: "lemo",   expansion: "(Le Monde, px)" },
+  { trigger: "lmù*",   expansion: "(Le Monde science et médecine, px)" },
+  { trigger: "(Le P",   expansion: "(Le Parisien, px)" },
+  { trigger: "(Le G",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
+  { trigger: "Les E",  expansion: "(Les Échos, px)" },
+  { trigger: "Le F",   expansion: "(Le Figaro, px)" },
+  { trigger: "La C",   expansion: "(La Croix, px)" },
+  { trigger: "L'H",    expansion: "(L'Humanité, px)" },
+  { trigger: "Libé",   expansion: "(Libération, px)" },
+  { trigger: "L'Opi",  expansion: "(L'Opinion, px)" }
+];
+// Les déclencheurs les plus longs sont testés en premier (utile si l'un est
+// le préfixe d'un autre, ex. "L'Opi" ne doit pas être masqué par un "L'O" plus court).
+SNIPPETS.sort((a, b) => b.trigger.length - a.trigger.length);
+
+let activeSnippet = null; // { trigger, expansion, start, end }
+
+function caractereFrontiere(c) {
+  // Un déclencheur ne doit pas être précédé d'une lettre/chiffre, sinon on
+  // risque de le détecter au milieu d'un mot (ex. "ÉchelLe M...").
+  return c === undefined || !/[A-Za-zÀ-ÖØ-öø-ÿ0-9]/.test(c);
+}
+
+function detecterSnippet() {
+  if (editor.selectionStart !== editor.selectionEnd) {
+    masquerBulle();
+    return;
+  }
+  const pos = editor.selectionStart;
+  const texte = editor.value;
+
+  for (const snippet of SNIPPETS) {
+    const debut = pos - snippet.trigger.length;
+    if (debut < 0) continue;
+    if (texte.slice(debut, pos) !== snippet.trigger) continue;
+    if (!caractereFrontiere(texte[debut - 1])) continue;
+
+    activeSnippet = { ...snippet, start: debut, end: pos };
+    afficherBulle();
+    return;
+  }
+
+  masquerBulle();
+}
+
+function afficherBulle() {
+  if (!activeSnippet) return;
+  snippetBubble.innerHTML = activeSnippet.expansion + '<span class="hint">↵ pour insérer</span>';
+  snippetBubble.style.display = 'block';
+
+  const coords = getCaretCoordinates(editor, editor.selectionStart);
+  snippetBubble.style.left = Math.max(0, coords.left - editor.scrollLeft) + 'px';
+  snippetBubble.style.top = (coords.top - editor.scrollTop) + 'px';
+}
+
+function masquerBulle() {
+  activeSnippet = null;
+  snippetBubble.style.display = 'none';
+}
+
+function accepterSnippet() {
+  if (!activeSnippet) return;
+  const { expansion, start, end } = activeSnippet;
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+
+  editor.setRangeText(expansion, start, end, 'end');
+  masquerBulle();
+  status.textContent = "Expression insérée.";
+  editor.focus();
+  sauvegarder();
+}
+
+// Calcule la position (en pixels, relative au textarea) du curseur, en
+// répliquant le rendu du textarea dans un <div> invisible de même style.
+function getCaretCoordinates(textarea, position) {
+  const div = document.createElement('div');
+  const computed = window.getComputedStyle(textarea);
+
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.wordWrap = 'break-word';
+  div.style.width = computed.width;
+
+  const proprietes = [
+    'boxSizing', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+    'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+    'fontStyle', 'fontVariant', 'fontWeight', 'fontSize', 'lineHeight', 'fontFamily',
+    'textAlign', 'textTransform', 'textIndent', 'letterSpacing', 'wordSpacing', 'tabSize'
+  ];
+  proprietes.forEach(function(prop) { div.style[prop] = computed[prop]; });
+
+  document.body.appendChild(div);
+
+  div.textContent = textarea.value.substring(0, position);
+  const span = document.createElement('span');
+  span.textContent = textarea.value.substring(position) || '.';
+  div.appendChild(span);
+
+  const coordinates = {
+    top: span.offsetTop + parseInt(computed.borderTopWidth, 10),
+    left: span.offsetLeft + parseInt(computed.borderLeftWidth, 10)
+  };
+
+  document.body.removeChild(div);
+  return coordinates;
+}
+
+editor.addEventListener('input', detecterSnippet);
+editor.addEventListener('click', masquerBulle);
+editor.addEventListener('blur', masquerBulle);
+
+function nettoyerTexte(selectedText) {
+  let lastChar = "";
+  let text = selectedText;
+
+  // Si la sélection se termine par un saut de ligne, on le conserve à part
+  if (text.endsWith("\n")) {
+    lastChar = "\n";
+    text = text.slice(0, -1);
+  }
+
+  // Remplacer tous les sauts de ligne (\r\n, \r, \n) par des espaces
+  text = text.replace(/\r\n|\r|\n/g, " ");
+
+  // Remettre le dernier saut de ligne s'il y en avait un
+  text = text + lastChar;
+
+  // Corriger les césures : "mot- suite" -> "motsuite"
+  text = text.replace(/- /g, "");
+
+  // Supprimer les doubles espaces (et plus), en préservant un éventuel \n final
+  // On traite la partie sans le \n final séparément pour ne pas le manger
+  if (text.endsWith("\n")) {
+    let body = text.slice(0, -1);
+    body = body.replace(/ {2,}/g, " ");
+    text = body + "\n";
+  } else {
+    text = text.replace(/ {2,}/g, " ");
+  }
+
+  return text;
+}
+
+editor.addEventListener('keydown', function(e) {
+  const isEnter = e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+  const isEscape = e.key === 'Escape';
+
+  if (isEnter && activeSnippet) {
+    e.preventDefault();
+    accepterSnippet();
+    return;
+  }
+
+  if (isEscape && activeSnippet) {
+    masquerBulle();
+    return;
+  }
+
+  const isCtrlB = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'B');
+  const isCtrlI = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'i' || e.key === 'I');
+  const isCtrlM = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'm' || e.key === 'M');
+  const isCtrlZ = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z');
+  const isCtrlY = (e.ctrlKey || e.metaKey) && !e.altKey &&
+    ((!e.shiftKey && (e.key === 'y' || e.key === 'Y')) || (e.shiftKey && (e.key === 'z' || e.key === 'Z')));
+
+  if (isCtrlB) {
+    e.preventDefault();
+    basculerFormat('bold');
+    return;
+  }
+
+  if (isCtrlI) {
+    e.preventDefault();
+    basculerFormat('italic');
+    return;
+  }
+
+  if (isCtrlM) {
+    e.preventDefault(); // empêche l'ouverture d'un nouvel onglet
+    supprimerSautsDeLigne();
+    return;
+  }
+
+  if (isCtrlZ) {
+    e.preventDefault();
+    annuler();
+    return;
+  }
+
+  if (isCtrlY) {
+    e.preventDefault();
+    retablir();
+    return;
+  }
+});
+
+mettreAJourBoutons();
+</script>
+
+
+<div id="supabaseLogin" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(255,255,255,.97); align-items:center; justify-content:center; font-family:Arial,sans-serif;">
+  <div style="width:340px; max-width:90vw; padding:28px; border:1px solid #ddd; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.12); background:white;">
+    <h2 style="margin:0 0 18px; color:#4a5e81;">RDPote</h2>
+    <label for="supabaseEmail" style="display:block; margin-bottom:6px;">E-mail</label>
+    <input id="supabaseEmail" type="email" autocomplete="username" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
+    <label for="supabasePassword" style="display:block; margin-bottom:6px;">Mot de passe</label>
+    <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:10px;">
+    <label for="supabaseUsername" style="display:block; margin-bottom:6px;">Nom d'utilisateur</label>
+    <input id="supabaseUsername" type="text" maxlength="40" autocomplete="nickname" placeholder="Ex. Nico" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
+    <button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
+    <button id="supabaseForgotBtn" type="button" style="margin-left:10px; padding:9px 0; cursor:pointer; border:0; background:none; color:#003087; text-decoration:underline;">Mot de passe oublié ?</button>
+    <div id="supabaseLoginMsg" style="margin-top:12px; color:#b00020; min-height:18px;"></div>
+
+    <div id="supabaseResetRequest" style="display:none; margin-top:18px; padding-top:16px; border-top:1px solid #eee;">
+      <label for="supabaseResetEmail" style="display:block; margin-bottom:6px;">E-mail de récupération</label>
+      <input id="supabaseResetEmail" type="email" autocomplete="email" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:12px;">
+      <button id="supabaseResetRequestBtn" type="button" style="padding:9px 16px; cursor:pointer;">Envoyer le lien</button>
+      <button id="supabaseResetCancelBtn" type="button" style="margin-left:10px; padding:9px 0; cursor:pointer; border:0; background:none; color:#555;">Annuler</button>
+      <div id="supabaseResetRequestMsg" style="margin-top:10px; min-height:18px;"></div>
+    </div>
+  </div>
+</div>
+
+
+<div id="supabaseNewPassword" style="display:none; position:fixed; inset:0; z-index:100000; background:rgba(255,255,255,.97); align-items:center; justify-content:center; font-family:Arial,sans-serif;">
+  <div style="width:340px; max-width:90vw; padding:28px; border:1px solid #ddd; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.12); background:white;">
+    <h2 style="margin:0 0 18px; color:#4a5e81;">Nouveau mot de passe</h2>
+    <label for="supabaseNewPasswordInput" style="display:block; margin-bottom:6px;">Nouveau mot de passe</label>
+    <input id="supabaseNewPasswordInput" type="password" autocomplete="new-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
+    <label for="supabaseNewPasswordConfirm" style="display:block; margin-bottom:6px;">Confirmer le mot de passe</label>
+    <input id="supabaseNewPasswordConfirm" type="password" autocomplete="new-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
+    <button id="supabaseUpdatePasswordBtn" type="button" style="padding:9px 16px; cursor:pointer;">Enregistrer</button>
+    <div id="supabaseUpdatePasswordMsg" style="margin-top:12px; min-height:18px;"></div>
+  </div>
+</div>
+
+
+<script>
+(function () {
+  const LOGIN = document.getElementById('supabaseLogin');
+  const EMAIL = document.getElementById('supabaseEmail');
+  const PASSWORD = document.getElementById('supabasePassword');
+  const USERNAME = document.getElementById('supabaseUsername');
+  const LOGIN_BTN = document.getElementById('supabaseLoginBtn');
+  const FORGOT_BTN = document.getElementById('supabaseForgotBtn');
+  const LOGIN_MSG = document.getElementById('supabaseLoginMsg');
+
+  const RESET_REQUEST = document.getElementById('supabaseResetRequest');
+  const RESET_EMAIL = document.getElementById('supabaseResetEmail');
+  const RESET_REQUEST_BTN = document.getElementById('supabaseResetRequestBtn');
+  const RESET_CANCEL_BTN = document.getElementById('supabaseResetCancelBtn');
+  const RESET_REQUEST_MSG = document.getElementById('supabaseResetRequestMsg');
+
+  const NEW_PASSWORD = document.getElementById('supabaseNewPassword');
+  const NEW_PASSWORD_INPUT = document.getElementById('supabaseNewPasswordInput');
+  const NEW_PASSWORD_CONFIRM = document.getElementById('supabaseNewPasswordConfirm');
+  const UPDATE_PASSWORD_BTN = document.getElementById('supabaseUpdatePasswordBtn');
+  const UPDATE_PASSWORD_MSG = document.getElementById('supabaseUpdatePasswordMsg');
+
+  const syncstatus = document.getElementById('syncstatus');
+
+  const APP_URL = 'https://nicococh.github.io/RDPote/RDPote.html';
+
+  let realtimeChannel = null;
+
+  function getEditor() {
+    return document.querySelector('[contenteditable="true"]');
+  }
+
+
+  async function chargerProfilUtilisateur(user, remplirChampConnexion = false) {
+    if (!user) return null;
+
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('username')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Erreur lors du chargement du profil :', error);
+      return null;
+    }
+
+    const username = (data && data.username) ? data.username.trim() : '';
+
+    if (remplirChampConnexion && USERNAME) {
+      USERNAME.value = username;
+    }
+
+    return username;
+  }
+
+  async function enregistrerNomUtilisateur(user, username) {
+    if (!user || !username) return;
+
+    const propre = username.trim();
+    if (!propre) return;
+
+    const { error } = await supabaseClient
+      .from('profiles')
+      .upsert(
+        { id: user.id, username: propre, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      );
+
+    if (error) {
+      console.error('Erreur lors de l’enregistrement du nom d’utilisateur :', error);
+    }
+  }
+
+  function showLogin(message) {
+    LOGIN.style.display = 'flex';
+    LOGIN_MSG.textContent = message || '';
+    setTimeout(() => EMAIL.focus(), 50);
+  }
+
+  function hideLogin() {
+    LOGIN.style.display = 'none';
+  }
+
+  function showResetPasswordScreen() {
+    LOGIN.style.display = 'none';
+    NEW_PASSWORD.style.display = 'flex';
+    UPDATE_PASSWORD_MSG.textContent = '';
+    setTimeout(() => NEW_PASSWORD_INPUT.focus(), 50);
+  }
+
+  function setSyncStatus(message, color) {
+    if (!syncstatus) return;
+    syncstatus.textContent = message || '';
+    if (color) syncstatus.style.color = color;
+  }
+
+  async function loadRemoteDocument() {
+    const { data, error } = await supabaseClient
+      .from('documents')
+      .select('id, contenu_html, updated_at')
+      .order('id', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error) throw error;
+
+    const editor = getEditor();
+    if (!editor) throw new Error("Éditeur RDPote introuvable.");
+
+    if (data && data.contenu_html && data.contenu_html.trim() !== '') {
+      editor.innerHTML = data.contenu_html;
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    window.RDPoteRemoteDocument = {
+      id: data.id,
+      updated_at: data.updated_at
+    };
+
+    setSyncStatus('Synchronisé avec Supabase', '#2a7a2a');
+  }
+
+  let saveTimer = null;
+  let saving = false;
+  let pendingSave = false;
+
+  async function saveRemoteDocument() {
+    const editor = getEditor();
+    if (!editor) return;
+
+    const remote = window.RDPoteRemoteDocument;
+    if (!remote) return;
+
+    const contenu_html = editor.innerHTML;
+
+    if (saving) {
+      pendingSave = true;
+      return;
+    }
+
+    saving = true;
+    setSyncStatus('Enregistrement en ligne…', '#888');
+
+    try {
+      const { error } = await supabaseClient
+        .from('documents')
+        .update({
+          contenu_html: contenu_html,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', remote.id);
+
+      if (error) throw error;
+
+      setSyncStatus('Enregistré en ligne', '#2a7a2a');
+    } catch (error) {
+      console.error('Erreur de sauvegarde Supabase :', error);
+      setSyncStatus('Hors ligne : sauvegarde locale conservée', '#a33');
+    } finally {
+      saving = false;
+      if (pendingSave) {
+        pendingSave = false;
+        scheduleRemoteSave();
+      }
+    }
+  }
+
+  function scheduleRemoteSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveRemoteDocument, 900);
+  }
+
+  function attachEditorListener() {
+    const editor = getEditor();
+    if (!editor || editor.dataset.supabaseListener === '1') return;
+
+    editor.dataset.supabaseListener = '1';
+    editor.addEventListener('input', function () {
+      // Ancien mécanisme conservé uniquement pour compatibilité ;
+      // la synchronisation active est désormais assurée par Yjs.
+    });
+  }
+
+  function subscribeToRealtime() {
+    const remote = window.RDPoteRemoteDocument;
+    if (!remote) return;
+
+    if (realtimeChannel) {
+      supabaseClient.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+
+    realtimeChannel = supabaseClient
+      .channel('rdpote-document')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'documents',
+          filter: 'id=eq.' + remote.id
+        },
+        function (payload) {
+          const editor = getEditor();
+          if (!editor) return;
+
+          const incoming = payload.new && payload.new.contenu_html;
+          const incomingUpdatedAt = payload.new && payload.new.updated_at;
+
+          if (typeof incoming !== 'string') return;
+
+          // Ne fait rien si la version reçue est déjà celle affichée.
+          if (incoming === editor.innerHTML) {
+            window.RDPoteRemoteDocument.updated_at = incomingUpdatedAt || window.RDPoteRemoteDocument.updated_at;
+            return;
+          }
+
+          // Pour l'instant, on applique la dernière version reçue.
+          // Cette version est adaptée à deux utilisateurs, mais deux éditions
+          // simultanées du même document peuvent encore se remplacer.
+          editor.innerHTML = incoming;
+
+          window.RDPoteRemoteDocument.updated_at = incomingUpdatedAt || new Date().toISOString();
+
+          setSyncStatus('Document mis à jour par l’autre utilisateur', '#003087');
+          if (typeof status !== 'undefined' && status) {
+            status.textContent = 'Modification reçue depuis Supabase.';
+          }
+        }
+      )
+      .subscribe(function (state, error) {
+        if (state === 'SUBSCRIBED') {
+          setSyncStatus('Synchronisation en temps réel active', '#2a7a2a');
+          console.log('RDPote Realtime : abonnement actif.');
+        } else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') {
+          console.error('RDPote Realtime :', state, error);
+          setSyncStatus('Synchronisation temps réel indisponible', '#a33');
+        }
+      });
+  }
+
+  function stopRealtime() {
+    if (realtimeChannel) {
+      supabaseClient.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+  }
+
+  async function signIn() {
+    LOGIN_BTN.disabled = true;
+    LOGIN_MSG.style.color = '#555';
+    LOGIN_MSG.textContent = 'Connexion…';
+
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email: EMAIL.value.trim(),
+        password: PASSWORD.value
+      });
+
+      if (error) throw error;
+
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      window.RDPoteSupabaseUser = sessionData.session.user;
+
+      window.RDPoteSupabaseUser.username =
+        await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
+        window.RDPoteSupabaseUser.email ||
+        'Utilisateur';
+
+      hideLogin();
+      await loadRemoteDocument();
+      await initCRDT();
+      subscribeToPresence();
+    } catch (error) {
+      console.error(error);
+      LOGIN_MSG.style.color = '#b00020';
+      LOGIN_MSG.textContent =
+        'Connexion réussie, mais démarrage de RDPote impossible : ' +
+        (error.message || 'erreur inconnue');
+    } finally {
+      LOGIN_BTN.disabled = false;
+    }
+  }
+
+  async function requestPasswordReset() {
+    const email = RESET_EMAIL.value.trim() || EMAIL.value.trim();
+
+    if (!email) {
+      RESET_REQUEST_MSG.style.color = '#b00020';
+      RESET_REQUEST_MSG.textContent = 'Saisis ton adresse e-mail.';
+      RESET_EMAIL.focus();
+      return;
+    }
+
+    RESET_REQUEST_BTN.disabled = true;
+    RESET_REQUEST_MSG.style.color = '#555';
+    RESET_REQUEST_MSG.textContent = 'Envoi du lien…';
+
+    try {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: APP_URL
+      });
+
+      if (error) throw error;
+
+      RESET_REQUEST_MSG.style.color = '#2a7a2a';
+      RESET_REQUEST_MSG.textContent = 'Un lien de réinitialisation vient d’être envoyé.';
+    } catch (error) {
+      console.error(error);
+      RESET_REQUEST_MSG.style.color = '#b00020';
+      RESET_REQUEST_MSG.textContent = 'Impossible d’envoyer le lien : ' + (error.message || '');
+    } finally {
+      RESET_REQUEST_BTN.disabled = false;
+    }
+  }
+
+  async function updatePassword() {
+    const password = NEW_PASSWORD_INPUT.value;
+    const confirmation = NEW_PASSWORD_CONFIRM.value;
+
+    if (password.length < 6) {
+      UPDATE_PASSWORD_MSG.style.color = '#b00020';
+      UPDATE_PASSWORD_MSG.textContent = 'Le mot de passe doit comporter au moins 6 caractères.';
+      return;
+    }
+
+    if (password !== confirmation) {
+      UPDATE_PASSWORD_MSG.style.color = '#b00020';
+      UPDATE_PASSWORD_MSG.textContent = 'Les deux mots de passe ne correspondent pas.';
+      return;
+    }
+
+    UPDATE_PASSWORD_BTN.disabled = true;
+    UPDATE_PASSWORD_MSG.style.color = '#555';
+    UPDATE_PASSWORD_MSG.textContent = 'Enregistrement…';
+
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password: password });
+
+      if (error) throw error;
+
+      UPDATE_PASSWORD_MSG.style.color = '#2a7a2a';
+      UPDATE_PASSWORD_MSG.textContent = 'Mot de passe modifié.';
+
+      setTimeout(async function () {
+        NEW_PASSWORD.style.display = 'none';
+        try {
+          const { data: recoverySession } = await supabaseClient.auth.getSession();
+          if (recoverySession.session) {
+            window.RDPoteSupabaseUser = recoverySession.session.user;
+            window.RDPoteSupabaseUser.username =
+              await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
+              window.RDPoteSupabaseUser.email ||
+              'Utilisateur';
+          }
+          await loadRemoteDocument();
+          await initCRDT();
+          subscribeToPresence();
+        } catch (loadError) {
+          console.error(loadError);
+          showLogin('Mot de passe modifié. Connecte-toi avec le nouveau mot de passe.');
+        }
+      }, 900);
+    } catch (error) {
+      console.error(error);
+      UPDATE_PASSWORD_MSG.style.color = '#b00020';
+      UPDATE_PASSWORD_MSG.textContent = 'Impossible de modifier le mot de passe : ' + (error.message || '');
+    } finally {
+      UPDATE_PASSWORD_BTN.disabled = false;
+    }
+  }
+
+  FORGOT_BTN.addEventListener('click', function () {
+    RESET_REQUEST.style.display = 'block';
+    RESET_EMAIL.value = EMAIL.value.trim();
+    RESET_EMAIL.focus();
+    LOGIN_MSG.textContent = '';
+  });
+
+  RESET_CANCEL_BTN.addEventListener('click', function () {
+    RESET_REQUEST.style.display = 'none';
+    RESET_REQUEST_MSG.textContent = '';
+    EMAIL.focus();
+  });
+
+  RESET_REQUEST_BTN.addEventListener('click', requestPasswordReset);
+
+  RESET_EMAIL.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') requestPasswordReset();
+  });
+
+  LOGIN_BTN.addEventListener('click', signIn);
+
+  PASSWORD.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') signIn();
+  });
+
+  UPDATE_PASSWORD_BTN.addEventListener('click', updatePassword);
+
+  NEW_PASSWORD_CONFIRM.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') updatePassword();
+  });
+
+
+
+
+  // --- CRDT expérimental (Yjs) ---
+  // V2 : synchronisation CRDT via Supabase Realtime Broadcast.
+  // Le canal est authentifié avant toute émission. Les anciennes fonctions
+  // de sauvegarde HTML/realtime ne sont volontairement pas utilisées ici.
+  let crdtDoc = null;
+  let crdtText = null;
+  let crdtCursorText = null;
+  let crdtLastHtml = '';
+  let crdtChannel = null;
+  let crdtReady = false;
+  let crdtApplyingRemote = false;
+  let crdtObserverAttached = false;
+  let crdtEditorListenerAttached = false;
+  let crdtSeeded = false;
+  let crdtLocalChangeTimer = null;
+  let crdtIndexedDb = null;
+
+  const CRDT_DOC_NAME = 'rdpote-document-1-v2';
+  const CRDT_CHANNEL_NAME = 'rdpote-crdt-document-v2';
+
+  function crdtBytesToBase64(bytes) {
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(
+        null,
+        bytes.subarray(i, Math.min(i + chunk, bytes.length))
+      );
+    }
+    return btoa(binary);
+  }
+
+  function crdtBase64ToBytes(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  function crdtUserKey() {
+    const user = window.RDPoteSupabaseUser;
+    return user && user.id ? user.id : 'anonymous';
+  }
+
+  function crdtOpenIndexedDB() {
+    return new Promise(function(resolve, reject) {
+      if (!window.indexedDB) {
+        resolve(null);
+        return;
+      }
+
+      const request = indexedDB.open('RDPoteCRDT_v2', 1);
+
+      request.onupgradeneeded = function(event) {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('documents')) {
+          db.createObjectStore('documents');
+        }
+      };
+
+      request.onsuccess = function() {
+        crdtIndexedDb = request.result;
+        resolve(crdtIndexedDb);
+      };
+
+      request.onerror = function() {
+        console.warn('IndexedDB CRDT indisponible.');
+        resolve(null);
+      };
+    });
+  }
+
+  function crdtLoadLocalState(db) {
+    if (!db) return Promise.resolve(null);
+
+    return new Promise(function(resolve) {
+      const request = db
+        .transaction('documents', 'readonly')
+        .objectStore('documents')
+        .get(CRDT_DOC_NAME + '|' + crdtUserKey());
+
+      request.onsuccess = function() {
+        resolve(request.result || null);
+      };
+      request.onerror = function() {
+        resolve(null);
+      };
+    });
+  }
+
+  function crdtSaveLocalState() {
+    if (!crdtIndexedDb || !crdtDoc) return;
+
+    const update = Y.encodeStateAsUpdate(crdtDoc);
+    const encoded = crdtBytesToBase64(update);
+    const key = CRDT_DOC_NAME + '|' + crdtUserKey();
+
+    try {
+      crdtIndexedDb
+        .transaction('documents', 'readwrite')
+        .objectStore('documents')
+        .put(encoded, key);
+    } catch (e) {
+      console.warn('Impossible de sauvegarder le CRDT local.', e);
+    }
+  }
+
+  function crdtScheduleLocalPersistence() {
+    clearTimeout(crdtLocalChangeTimer);
+    crdtLocalChangeTimer = setTimeout(crdtSaveLocalState, 250);
+  }
+
+  function crdtModelFromEditor() {
+    const editor = getEditor();
+    if (!editor) return '';
+
+    return editor.innerHTML;
+  }
+
+  function crdtGetSelectionOffsets(editor) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) return null;
+
+    const range = sel.getRangeAt(0);
+
+    function offset(root, node, nodeOffset) {
+      const r = document.createRange();
+      r.selectNodeContents(root);
+      try {
+        r.setEnd(node, nodeOffset);
+      } catch (e) {
+        return null;
+      }
+      return r.toString().length;
+    }
+
+    return {
+      start: offset(editor, range.startContainer, range.startOffset),
+      end: offset(editor, range.endContainer, range.endOffset),
+      collapsed: range.collapsed
+    };
+  }
+
+  function crdtRestoreSelectionOffsets(editor, saved) {
+    if (!saved || saved.start == null || saved.end == null) return;
+
+    const walker = document.createTreeWalker(
+      editor,
+      NodeFilter.SHOW_TEXT
+    );
+
+    let pos = 0;
+    let startNode = null, endNode = null;
+    let startOffset = 0, endOffset = 0;
+    let node;
+
+    while ((node = walker.nextNode())) {
+      const next = pos + node.nodeValue.length;
+
+      if (!startNode && saved.start <= next) {
+        startNode = node;
+        startOffset = Math.max(0, saved.start - pos);
+      }
+
+      if (!endNode && saved.end <= next) {
+        endNode = node;
+        endOffset = Math.max(0, saved.end - pos);
+        break;
+      }
+
+      pos = next;
+    }
+
+    // Empty document / selection at the end.
+    if (!startNode) {
+      startNode = editor;
+      startOffset = editor.childNodes.length;
+    }
+
+    if (!endNode) {
+      endNode = startNode;
+      endOffset = startOffset;
+    }
+
+    try {
+      const range = document.createRange();
+      range.setStart(startNode, startOffset);
+      range.setEnd(endNode, endOffset);
+
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (e) {
+      // The DOM may have changed again between the remote update and
+      // restoration; in that case leave the browser's current selection.
+    }
+  }
+
+  // Sauvegarde la position du curseur LOCAL (celui de l'utilisateur qui lit
+  // cet écran) sous forme de RelativePosition Yjs, en plus de sa position
+  // absolue. La RelativePosition est ancrée à un caractère précis du
+  // document CRDT : si une modification distante insère ou supprime du
+  // texte avant le curseur, elle "suit" le bon caractère au lieu de rester
+  // figée sur un index numérique devenu obsolète.
+  //
+  // À appeler AVANT Y.applyUpdate(), pendant que crdtCursorText reflète
+  // encore l'état du document tel que l'utilisateur le voyait.
+  function crdtSauvegarderPositionCurseurLocal(editor) {
+    const offsets = crdtGetSelectionOffsets(editor);
+    if (!offsets || offsets.start == null || offsets.end == null) return null;
+
+    return {
+      startAbs: offsets.start,
+      endAbs: offsets.end,
+      collapsed: offsets.collapsed,
+      startRel: encoderPositionRelativeYjs(offsets.start),
+      endRel: encoderPositionRelativeYjs(offsets.end)
+    };
+  }
+
+  // Restaure la position du curseur LOCAL après application d'une mise à
+  // jour distante. On préfère la RelativePosition Yjs (qui a suivi les
+  // insertions/suppressions concurrentes) ; si elle est indisponible on
+  // retombe sur l'ancienne position absolue.
+  function crdtRestaurerPositionCurseurLocal(editor, saved) {
+    if (!saved) return;
+
+    let start = saved.startRel ? decoderPositionRelativeYjs(saved.startRel) : null;
+    let end = saved.endRel ? decoderPositionRelativeYjs(saved.endRel) : null;
+
+    if (start == null) start = saved.startAbs;
+    if (end == null) end = saved.endAbs;
+
+    if (start == null || end == null) return;
+
+    crdtRestoreSelectionOffsets(editor, {
+      start: start,
+      end: end,
+      collapsed: saved.collapsed
+    });
+  }
+
+  function crdtApplyHtmlToEditor(html, curseurLocalSauvegarde) {
+    const editor = getEditor();
+    if (!editor) return;
+
+    // Si l'appelant a déjà capturé la position du curseur local avant
+    // d'appliquer la mise à jour CRDT distante (RelativePosition), on
+    // l'utilise. Sinon (cas d'un rendu local, pas de modification distante
+    // entre-temps) on se contente de la position absolue actuelle.
+    const savedSelection = curseurLocalSauvegarde || crdtGetSelectionOffsets(editor);
+
+    crdtApplyingRemote = true;
+    try {
+      if (editor.innerHTML !== html) {
+        editor.innerHTML = html;
+      }
+    } finally {
+      crdtApplyingRemote = false;
+    }
+
+    // Replacing innerHTML normally moves the caret to the beginning.
+    // Restore it to the same logical position afterwards.
+    if (curseurLocalSauvegarde) {
+      crdtRestaurerPositionCurseurLocal(editor, curseurLocalSauvegarde);
+    } else {
+      crdtRestoreSelectionOffsets(editor, savedSelection);
+    }
+
+    crdtLastHtml = html;
+  }
+
+  function crdtCurrentHtml() {
+    return crdtText ? crdtText.toString() : '';
+  }
+
+  function crdtSetInitialHtml(html) {
+    if (!crdtText) return;
+    if (crdtText.length > 0) return;
+    if (!html) return;
+
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    const visibleText = temp.textContent || '';
+
+    crdtDoc.transact(function() {
+      crdtText.insert(0, html);
+      if (visibleText) {
+        crdtCursorText.insert(0, visibleText);
+      }
+    }, 'initial-document');
+  }
+
+  function crdtBroadcastUpdate(update, origin) {
+    if (!crdtChannel || !crdtReady || !update || !update.length) return;
+
+    const payload = {
+      type: 'update',
+      doc: CRDT_DOC_NAME,
+      sender: window.RDPoteSessionId ||
+        (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+      update: crdtBytesToBase64(update)
+    };
+
+    crdtChannel.send({
+      type: 'broadcast',
+      event: 'crdt-update',
+      payload: payload
+    }).catch(function(error) {
+      console.warn('Envoi CRDT impossible :', error);
+      setSyncStatus('Connexion CRDT interrompue…', '#a33');
+    });
+  }
+
+  function crdtSendFullState() {
+    if (!crdtChannel || !crdtReady || !crdtDoc) return;
+
+    const update = Y.encodeStateAsUpdate(crdtDoc);
+
+    crdtChannel.send({
+      type: 'broadcast',
+      event: 'crdt-state',
+      payload: {
+        type: 'state',
+        doc: CRDT_DOC_NAME,
+        sender: window.RDPoteSessionId || '',
+        update: crdtBytesToBase64(update)
+      }
+    }).catch(function(error) {
+      console.warn('Envoi état CRDT impossible :', error);
+    });
+  }
+
+  function crdtAttachDocObserver() {
+    if (!crdtDoc || crdtObserverAttached) return;
+    crdtObserverAttached = true;
+
+    crdtDoc.on('update', function(update, origin) {
+      crdtScheduleLocalPersistence();
+
+      if (origin === 'remote') return;
+      crdtBroadcastUpdate(update, origin);
+    });
+  }
+
+  function crdtAttachEditorListener() {
+    const editor = getEditor();
+    if (!editor || crdtEditorListenerAttached) return;
+
+    crdtEditorListenerAttached = true;
+
+    editor.addEventListener('input', function() {
+      if (!crdtReady || crdtApplyingRemote || !crdtText) return;
+
+      const html = crdtModelFromEditor();
+      const current = crdtLastHtml || crdtCurrentHtml();
+
+      if (html === current) return;
+
+      const editorVisibleText = editor.textContent || '';
+      const currentVisibleText = crdtCursorText
+        ? crdtCursorText.toString()
+        : '';
+
+      // Convert the visible-text change into the same smallest contiguous
+      // insertion/deletion used by the caret RelativePosition type.
+      // This is already much closer to a real collaborative editor:
+      // Yjs keeps character identities instead of replacing the whole
+      // shared string on every keystroke.
+      let prefix = 0;
+      const maxPrefix = Math.min(current.length, html.length);
+
+      while (prefix < maxPrefix &&
+             current.charCodeAt(prefix) === html.charCodeAt(prefix)) {
+        prefix++;
+      }
+
+      let oldEnd = current.length;
+      let newEnd = html.length;
+
+      while (oldEnd > prefix && newEnd > prefix &&
+             current.charCodeAt(oldEnd - 1) === html.charCodeAt(newEnd - 1)) {
+        oldEnd--;
+        newEnd--;
+      }
+
+      const deletedLength = oldEnd - prefix;
+      const insertedText = html.slice(prefix, newEnd);
+
+      // Diff of visible text (caret coordinate system).
+      let textPrefix = 0;
+      const textMaxPrefix = Math.min(
+        currentVisibleText.length,
+        editorVisibleText.length
+      );
+
+      while (
+        textPrefix < textMaxPrefix &&
+        currentVisibleText.charCodeAt(textPrefix) ===
+          editorVisibleText.charCodeAt(textPrefix)
+      ) {
+        textPrefix++;
+      }
+
+      let oldTextEnd = currentVisibleText.length;
+      let newTextEnd = editorVisibleText.length;
+
+      while (
+        oldTextEnd > textPrefix &&
+        newTextEnd > textPrefix &&
+        currentVisibleText.charCodeAt(oldTextEnd - 1) ===
+          editorVisibleText.charCodeAt(newTextEnd - 1)
+      ) {
+        oldTextEnd--;
+        newTextEnd--;
+      }
+
+      const deletedVisibleLength = oldTextEnd - textPrefix;
+      const insertedVisibleText =
+        editorVisibleText.slice(textPrefix, newTextEnd);
+
+      // Les curseurs distants utilisent désormais les RelativePosition Yjs.
+      // On ne décale donc plus leurs positions avec un simple +1/-1 :
+      // Yjs conserve leur position logique à travers les opérations concurrentes.
+
+      crdtDoc.transact(function() {
+        if (deletedLength > 0) {
+          crdtText.delete(prefix, deletedLength);
+        }
+        if (insertedText.length > 0) {
+          crdtText.insert(prefix, insertedText);
+        }
+
+        if (crdtCursorText) {
+          if (deletedVisibleLength > 0) {
+            crdtCursorText.delete(textPrefix, deletedVisibleLength);
+          }
+          if (insertedVisibleText.length > 0) {
+            crdtCursorText.insert(textPrefix, insertedVisibleText);
+          }
+        }
+      }, 'editor-local');
+
+      crdtLastHtml = crdtCurrentHtml();
+      redessinerTousLesCurseurs();
+      setSyncStatus('Modification partagée…', '#888');
+    });
+  }
+
+  async function crdtSubscribe() {
+    if (!window.RDPoteSupabaseUser) return false;
+
+    if (crdtChannel) {
+      try {
+        await supabaseClient.removeChannel(crdtChannel);
+      } catch (e) {}
+      crdtChannel = null;
+    }
+
+    crdtReady = false;
+
+    // Explicitly refresh the Supabase session so Realtime receives a
+    // current JWT before subscribing to the private channel.
+    const { data: sessionData, error: sessionError } =
+      await supabaseClient.auth.getSession();
+
+    if (sessionError || !sessionData.session) {
+      throw new Error('Session Supabase absente pour le canal CRDT.');
+    }
+
+    const accessToken = sessionData.session.access_token;
+
+    // IMPORTANT: authenticate Realtime BEFORE creating/subscribing to the
+    // private channel. In V2 this was done after subscribe(), so Supabase
+    // could reject the private channel and initCRDT() aborted before
+    // presence was started.
+    try {
+      await supabaseClient.realtime.setAuth(accessToken);
+    } catch (e) {
+      throw new Error('Impossible d’authentifier Realtime : ' + (e.message || e));
+    }
+
+    crdtChannel = supabaseClient.channel(CRDT_CHANNEL_NAME, {
+      config: {
+        private: true,
+        broadcast: {
+          self: false,
+          ack: true
+        }
+      }
+    });
+
+    crdtChannel
+      .on('broadcast', { event: 'crdt-update' }, function(message) {
+        const payload = message.payload || {};
+
+        if (payload.doc !== CRDT_DOC_NAME) return;
+        if (payload.sender &&
+            payload.sender === (window.RDPoteSessionId || '')) return;
+        if (!payload.update || !crdtDoc) return;
+
+        try {
+          const editorPourCurseur = getEditor();
+          const update = crdtBase64ToBytes(payload.update);
+          const ancienTexteDistant =
+            crdtCursorText ? crdtCursorText.toString() : '';
+
+          // Capturer la position du curseur LOCAL (RelativePosition Yjs)
+          // avant d'appliquer la mise à jour distante, pour qu'elle
+          // "suive" le bon caractère au lieu de rester à un index figé.
+          const curseurLocalSauvegarde = editorPourCurseur
+            ? crdtSauvegarderPositionCurseurLocal(editorPourCurseur)
+            : null;
+
+          Y.applyUpdate(crdtDoc, update, 'remote');
+
+          const nouveauTexteDistant =
+            crdtCursorText ? crdtCursorText.toString() : '';
+
+          corrigerCurseursApresModificationDistante(
+            ancienTexteDistant,
+            nouveauTexteDistant
+          );
+
+          crdtApplyHtmlToEditor(crdtCurrentHtml(), curseurLocalSauvegarde);
+          redessinerTousLesCurseurs();
+          setSyncStatus('Synchronisé', '#2a7a2a');
+        } catch (error) {
+          console.error('Erreur application mise à jour CRDT :', error);
+        }
+      })
+      .on('broadcast', { event: 'crdt-state-request' }, function(message) {
+        const payload = message.payload || {};
+        if (payload.doc !== CRDT_DOC_NAME) return;
+        if (payload.sender &&
+            payload.sender === (window.RDPoteSessionId || '')) return;
+
+        crdtSendFullState();
+      })
+      .on('broadcast', { event: 'crdt-state' }, function(message) {
+        const payload = message.payload || {};
+        if (payload.doc !== CRDT_DOC_NAME) return;
+        if (payload.sender &&
+            payload.sender === (window.RDPoteSessionId || '')) return;
+        if (!payload.update || !crdtDoc) return;
+
+        try {
+          const editorPourCurseur = getEditor();
+          const ancienTexteDistant =
+            crdtCursorText ? crdtCursorText.toString() : '';
+
+          const curseurLocalSauvegarde = editorPourCurseur
+            ? crdtSauvegarderPositionCurseurLocal(editorPourCurseur)
+            : null;
+
+          Y.applyUpdate(
+            crdtDoc,
+            crdtBase64ToBytes(payload.update),
+            'remote'
+          );
+
+          const nouveauTexteDistant =
+            crdtCursorText ? crdtCursorText.toString() : '';
+
+          corrigerCurseursApresModificationDistante(
+            ancienTexteDistant,
+            nouveauTexteDistant
+          );
+
+          crdtApplyHtmlToEditor(crdtCurrentHtml(), curseurLocalSauvegarde);
+          redessinerTousLesCurseurs();
+          crdtSaveLocalState();
+          setSyncStatus('Synchronisé', '#2a7a2a');
+        } catch (error) {
+          console.error('Erreur application état CRDT :', error);
+        }
+      });
+
+    const subscribed = await new Promise(function(resolve, reject) {
+      let finished = false;
+
+      const timer = setTimeout(function() {
+        if (finished) return;
+        finished = true;
+        reject(new Error('Délai de connexion au canal CRDT dépassé.'));
+      }, 10000);
+
+      crdtChannel.subscribe(function(status) {
+        if (status === 'SUBSCRIBED') {
+          clearTimeout(timer);
+          if (finished) return;
+          finished = true;
+          resolve(true);
+        }
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          clearTimeout(timer);
+          if (finished) return;
+          finished = true;
+          reject(new Error('Canal CRDT : ' + status));
+        }
+      });
+    });
+
+    if (!subscribed) return false;
+
+    crdtReady = true;
+
+    // Ask peers for their current CRDT state. Because Yjs merges states,
+    // receiving multiple responses is safe.
+    await crdtChannel.send({
+      type: 'broadcast',
+      event: 'crdt-state-request',
+      payload: {
+        doc: CRDT_DOC_NAME,
+        sender: window.RDPoteSessionId || ''
+      }
+    });
+
+    // Then publish our own state too.
+    crdtSendFullState();
+
+    return true;
+  }
+
+  async function initCRDT() {
+    // Attendre explicitement le chargement du module Yjs.
+    try {
+      await window.RDPoteYjsReady;
+    } catch (error) {
+      throw new Error('Impossible de charger Yjs depuis le CDN : ' +
+        (error.message || error));
+    }
+
+    if (typeof window.Y === 'undefined') {
+      throw new Error('Yjs n’est pas chargé.');
+    }
+
+    // Tear down any previous experimental instance.
+    await stopCRDT();
+
+    crdtDoc = new Y.Doc();
+    crdtText = crdtDoc.getText('html');
+    // Separate Y.Text for caret positions: it contains visible text only,
+    // not HTML markup. This makes RelativePosition indices match the DOM
+    // selection offsets exactly.
+    crdtCursorText = crdtDoc.getText('cursor-text');
+
+    await crdtOpenIndexedDB();
+
+    // Restore only this user's local CRDT state.
+    const localState = await crdtLoadLocalState(crdtIndexedDb);
+
+    if (localState) {
+      try {
+        Y.applyUpdate(
+          crdtDoc,
+          crdtBase64ToBytes(localState),
+          'local-persistence'
+        );
+      } catch (error) {
+        console.warn('État CRDT local illisible, ignoré.', error);
+      }
+    }
+
+    // If there is no local CRDT state, seed from the current stable HTML
+    // exactly once.
+    if (crdtText.length === 0) {
+      const editor = getEditor();
+      const html = editor ? editor.innerHTML : '';
+
+      if (html) {
+        crdtSetInitialHtml(html);
+        crdtSeeded = true;
+      }
+    }
+
+    // Older local CRDT states contain only the HTML Y.Text. Populate the
+    // cursor-text type once from the visible document text.
+    if (crdtCursorText.length === 0 && crdtText.length > 0) {
+      const temp = document.createElement('div');
+      temp.innerHTML = crdtText.toString();
+      const visibleText = temp.textContent || '';
+      if (visibleText) {
+        crdtDoc.transact(function() {
+          crdtCursorText.insert(0, visibleText);
+        }, 'cursor-text-migration');
+      }
+    }
+
+    crdtAttachDocObserver();
+    crdtAttachEditorListener();
+
+    // Display the local CRDT immediately.
+    if (crdtText.length > 0) {
+      crdtApplyHtmlToEditor(crdtCurrentHtml());
+    }
+
+    crdtLastHtml = crdtCurrentHtml();
+
+    await crdtSubscribe();
+
+    setSyncStatus('CRDT connecté', '#2a7a2a');
+    crdtSaveLocalState();
+  }
+
+  async function stopCRDT() {
+    clearTimeout(crdtLocalChangeTimer);
+    crdtLocalChangeTimer = null;
+
+    crdtReady = false;
+
+    if (crdtChannel) {
+      try {
+        await supabaseClient.removeChannel(crdtChannel);
+      } catch (e) {}
+      crdtChannel = null;
+    }
+
+    if (crdtDoc) {
+      try {
+        crdtDoc.destroy();
+      } catch (e) {}
+    }
+
+    crdtDoc = null;
+    crdtText = null;
+    crdtCursorText = null;
+    crdtLastHtml = '';
+    crdtObserverAttached = false;
+    crdtEditorListenerAttached = false;
+    crdtSeeded = false;
+  }
+
+  // --- Présence + curseurs distants ---
+  // Les curseurs sont maintenant stockés comme positions textuelles absolues,
+  // et non comme chemins DOM. Un chemin DOM devient invalide dès que le HTML
+  // est reconstruit après une modification distante.
+  const CURSOR_CHANNEL_NAME = 'rdpote-presence-1';
+  const CURSOR_PALETTE = [
+    '#003087', '#00A6A6', '#D81B60', '#D71920',
+    '#2E7D32', '#B28A00', '#F57C00'
+  ];
+
+  const connectedUsersEl = document.getElementById('connectedUsers');
+  const remoteCursorsEl = document.getElementById('remoteCursors');
+
+  const LOCAL_SESSION_ID =
+    (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'session-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+
+  window.RDPoteSessionId = LOCAL_SESSION_ID;
+
+  const remoteCursors = new Map();
+  let presenceChannel = null;
+  let cursorSendTimer = null;
+  let localCursorActive = false;
+
+  function couleurPourSession(sessionId, sessionIds) {
+    const ids = Array.from(new Set(sessionIds)).sort();
+    const indexInitial = Math.max(0, ids.indexOf(sessionId)) % CURSOR_PALETTE.length;
+    const couleursUtilisees = new Set();
+
+    ids.forEach(function(id, index) {
+      if (id !== sessionId) {
+        couleursUtilisees.add(CURSOR_PALETTE[index % CURSOR_PALETTE.length]);
+      }
+    });
+
+    for (let i = 0; i < CURSOR_PALETTE.length; i++) {
+      const couleur = CURSOR_PALETTE[
+        (indexInitial + i) % CURSOR_PALETTE.length
+      ];
+      if (!couleursUtilisees.has(couleur)) return couleur;
+    }
+
+    return CURSOR_PALETTE[indexInitial];
+  }
+
+  function etatPresence() {
+    if (!presenceChannel) return [];
+
+    const state = presenceChannel.presenceState();
+    const entries = [];
+
+    Object.keys(state).forEach(function(key) {
+      (state[key] || []).forEach(function(item) {
+        if (item && item.sessionId) entries.push(item);
+      });
+    });
+
+    if (window.RDPoteSupabaseUser) {
+      entries.push({
+        sessionId: LOCAL_SESSION_ID,
+        username: window.RDPoteSupabaseUser.username ||
+          window.RDPoteSupabaseUser.email ||
+          'Utilisateur'
+      });
+    }
+
+    const uniques = new Map();
+    entries.forEach(function(item) {
+      uniques.set(item.sessionId, item);
+    });
+
+    return Array.from(uniques.values());
+  }
+
+  function rafraichirUtilisateursConnectes() {
+    if (!connectedUsersEl) return;
+
+    const entries = etatPresence();
+    const sessionIds = entries.map(function(item) { return item.sessionId; });
+
+    connectedUsersEl.innerHTML = '';
+
+    entries.sort(function(a, b) {
+      return String(a.username || '').localeCompare(
+        String(b.username || ''), 'fr'
+      );
+    }).forEach(function(item) {
+      const wrapper = document.createElement('span');
+      wrapper.className = 'connected-user';
+
+      const dot = document.createElement('span');
+      dot.className = 'connected-user-dot';
+      dot.style.backgroundColor =
+        couleurPourSession(item.sessionId, sessionIds);
+
+      const text = document.createElement('span');
+      text.textContent = item.username || 'Utilisateur';
+
+      wrapper.appendChild(dot);
+      wrapper.appendChild(text);
+      connectedUsersEl.appendChild(wrapper);
+    });
+
+    rafraichirCouleursCurseurs();
+  }
+
+
+  function encoderPositionRelativeYjs(position) {
+    if (!crdtCursorText || !window.Y ||
+        typeof Y.createRelativePositionFromTypeIndex !== 'function') {
+      return null;
+    }
+
+    try {
+      const rel = Y.createRelativePositionFromTypeIndex(
+        crdtCursorText,
+        Math.max(0, Math.min(position, crdtCursorText.length))
+      );
+      return Array.from(Y.encodeRelativePosition(rel));
+    } catch (error) {
+      console.warn('RelativePosition Yjs :', error);
+      return null;
+    }
+  }
+
+  function decoderPositionRelativeYjs(encoded) {
+    if (!encoded || !crdtDoc || !window.Y ||
+        typeof Y.createAbsolutePositionFromRelativePosition !== 'function') {
+      return null;
+    }
+
+    try {
+      const rel = Y.decodeRelativePosition(Uint8Array.from(encoded));
+      const abs = Y.createAbsolutePositionFromRelativePosition(rel, crdtDoc);
+
+      if (!abs || !abs.type || abs.type !== crdtCursorText) return null;
+      return abs.index;
+    } catch (error) {
+      console.warn('Décodage RelativePosition Yjs :', error);
+      return null;
+    }
+  }
+
+  function lireCurseurLocal() {
+    const editor = getEditor();
+    const selection = window.getSelection();
+
+    if (!editor || !selection || selection.rangeCount === 0) return null;
+
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.startContainer)) return null;
+
+    // On transmet une position dans le texte, indépendante de la structure
+    // des nœuds HTML.
+    return {
+      position: positionTexteDepuisNoeud(
+        range.startContainer,
+        range.startOffset
+      ),
+      active: localCursorActive
+    };
+  }
+
+  function envoyerCurseur() {
+    cursorSendTimer = null;
+
+    if (!presenceChannel || !window.RDPoteSupabaseUser) return;
+
+    const cursor = lireCurseurLocal();
+    if (!cursor) return;
+
+    presenceChannel.send({
+      type: 'broadcast',
+      event: 'cursor',
+      payload: {
+        sessionId: LOCAL_SESSION_ID,
+        username: window.RDPoteSupabaseUser.username ||
+          window.RDPoteSupabaseUser.email ||
+          'Utilisateur',
+        position: cursor.position,
+        relativePosition: encoderPositionRelativeYjs(cursor.position),
+        active: cursor.active
+      }
+    });
+  }
+
+  function planifierEnvoiCurseur(active) {
+    localCursorActive = active;
+    if (cursorSendTimer !== null) return;
+    cursorSendTimer = setTimeout(envoyerCurseur, 35);
+  }
+
+  function rafraichirCouleursCurseurs() {
+    const sessionIds = etatPresence().map(function(item) {
+      return item.sessionId;
+    });
+
+    remoteCursors.forEach(function(entry, sessionId) {
+      const couleur = couleurPourSession(sessionId, sessionIds);
+      if (entry.el) entry.el.style.backgroundColor = couleur;
+      if (entry.dot) entry.dot.style.backgroundColor = couleur;
+      if (entry.label) entry.label.style.backgroundColor = couleur;
+    });
+  }
+
+  function supprimerCurseurDistant(sessionId) {
+    const entry = remoteCursors.get(sessionId);
+    if (entry && entry.el) entry.el.remove();
+    remoteCursors.delete(sessionId);
+  }
+
+  function dessinerCurseurDistant(sessionId) {
+    const entry = remoteCursors.get(sessionId);
+    const editor = getEditor();
+
+    if (!entry || !editor || !entry.active) {
+      if (entry && entry.el) entry.el.style.display = 'none';
+      return;
+    }
+
+    const position = Math.max(0, Number(entry.position) || 0);
+    const pos = trouverPositionTexte(position);
+
+    if (!pos || !pos.node) {
+      if (entry.el) entry.el.style.display = 'none';
+      return;
+    }
+
+    try {
+      const range = document.createRange();
+      range.setStart(pos.node, pos.offset);
+      range.collapse(true);
+
+      const rect = range.getBoundingClientRect();
+      const editorRect = editor.getBoundingClientRect();
+
+      if (!rect || (!rect.width && !rect.height)) {
+        if (entry.el) entry.el.style.display = 'none';
+        return;
+      }
+
+      if (!entry.el) {
+        const caret = document.createElement('div');
+        caret.className = 'remote-cursor';
+
+        const dot = document.createElement('div');
+        dot.className = 'remote-cursor-dot';
+
+        const label = document.createElement('div');
+        label.className = 'remote-cursor-label';
+
+        caret.appendChild(dot);
+        caret.appendChild(label);
+        remoteCursorsEl.appendChild(caret);
+
+        entry.el = caret;
+        entry.dot = dot;
+        entry.label = label;
+      }
+
+      const sessionIds = etatPresence().map(function(item) {
+        return item.sessionId;
+      });
+      const couleur = couleurPourSession(sessionId, sessionIds);
+
+      entry.el.style.backgroundColor = couleur;
+      entry.dot.style.backgroundColor = couleur;
+      entry.label.style.backgroundColor = couleur;
+      entry.label.textContent = entry.username || 'Utilisateur';
+
+      entry.el.style.display = 'block';
+      entry.el.style.left = (rect.left - editorRect.left) + 'px';
+      entry.el.style.top = (rect.top - editorRect.top) + 'px';
+      entry.el.style.height = Math.max(20, rect.height || 22) + 'px';
+    } catch (error) {
+      console.warn('Curseur distant :', error);
+    }
+  }
+
+
+  function texteVisibleDepuisHtml(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html || '';
+    return temp.textContent || '';
+  }
+
+  function calculerDeltaTexteVisible(ancienTexte, nouveauTexte) {
+    if (ancienTexte === nouveauTexte) {
+      return null;
+    }
+
+    let prefix = 0;
+    const maxPrefix = Math.min(ancienTexte.length, nouveauTexte.length);
+
+    while (
+      prefix < maxPrefix &&
+      ancienTexte.charCodeAt(prefix) === nouveauTexte.charCodeAt(prefix)
+    ) {
+      prefix++;
+    }
+
+    let ancienFin = ancienTexte.length;
+    let nouveauFin = nouveauTexte.length;
+
+    while (
+      ancienFin > prefix &&
+      nouveauFin > prefix &&
+      ancienTexte.charCodeAt(ancienFin - 1) ===
+        nouveauTexte.charCodeAt(nouveauFin - 1)
+    ) {
+      ancienFin--;
+      nouveauFin--;
+    }
+
+    return {
+      start: prefix,
+      deletedLength: ancienFin - prefix,
+      insertedLength: nouveauFin - prefix
+    };
+  }
+
+  function corrigerCurseursApresModificationDistante(
+    ancienTexte,
+    nouveauTexte
+  ) {
+    const delta = calculerDeltaTexteVisible(
+      ancienTexte,
+      nouveauTexte
+    );
+
+    if (!delta) return;
+
+    // Ici on corrige la position AU MOMENT où la modification distante
+    // vient d'être appliquée. Cela évite de dépendre du DOM reconstruit.
+    remoteCursors.forEach(function(entry) {
+      entry.position = transformerPositionCurseur(
+        entry.position,
+        delta.start,
+        delta.deletedLength,
+        delta.insertedLength
+      );
+    });
+  }
+
+  function redessinerTousLesCurseurs() {
+    remoteCursors.forEach(function(entry, sessionId) {
+      if (entry.relativePosition) {
+        const resolved = decoderPositionRelativeYjs(entry.relativePosition);
+        if (resolved != null) {
+          entry.position = resolved;
+        }
+      }
+      dessinerCurseurDistant(sessionId);
+    });
+  }
+
+  // Transforme une position de curseur lorsqu'une opération locale ou
+  // distante modifie le texte avant cette position.
+  function transformerPositionCurseur(position, operationStart, deletedLength, insertedLength) {
+    const pos = Math.max(0, Number(position) || 0);
+    const start = Math.max(0, operationStart);
+    const deletedEnd = start + Math.max(0, deletedLength);
+    const delta = insertedLength - deletedLength;
+
+    if (pos < start) return pos;
+
+    // Pour un curseur exactement à la position d'insertion, on considère
+    // qu'il reste avant le texte nouvellement inséré. C'est le comportement
+    // le plus stable lorsque deux personnes tapent au même endroit.
+    if (deletedLength === 0 && pos === start) return pos;
+
+    if (pos >= deletedEnd) {
+      return Math.max(start, pos + delta);
+    }
+
+    // Le curseur se trouvait dans la zone supprimée : il est ramené au début.
+    return start + insertedLength;
+  }
+
+  function transformerCurseurs(operationStart, deletedLength, insertedLength) {
+    remoteCursors.forEach(function(entry) {
+      entry.position = transformerPositionCurseur(
+        entry.position,
+        operationStart,
+        deletedLength,
+        insertedLength
+      );
+    });
+  }
+
+  async function subscribeToPresence() {
+    if (!window.RDPoteSupabaseUser) return;
+
+    if (presenceChannel) {
+      await supabaseClient.removeChannel(presenceChannel);
+      presenceChannel = null;
+    }
+
+    presenceChannel = supabaseClient
+      .channel(CURSOR_CHANNEL_NAME, {
+        config: {
+          presence: { key: LOCAL_SESSION_ID },
+          broadcast: { self: false }
+        }
+      })
+      .on('presence', { event: 'sync' }, function() {
+        rafraichirUtilisateursConnectes();
+      })
+      .on('presence', { event: 'join' }, function() {
+        rafraichirUtilisateursConnectes();
+      })
+      .on('presence', { event: 'leave' }, function(payload) {
+        (payload.leftPresences || []).forEach(function(item) {
+          if (item.sessionId && item.sessionId !== LOCAL_SESSION_ID) {
+            supprimerCurseurDistant(item.sessionId);
+          }
+        });
+        rafraichirUtilisateursConnectes();
+      })
+      .on('broadcast', { event: 'cursor' }, function(message) {
+        const payload = message.payload || {};
+        if (!payload.sessionId || payload.sessionId === LOCAL_SESSION_ID) return;
+
+        if (payload.active === false) {
+          supprimerCurseurDistant(payload.sessionId);
+          rafraichirUtilisateursConnectes();
+          return;
+        }
+
+        const previous = remoteCursors.get(payload.sessionId) || {};
+
+        const relativePosition = decoderPositionRelativeYjs(
+          payload.relativePosition
+        );
+
+        remoteCursors.set(payload.sessionId, {
+          position: relativePosition != null
+            ? relativePosition
+            : (Number.isFinite(Number(payload.position))
+                ? Number(payload.position)
+                : (previous.position || 0)),
+          relativePosition: payload.relativePosition || previous.relativePosition || null,
+          active: true,
+          username: payload.username || previous.username || 'Utilisateur',
+          el: previous.el || null,
+          dot: previous.dot || null,
+          label: previous.label || null
+        });
+
+        rafraichirUtilisateursConnectes();
+        dessinerCurseurDistant(payload.sessionId);
+      })
+      .subscribe(async function(state) {
+        if (state === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            sessionId: LOCAL_SESSION_ID,
+            username: window.RDPoteSupabaseUser.username ||
+              window.RDPoteSupabaseUser.email ||
+              'Utilisateur'
+          });
+
+          rafraichirUtilisateursConnectes();
+          planifierEnvoiCurseur(true);
+        }
+      });
+
+    const editor = getEditor();
+    if (editor && editor.dataset.cursorListeners !== '1') {
+      editor.dataset.cursorListeners = '1';
+
+      editor.addEventListener('scroll', redessinerTousLesCurseurs);
+      window.addEventListener('resize', redessinerTousLesCurseurs);
+
+      editor.addEventListener('focus', function() {
+        planifierEnvoiCurseur(true);
+      });
+
+      editor.addEventListener('blur', function() {
+        planifierEnvoiCurseur(false);
+      });
+
+      editor.addEventListener('keyup', function() {
+        planifierEnvoiCurseur(true);
+      });
+
+      editor.addEventListener('mouseup', function() {
+        planifierEnvoiCurseur(true);
+      });
+
+      document.addEventListener('selectionchange', function() {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+
+        const range = selection.getRangeAt(0);
+        if (editor.contains(range.startContainer)) {
+          planifierEnvoiCurseur(document.activeElement === editor);
+        }
+      });
+    }
+  }
+
+  async function stopPresence() {
+    if (presenceChannel) {
+      try {
+        await presenceChannel.untrack();
+      } catch (e) {}
+
+      try {
+        await supabaseClient.removeChannel(presenceChannel);
+      } catch (e) {}
+
+      presenceChannel = null;
+    }
+
+    remoteCursors.forEach(function(entry) {
+      if (entry.el) entry.el.remove();
+    });
+    remoteCursors.clear();
+
+    if (connectedUsersEl) connectedUsersEl.innerHTML = '';
+  }
+
+
+  // --- Déconnexion ---
+  async function deconnecterUtilisateur() {
+    try {
+      if (typeof stopPresence === 'function') await stopPresence();
+      if (typeof stopCRDT === 'function') await stopCRDT();
+      if (supabaseClient) await supabaseClient.auth.signOut();
+    } catch (error) {
+      console.error('Déconnexion :', error);
+    }
+
+    window.RDPoteSupabaseUser = null;
+    if (connectedUsersEl) connectedUsersEl.innerHTML = '';
+
+    remoteCursors.forEach(function(entry) {
+      if (entry.el) entry.el.remove();
+    });
+    remoteCursors.clear();
+
+    const loginOverlay = document.getElementById('loginOverlay');
+    if (loginOverlay) loginOverlay.style.display = 'flex';
+
+    const editor = getEditor();
+    if (editor) editor.blur();
+  }
+
+  function initialiserBoutonDeconnexion() {
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn && !logoutBtn.dataset.bound) {
+      logoutBtn.dataset.bound = '1';
+      logoutBtn.addEventListener('click', deconnecterUtilisateur);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialiserBoutonDeconnexion);
+  } else {
+    initialiserBoutonDeconnexion();
+  }
+
+  async function initSupabase() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (!session) {
+      showLogin('');
+      return;
+    }
+
+    try {
+      window.RDPoteSupabaseUser = session.user;
+      window.RDPoteSupabaseUser.username =
+        await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
+        window.RDPoteSupabaseUser.email ||
+        'Utilisateur';
+      await loadRemoteDocument();
+      await initCRDT();
+      subscribeToPresence();
+    } catch (error) {
+      console.error('Initialisation RDPote/CRDT impossible :', error);
+
+      const detail = error && error.message
+        ? error.message
+        : 'Erreur inconnue';
+
+      // The previous message was misleading because an error in CRDT
+      // initialization was reported as a document-loading error.
+      showLogin('Connexion établie, mais RDPote n’a pas pu démarrer : ' + detail);
+    }
+  }
+
+  supabaseClient.auth.onAuthStateChange(function (event, session) {
+    if (event === 'PASSWORD_RECOVERY') {
+      stopRealtime();
+      stopCRDT();
+      stopPresence();
+      showResetPasswordScreen();
+      return;
+    }
+
+    if (!session && NEW_PASSWORD.style.display !== 'flex') {
+      stopRealtime();
+      stopCRDT();
+      stopPresence();
+      window.RDPoteSupabaseUser = null;
+      showLogin('');
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSupabase);
+  } else {
+    initSupabase();
+  }
+})();
+</script>
+
 
 </body>
-  
 </html>
