@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 restauree -->
+<!-- V3 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1969,8 +1969,8 @@ mettreAJourBoutons();
 
     editor.dataset.supabaseListener = '1';
     editor.addEventListener('input', function () {
-      setSyncStatus('Modification locale…', '#888');
-      scheduleRemoteSave();
+      // Ancien mécanisme conservé uniquement pour compatibilité ;
+      // la synchronisation active est désormais assurée par Yjs.
     });
   }
 
@@ -2055,14 +2055,10 @@ mettreAJourBoutons();
       const { data: sessionData } = await supabaseClient.auth.getSession();
       window.RDPoteSupabaseUser = sessionData.session.user;
 
-      const usernameSaisi = USERNAME.value.trim();
-      const usernameExistant = await chargerProfilUtilisateur(window.RDPoteSupabaseUser, false);
-      if (usernameSaisi) {
-        await enregistrerNomUtilisateur(window.RDPoteSupabaseUser, usernameSaisi);
-        window.RDPoteSupabaseUser.username = usernameSaisi;
-      } else {
-        window.RDPoteSupabaseUser.username = usernameExistant || window.RDPoteSupabaseUser.email || 'Utilisateur';
-      }
+      window.RDPoteSupabaseUser.username =
+        await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
+        window.RDPoteSupabaseUser.email ||
+        'Utilisateur';
 
       hideLogin();
       await loadRemoteDocument();
@@ -2071,7 +2067,9 @@ mettreAJourBoutons();
     } catch (error) {
       console.error(error);
       LOGIN_MSG.style.color = '#b00020';
-      LOGIN_MSG.textContent = 'Connexion impossible : ' + (error.message || 'identifiants incorrects');
+      LOGIN_MSG.textContent =
+        'Connexion réussie, mais démarrage de RDPote impossible : ' +
+        (error.message || 'erreur inconnue');
     } finally {
       LOGIN_BTN.disabled = false;
     }
@@ -2200,952 +2198,450 @@ mettreAJourBoutons();
 
 
   // --- CRDT expérimental (Yjs) ---
-  // Le document collaboratif est un Y.Text : le texte et les attributs
-  // gras/italique sont fusionnés caractère par caractère par Yjs.
-  // La copie locale est conservée dans IndexedDB afin de permettre
-  // l'édition hors ligne. Supabase Realtime transporte uniquement les
-  // mises à jour CRDT, et non plus le HTML complet du document.
+  // V2 : synchronisation CRDT via Supabase Realtime Broadcast.
+  // Le canal est authentifié avant toute émission. Les anciennes fonctions
+  // de sauvegarde HTML/realtime ne sont volontairement pas utilisées ici.
   let crdtDoc = null;
   let crdtText = null;
   let crdtChannel = null;
   let crdtReady = false;
   let crdtApplyingRemote = false;
-  let crdtLastModel = null;
-  let crdtPersistTimer = null;
-  let crdtSeedHtml = '';
-  const crdtPeerSessions = new Set();
+  let crdtObserverAttached = false;
+  let crdtEditorListenerAttached = false;
+  let crdtSeeded = false;
+  let crdtLocalChangeTimer = null;
+  let crdtIndexedDb = null;
 
-  const CRDT_DOC_NAME = 'rdpote-document-1-v1';
-  const CRDT_DB_NAME = 'RDPoteCRDT_v1';
-  const CRDT_DB_STORE = 'documents';
+  const CRDT_DOC_NAME = 'rdpote-document-1-v2';
+  const CRDT_CHANNEL_NAME = 'rdpote-crdt-document-v2';
 
-  function bytesToBase64(bytes) {
+  function crdtBytesToBase64(bytes) {
     let binary = '';
     const chunk = 0x8000;
     for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      binary += String.fromCharCode.apply(
+        null,
+        bytes.subarray(i, Math.min(i + chunk, bytes.length))
+      );
     }
     return btoa(binary);
   }
 
-  function base64ToBytes(base64) {
+  function crdtBase64ToBytes(base64) {
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
     return bytes;
   }
 
-  function ouvrirCRDTDatabase() {
+  function crdtUserKey() {
+    const user = window.RDPoteSupabaseUser;
+    return user && user.id ? user.id : 'anonymous';
+  }
+
+  function crdtOpenIndexedDB() {
     return new Promise(function(resolve, reject) {
-      const request = indexedDB.open(CRDT_DB_NAME, 1);
-      request.onupgradeneeded = function() {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(CRDT_DB_STORE)) {
-          db.createObjectStore(CRDT_DB_STORE);
+      if (!window.indexedDB) {
+        resolve(null);
+        return;
+      }
+
+      const request = indexedDB.open('RDPoteCRDT_v2', 1);
+
+      request.onupgradeneeded = function(event) {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('documents')) {
+          db.createObjectStore('documents');
         }
       };
-      request.onsuccess = function() { resolve(request.result); };
-      request.onerror = function() { reject(request.error); };
+
+      request.onsuccess = function() {
+        crdtIndexedDb = request.result;
+        resolve(crdtIndexedDb);
+      };
+
+      request.onerror = function() {
+        console.warn('IndexedDB CRDT indisponible.');
+        resolve(null);
+      };
     });
   }
 
-  async function chargerCRDTLocal() {
-    const db = await ouvrirCRDTDatabase();
-    return new Promise(function(resolve, reject) {
-      const tx = db.transaction(CRDT_DB_STORE, 'readonly');
-      const req = tx.objectStore(CRDT_DB_STORE).get(CRDT_DOC_NAME);
-      req.onsuccess = function() { resolve(req.result || null); };
-      req.onerror = function() { reject(req.error); };
+  function crdtLoadLocalState(db) {
+    if (!db) return Promise.resolve(null);
+
+    return new Promise(function(resolve) {
+      const request = db
+        .transaction('documents', 'readonly')
+        .objectStore('documents')
+        .get(CRDT_DOC_NAME + '|' + crdtUserKey());
+
+      request.onsuccess = function() {
+        resolve(request.result || null);
+      };
+      request.onerror = function() {
+        resolve(null);
+      };
     });
   }
 
-  async function sauvegarderCRDTLocal() {
-    if (!crdtDoc) return;
+  function crdtSaveLocalState() {
+    if (!crdtIndexedDb || !crdtDoc) return;
+
     const update = Y.encodeStateAsUpdate(crdtDoc);
-    const value = bytesToBase64(update);
-    const db = await ouvrirCRDTDatabase();
-    return new Promise(function(resolve, reject) {
-      const tx = db.transaction(CRDT_DB_STORE, 'readwrite');
-      tx.objectStore(CRDT_DB_STORE).put(value, CRDT_DOC_NAME);
-      tx.oncomplete = function() { resolve(); };
-      tx.onerror = function() { reject(tx.error); };
-    });
-  }
+    const encoded = crdtBytesToBase64(update);
+    const key = CRDT_DOC_NAME + '|' + crdtUserKey();
 
-  function planifierSauvegardeCRDTLocale() {
-    clearTimeout(crdtPersistTimer);
-    crdtPersistTimer = setTimeout(function() {
-      sauvegarderCRDTLocal().catch(function(error) {
-        console.warn('Persistance CRDT locale :', error);
-      });
-    }, 300);
-  }
-
-  function attrsForMarks(marks) {
-    const attrs = {};
-    if (marks && marks.bold) attrs.bold = true;
-    if (marks && marks.italic) attrs.italic = true;
-    return Object.keys(attrs).length ? attrs : undefined;
-  }
-
-  function domToCRDTModel(root) {
-    const chars = [];
-    const marks = [];
-
-    function pushText(text, currentMarks) {
-      for (const char of text) {
-        chars.push(char);
-        marks.push({
-          bold: !!currentMarks.bold,
-          italic: !!currentMarks.italic
-        });
-      }
-    }
-
-    function walk(node, currentMarks, isRoot) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        pushText(node.nodeValue || '', currentMarks);
-        return;
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return;
-
-      const tag = node.tagName.toUpperCase();
-      const nextMarks = {
-        bold: currentMarks.bold || tag === 'B' || tag === 'STRONG',
-        italic: currentMarks.italic || tag === 'I' || tag === 'EM'
-      };
-
-      if (tag === 'BR') {
-        if (chars.length && chars[chars.length - 1] !== '\n') {
-          chars.push('\n');
-          marks.push({ bold: false, italic: false });
-        }
-        return;
-      }
-
-      const isBlock = tag === 'P' || tag === 'DIV' || tag === 'LI' ||
-        tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4' ||
-        tag === 'H5' || tag === 'H6';
-
-      Array.from(node.childNodes).forEach(function(child) {
-        walk(child, nextMarks, false);
-      });
-
-      if (isBlock && !isRoot && chars.length && chars[chars.length - 1] !== '\n') {
-        chars.push('\n');
-        marks.push({ bold: false, italic: false });
-      }
-    }
-
-    Array.from(root.childNodes).forEach(function(child) {
-      walk(child, { bold: false, italic: false }, true);
-    });
-
-    while (chars.length && chars[chars.length - 1] === '\n') {
-      chars.pop();
-      marks.pop();
-    }
-
-    return { text: chars.join(''), marks: marks };
-  }
-
-  function crdtDeltaToModel(delta) {
-    const chars = [];
-    const marks = [];
-
-    (delta || []).forEach(function(op) {
-      const text = String(op.insert || '');
-      const attrs = op.attributes || {};
-      for (const char of text) {
-        chars.push(char);
-        marks.push({
-          bold: attrs.bold === true,
-          italic: attrs.italic === true
-        });
-      }
-    });
-
-    return { text: chars.join(''), marks: marks };
-  }
-
-  function modelToHtml(model) {
-    const text = model.text || '';
-    const marks = model.marks || [];
-    const paragraphs = text.split('\n');
-    let offset = 0;
-
-    const root = document.createElement('div');
-
-    paragraphs.forEach(function(paragraph) {
-      const p = document.createElement('p');
-      let i = 0;
-
-      while (i < paragraph.length) {
-        const mark = marks[offset + i] || {};
-        let j = i + 1;
-        while (j < paragraph.length) {
-          const next = marks[offset + j] || {};
-          if (!!next.bold !== !!mark.bold || !!next.italic !== !!mark.italic) break;
-          j++;
-        }
-
-        let node = document.createTextNode(paragraph.slice(i, j));
-        if (mark.italic) {
-          const em = document.createElement('em');
-          em.appendChild(node);
-          node = em;
-        }
-        if (mark.bold) {
-          const strong = document.createElement('strong');
-          strong.appendChild(node);
-          node = strong;
-        }
-        p.appendChild(node);
-        i = j;
-      }
-
-      if (paragraph.length === 0) p.appendChild(document.createElement('br'));
-      root.appendChild(p);
-      offset += paragraph.length + 1;
-    });
-
-    return root.innerHTML;
-  }
-
-  function modelsEqual(a, b) {
-    if (!a || !b || a.text !== b.text || a.marks.length !== b.marks.length) return false;
-    for (let i = 0; i < a.marks.length; i++) {
-      if (!!a.marks[i].bold !== !!b.marks[i].bold ||
-          !!a.marks[i].italic !== !!b.marks[i].italic) return false;
-    }
-    return true;
-  }
-
-  function trouverDiffSimple(oldModel, newModel) {
-    const oldText = oldModel.text;
-    const newText = newModel.text;
-    let prefix = 0;
-    const maxPrefix = Math.min(oldText.length, newText.length);
-    while (prefix < maxPrefix && oldText[prefix] === newText[prefix]) prefix++;
-
-    let oldEnd = oldText.length;
-    let newEnd = newText.length;
-    while (oldEnd > prefix && newEnd > prefix &&
-           oldText[oldEnd - 1] === newText[newEnd - 1]) {
-      oldEnd--;
-      newEnd--;
-    }
-
-    return {
-      index: prefix,
-      deleteLength: oldEnd - prefix,
-      insertStart: prefix,
-      insertEnd: newEnd
-    };
-  }
-
-  function appliquerMarquesSurPlage(start, length, marks) {
-    if (!length) return;
-    let i = 0;
-    while (i < length) {
-      const mark = marks[start + i] || {};
-      let j = i + 1;
-      while (j < length) {
-        const next = marks[start + j] || {};
-        if (!!next.bold !== !!mark.bold || !!next.italic !== !!mark.italic) break;
-        j++;
-      }
-      const attrs = attrsForMarks(mark);
-      if (attrs) crdtText.format(j - i, attrs);
-      else crdtText.format(j - i, { bold: null, italic: null });
-      i = j;
+    try {
+      crdtIndexedDb
+        .transaction('documents', 'readwrite')
+        .objectStore('documents')
+        .put(encoded, key);
+    } catch (e) {
+      console.warn('Impossible de sauvegarder le CRDT local.', e);
     }
   }
 
-  function synchroniserModeleLocalAvecCRDT(newModel) {
-    const oldModel = crdtLastModel || crdtDeltaToModel(crdtText.toDelta());
-
-    if (modelsEqual(oldModel, newModel)) return;
-
-    const diff = trouverDiffSimple(oldModel, newModel);
-
-    crdtDoc.transact(function() {
-      if (diff.deleteLength > 0) {
-        crdtText.delete(diff.index, diff.deleteLength);
-      }
-
-      const inserted = newModel.text.slice(diff.insertStart, diff.insertEnd);
-      if (inserted.length > 0) {
-        crdtText.insert(diff.index, inserted);
-        appliquerMarquesSurPlage(diff.index, inserted.length, newModel.marks);
-      }
-
-      // Si seul le formatage a changé, synchronise les attributs sur les
-      // plages qui diffèrent. On ne touche pas au texte partagé.
-      if (diff.deleteLength === 0 && inserted.length === 0) {
-        let first = -1;
-        let last = -1;
-        for (let i = 0; i < newModel.marks.length; i++) {
-          const a = newModel.marks[i] || {};
-          const b = oldModel.marks[i] || {};
-          if (!!a.bold !== !!b.bold || !!a.italic !== !!b.italic) {
-            if (first === -1) first = i;
-            last = i + 1;
-          }
-        }
-
-        if (first !== -1) {
-          let i = first;
-          while (i < last) {
-            const mark = newModel.marks[i] || {};
-            let j = i + 1;
-            while (j < last) {
-              const next = newModel.marks[j] || {};
-              if (!!next.bold !== !!mark.bold || !!next.italic !== !!mark.italic) break;
-              j++;
-            }
-            crdtText.format(j - i, attrsForMarks(mark) || { bold: null, italic: null });
-            i = j;
-          }
-        }
-      }
-    }, 'local-editor');
-
-    crdtLastModel = crdtDeltaToModel(crdtText.toDelta());
-    planifierSauvegardeCRDTLocale();
+  function crdtScheduleLocalPersistence() {
+    clearTimeout(crdtLocalChangeTimer);
+    crdtLocalChangeTimer = setTimeout(crdtSaveLocalState, 250);
   }
 
-  function rendreCRDTDansEditeur() {
-    if (!crdtText) return;
-    const model = crdtDeltaToModel(crdtText.toDelta());
-    const html = modelToHtml(model);
+  function crdtModelFromEditor() {
+    const editor = getEditor();
+    if (!editor) return '';
+
+    return editor.innerHTML;
+  }
+
+  function crdtApplyHtmlToEditor(html) {
     const editor = getEditor();
     if (!editor) return;
 
-    if (editor.innerHTML !== html) {
-      crdtApplyingRemote = true;
-      editor.innerHTML = html;
+    crdtApplyingRemote = true;
+    try {
+      if (editor.innerHTML !== html) {
+        editor.innerHTML = html;
+      }
+    } finally {
       crdtApplyingRemote = false;
     }
-
-    crdtLastModel = model;
-    if (typeof mettreAJourEtatFormat === 'function') mettreAJourEtatFormat();
-    if (typeof sauvegarder === 'function') sauvegarder();
-    redrawAllRemoteCursorsSafe();
   }
 
-  function redrawAllRemoteCursorsSafe() {
-    if (typeof redrawAllRemoteCursors === 'function') {
-      try { redrawAllRemoteCursors(); } catch (e) {}
-    }
+  function crdtCurrentHtml() {
+    return crdtText ? crdtText.toString() : '';
   }
 
-  async function envoyerCRDTUpdate(update) {
-    if (!crdtChannel || !update || !update.length) return;
-    try {
-      await crdtChannel.send({
-        type: 'broadcast',
-        event: 'crdt-update',
-        payload: {
-          update: bytesToBase64(update),
-          sessionId: LOCAL_SESSION_ID
-        }
-      });
-    } catch (error) {
-      console.warn('Envoi CRDT :', error);
-      setSyncStatus('Hors ligne : modifications conservées localement', '#a33');
-    }
-  }
-
-  async function initialiserCRDTDepuisHTML() {
-    if (!crdtDoc || !crdtText || crdtText.length > 0) return false;
-    const source = crdtSeedHtml || getEditor().innerHTML;
-    if (!source || !source.trim()) return false;
-
-    const model = domToCRDTModel(getEditor());
-    if (!model.text) return false;
+  function crdtSetInitialHtml(html) {
+    if (!crdtText) return;
+    if (crdtText.length > 0) return;
+    if (!html) return;
 
     crdtDoc.transact(function() {
-      crdtText.insert(0, model.text);
-      appliquerMarquesSurPlage(0, model.text.length, model.marks);
-    }, 'initial-seed');
+      crdtText.insert(0, html);
+    }, 'initial-document');
+  }
 
-    crdtLastModel = crdtDeltaToModel(crdtText.toDelta());
-    planifierSauvegardeCRDTLocale();
+  function crdtBroadcastUpdate(update, origin) {
+    if (!crdtChannel || !crdtReady || !update || !update.length) return;
+
+    const payload = {
+      type: 'update',
+      doc: CRDT_DOC_NAME,
+      sender: window.RDPoteSessionId ||
+        (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+      update: crdtBytesToBase64(update)
+    };
+
+    crdtChannel.send({
+      type: 'broadcast',
+      event: 'crdt-update',
+      payload: payload
+    }).catch(function(error) {
+      console.warn('Envoi CRDT impossible :', error);
+      setSyncStatus('Connexion CRDT interrompue…', '#a33');
+    });
+  }
+
+  function crdtSendFullState() {
+    if (!crdtChannel || !crdtReady || !crdtDoc) return;
+
+    const update = Y.encodeStateAsUpdate(crdtDoc);
+
+    crdtChannel.send({
+      type: 'broadcast',
+      event: 'crdt-state',
+      payload: {
+        type: 'state',
+        doc: CRDT_DOC_NAME,
+        sender: window.RDPoteSessionId || '',
+        update: crdtBytesToBase64(update)
+      }
+    }).catch(function(error) {
+      console.warn('Envoi état CRDT impossible :', error);
+    });
+  }
+
+  function crdtAttachDocObserver() {
+    if (!crdtDoc || crdtObserverAttached) return;
+    crdtObserverAttached = true;
+
+    crdtDoc.on('update', function(update, origin) {
+      crdtScheduleLocalPersistence();
+
+      if (origin === 'remote') return;
+      crdtBroadcastUpdate(update, origin);
+    });
+  }
+
+  function crdtAttachEditorListener() {
+    const editor = getEditor();
+    if (!editor || crdtEditorListenerAttached) return;
+
+    crdtEditorListenerAttached = true;
+
+    editor.addEventListener('input', function() {
+      if (!crdtReady || crdtApplyingRemote || !crdtText) return;
+
+      const html = crdtModelFromEditor();
+      const current = crdtCurrentHtml();
+
+      if (html === current) return;
+
+      // Pour cette V2, on représente chaque changement DOM comme une
+      // nouvelle valeur Y.Text. Cela valide d'abord la synchronisation
+      // CRDT/Realtime de bout en bout. L'étape suivante remplacera ce
+      // remplacement par de vraies opérations caractère par caractère.
+      crdtDoc.transact(function() {
+        crdtText.delete(0, crdtText.length);
+        crdtText.insert(0, html);
+      }, 'editor-local');
+
+      setSyncStatus('Modification partagée…', '#888');
+    });
+  }
+
+  async function crdtSubscribe() {
+    if (!window.RDPoteSupabaseUser) return false;
+
+    if (crdtChannel) {
+      try {
+        await supabaseClient.removeChannel(crdtChannel);
+      } catch (e) {}
+      crdtChannel = null;
+    }
+
+    crdtReady = false;
+
+    // Explicitly refresh the Supabase session so Realtime receives a
+    // current JWT before subscribing to the private channel.
+    const { data: sessionData, error: sessionError } =
+      await supabaseClient.auth.getSession();
+
+    if (sessionError || !sessionData.session) {
+      throw new Error('Session Supabase absente pour le canal CRDT.');
+    }
+
+    const accessToken = sessionData.session.access_token;
+
+    // IMPORTANT: authenticate Realtime BEFORE creating/subscribing to the
+    // private channel. In V2 this was done after subscribe(), so Supabase
+    // could reject the private channel and initCRDT() aborted before
+    // presence was started.
+    try {
+      await supabaseClient.realtime.setAuth(accessToken);
+    } catch (e) {
+      throw new Error('Impossible d’authentifier Realtime : ' + (e.message || e));
+    }
+
+    crdtChannel = supabaseClient.channel(CRDT_CHANNEL_NAME, {
+      config: {
+        private: true,
+        broadcast: {
+          self: false,
+          ack: true
+        }
+      }
+    });
+
+    crdtChannel
+      .on('broadcast', { event: 'crdt-update' }, function(message) {
+        const payload = message.payload || {};
+
+        if (payload.doc !== CRDT_DOC_NAME) return;
+        if (payload.sender &&
+            payload.sender === (window.RDPoteSessionId || '')) return;
+        if (!payload.update || !crdtDoc) return;
+
+        try {
+          const update = crdtBase64ToBytes(payload.update);
+          Y.applyUpdate(crdtDoc, update, 'remote');
+          crdtApplyHtmlToEditor(crdtCurrentHtml());
+          setSyncStatus('Synchronisé', '#2a7a2a');
+        } catch (error) {
+          console.error('Erreur application mise à jour CRDT :', error);
+        }
+      })
+      .on('broadcast', { event: 'crdt-state-request' }, function(message) {
+        const payload = message.payload || {};
+        if (payload.doc !== CRDT_DOC_NAME) return;
+        if (payload.sender &&
+            payload.sender === (window.RDPoteSessionId || '')) return;
+
+        crdtSendFullState();
+      })
+      .on('broadcast', { event: 'crdt-state' }, function(message) {
+        const payload = message.payload || {};
+        if (payload.doc !== CRDT_DOC_NAME) return;
+        if (payload.sender &&
+            payload.sender === (window.RDPoteSessionId || '')) return;
+        if (!payload.update || !crdtDoc) return;
+
+        try {
+          Y.applyUpdate(
+            crdtDoc,
+            crdtBase64ToBytes(payload.update),
+            'remote'
+          );
+          crdtApplyHtmlToEditor(crdtCurrentHtml());
+          crdtSaveLocalState();
+          setSyncStatus('Synchronisé', '#2a7a2a');
+        } catch (error) {
+          console.error('Erreur application état CRDT :', error);
+        }
+      });
+
+    const subscribed = await new Promise(function(resolve, reject) {
+      let finished = false;
+
+      const timer = setTimeout(function() {
+        if (finished) return;
+        finished = true;
+        reject(new Error('Délai de connexion au canal CRDT dépassé.'));
+      }, 10000);
+
+      crdtChannel.subscribe(function(status) {
+        if (status === 'SUBSCRIBED') {
+          clearTimeout(timer);
+          if (finished) return;
+          finished = true;
+          resolve(true);
+        }
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          clearTimeout(timer);
+          if (finished) return;
+          finished = true;
+          reject(new Error('Canal CRDT : ' + status));
+        }
+      });
+    });
+
+    if (!subscribed) return false;
+
+    crdtReady = true;
+
+    // Ask peers for their current CRDT state. Because Yjs merges states,
+    // receiving multiple responses is safe.
+    await crdtChannel.send({
+      type: 'broadcast',
+      event: 'crdt-state-request',
+      payload: {
+        doc: CRDT_DOC_NAME,
+        sender: window.RDPoteSessionId || ''
+      }
+    });
+
+    // Then publish our own state too.
+    crdtSendFullState();
+
     return true;
   }
 
   async function initCRDT() {
     if (typeof Y === 'undefined') {
-      console.error('Yjs n’est pas chargé.');
-      setSyncStatus('Moteur CRDT indisponible', '#a33');
-      return;
+      throw new Error('Yjs n’est pas chargé.');
     }
-    if (crdtReady) return;
 
-    crdtSeedHtml = getEditor().innerHTML;
+    // Tear down any previous experimental instance.
+    await stopCRDT();
+
     crdtDoc = new Y.Doc();
-    crdtText = crdtDoc.getText('content');
+    crdtText = crdtDoc.getText('html');
 
-    try {
-      const local = await chargerCRDTLocal();
-      if (local) Y.applyUpdate(crdtDoc, base64ToBytes(local), 'indexeddb');
-    } catch (error) {
-      console.warn('Impossible de charger la copie CRDT locale :', error);
-    }
+    await crdtOpenIndexedDB();
 
-    crdtDoc.on('update', function(update, origin) {
-      planifierSauvegardeCRDTLocale();
-      if (origin !== 'remote' && origin !== 'indexeddb') {
-        envoyerCRDTUpdate(update);
+    // Restore only this user's local CRDT state.
+    const localState = await crdtLoadLocalState(crdtIndexedDb);
+
+    if (localState) {
+      try {
+        Y.applyUpdate(
+          crdtDoc,
+          crdtBase64ToBytes(localState),
+          'local-persistence'
+        );
+      } catch (error) {
+        console.warn('État CRDT local illisible, ignoré.', error);
       }
-      rendreCRDTDansEditeur();
-    });
-
-    const editor = getEditor();
-    if (editor && editor.dataset.crdtListener !== '1') {
-      editor.dataset.crdtListener = '1';
-      editor.addEventListener('input', function() {
-        if (crdtApplyingRemote || !crdtReady) return;
-        const model = domToCRDTModel(editor);
-        synchroniserModeleLocalAvecCRDT(model);
-      });
     }
 
-    // Le rendu de la copie locale, si elle existe.
+    // If there is no local CRDT state, seed from the current stable HTML
+    // exactly once.
+    if (crdtText.length === 0) {
+      const editor = getEditor();
+      const html = editor ? editor.innerHTML : '';
+
+      if (html) {
+        crdtSetInitialHtml(html);
+        crdtSeeded = true;
+      }
+    }
+
+    crdtAttachDocObserver();
+    crdtAttachEditorListener();
+
+    // Display the local CRDT immediately.
     if (crdtText.length > 0) {
-      rendreCRDTDansEditeur();
+      crdtApplyHtmlToEditor(crdtCurrentHtml());
     }
 
-    crdtReady = true;
-    setSyncStatus('Document CRDT local prêt', '#2a7a2a');
+    await crdtSubscribe();
 
-    // Le canal réseau est créé séparément du canal de présence.
-    try {
-      await supabaseClient.realtime.setAuth();
-    } catch (e) {
-      console.warn('Realtime setAuth :', e);
-    }
-
-    crdtChannel = supabaseClient
-      .channel('rdpote-crdt-document-v1', {
-        config: {
-          private: true,
-          broadcast: { self: false }
-        }
-      })
-      .on('broadcast', { event: 'crdt-update' }, function(message) {
-        const payload = message.payload || {};
-        if (!payload.update || payload.sessionId === LOCAL_SESSION_ID) return;
-        if (payload.sessionId) crdtPeerSessions.add(payload.sessionId);
-        try {
-          Y.applyUpdate(crdtDoc, base64ToBytes(payload.update), 'remote');
-          setSyncStatus('Synchronisé en temps réel', '#2a7a2a');
-        } catch (error) {
-          console.error('Mise à jour CRDT reçue invalide :', error);
-        }
-      })
-      .on('broadcast', { event: 'crdt-sync-request' }, function(message) {
-        const payload = message.payload || {};
-        if (!payload.stateVector || payload.sessionId === LOCAL_SESSION_ID) return;
-        crdtPeerSessions.add(payload.sessionId);
-        try {
-          const vector = base64ToBytes(payload.stateVector);
-          const diff = Y.encodeStateAsUpdate(crdtDoc, vector);
-          crdtChannel.send({
-            type: 'broadcast',
-            event: 'crdt-sync-response',
-            payload: {
-              update: bytesToBase64(diff),
-              sessionId: LOCAL_SESSION_ID,
-              targetSessionId: payload.sessionId
-            }
-          });
-        } catch (error) {
-          console.warn('Réponse de synchronisation CRDT :', error);
-        }
-      })
-      .on('broadcast', { event: 'crdt-sync-response' }, function(message) {
-        const payload = message.payload || {};
-        if (!payload.update || payload.targetSessionId !== LOCAL_SESSION_ID) return;
-        if (payload.sessionId) crdtPeerSessions.add(payload.sessionId);
-        try {
-          Y.applyUpdate(crdtDoc, base64ToBytes(payload.update), 'remote');
-          setSyncStatus('Document CRDT synchronisé', '#2a7a2a');
-        } catch (error) {
-          console.error('Réponse CRDT invalide :', error);
-        }
-      })
-      .subscribe(async function(state) {
-        if (state === 'SUBSCRIBED') {
-          const stateVector = Y.encodeStateVector(crdtDoc);
-          await crdtChannel.send({
-            type: 'broadcast',
-            event: 'crdt-sync-request',
-            payload: {
-              stateVector: bytesToBase64(stateVector),
-              sessionId: LOCAL_SESSION_ID
-            }
-          });
-
-          // Si personne n'a pu nous fournir de contenu, on utilise le HTML
-          // existant comme graine. Le délai laisse le temps à un pair connecté
-          // de répondre avec son état CRDT.
-          setTimeout(async function() {
-            if (crdtText.length !== 0) return;
-
-            // Si plusieurs clients démarrent exactement en même temps sur
-            // un document CRDT vide, un seul d'entre eux doit convertir le
-            // HTML historique en contenu CRDT. On élit déterministiquement
-            // la session ayant le plus petit identifiant parmi les pairs
-            // connus.
-            const candidats = Array.from(crdtPeerSessions);
-            candidats.push(LOCAL_SESSION_ID);
-            candidats.sort();
-
-            if (candidats[0] === LOCAL_SESSION_ID) {
-              await initialiserCRDTDepuisHTML();
-              rendreCRDTDansEditeur();
-            }
-          }, 1200);
-
-          setSyncStatus('Synchronisation CRDT active', '#2a7a2a');
-        } else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') {
-          setSyncStatus('CRDT hors ligne : travail local conservé', '#a33');
-        }
-      });
+    setSyncStatus('CRDT connecté', '#2a7a2a');
+    crdtSaveLocalState();
   }
 
   async function stopCRDT() {
-    clearTimeout(crdtPersistTimer);
-    if (crdtDoc) {
-      try { await sauvegarderCRDTLocal(); } catch (e) {}
-    }
+    clearTimeout(crdtLocalChangeTimer);
+    crdtLocalChangeTimer = null;
+
+    crdtReady = false;
+
     if (crdtChannel) {
-      try { await supabaseClient.removeChannel(crdtChannel); } catch (e) {}
+      try {
+        await supabaseClient.removeChannel(crdtChannel);
+      } catch (e) {}
       crdtChannel = null;
     }
-    crdtPeerSessions.clear();
-    crdtReady = false;
+
+    if (crdtDoc) {
+      try {
+        crdtDoc.destroy();
+      } catch (e) {}
+    }
+
     crdtDoc = null;
     crdtText = null;
-    crdtLastModel = null;
-  }
-
-  // --- Présence + curseurs distants ---
-  // Chaque onglet reçoit un identifiant de session différent.
-  // Deux navigateurs utilisant le même compte ont donc chacun leur
-  // couleur, leur curseur et leur présence.
-  const CURSOR_CHANNEL_NAME = 'rdpote-presence-1';
-  const CURSOR_PALETTE = [
-    '#003087', // bleu foncé
-    '#00A6A6', // bleu turquoise
-    '#D81B60', // rose
-    '#D71920', // rouge
-    '#2E7D32', // vert
-    '#B28A00', // jaune moutarde
-    '#F57C00'  // orange
-  ];
-
-  const connectedUsersEl = document.getElementById('connectedUsers');
-  const remoteCursorsEl = document.getElementById('remoteCursors');
-  const remoteCursors = new Map();
-
-  const LOCAL_SESSION_ID = (window.crypto && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : 'session-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-
-  let presenceChannel = null;
-  let cursorSendTimer = null;
-  let localCursorActive = false;
-
-  function hashString(text) {
-    let h = 0;
-    for (let i = 0; i < text.length; i++) {
-      h = ((h << 5) - h) + text.charCodeAt(i);
-      h |= 0;
-    }
-    return Math.abs(h);
-  }
-
-  function getPresenceEntries() {
-    if (!presenceChannel) return [];
-    const state = presenceChannel.presenceState();
-    const entries = [];
-
-    Object.keys(state).forEach(function (key) {
-      (state[key] || []).forEach(function (item) {
-        if (item && item.sessionId) {
-          entries.push(item);
-        }
-      });
-    });
-
-    return entries;
-  }
-
-  function getAllSessionIds() {
-    const ids = [LOCAL_SESSION_ID];
-    getPresenceEntries().forEach(function (item) {
-      if (item.sessionId) ids.push(item.sessionId);
-    });
-    remoteCursors.forEach(function (_, sessionId) {
-      ids.push(sessionId);
-    });
-    return Array.from(new Set(ids));
-  }
-
-  function getColorAssignments() {
-    // Un identifiant de session est toujours unique. En cas de collision
-    // théorique sur l'index, on décale jusqu'à trouver une couleur libre.
-    const assignments = new Map();
-    const used = new Set();
-
-    getAllSessionIds().sort().forEach(function (sessionId) {
-      let index = hashString(sessionId) % CURSOR_PALETTE.length;
-      while (used.has(index) && used.size < CURSOR_PALETTE.length) {
-        index = (index + 1) % CURSOR_PALETTE.length;
-      }
-      assignments.set(sessionId, CURSOR_PALETTE[index]);
-      used.add(index);
-    });
-
-    return assignments;
-  }
-
-  function renderConnectedUsers() {
-    if (!connectedUsersEl) return;
-
-    const entries = getPresenceEntries();
-    const bySession = new Map();
-
-    entries.forEach(function (item) {
-      bySession.set(item.sessionId, item);
-    });
-
-    // S'assurer que l'utilisateur local apparaît immédiatement.
-    if (window.RDPoteSupabaseUser) {
-      bySession.set(LOCAL_SESSION_ID, {
-        sessionId: LOCAL_SESSION_ID,
-        username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur'
-      });
-    }
-
-    const assignments = getColorAssignments();
-    connectedUsersEl.innerHTML = '';
-
-    Array.from(bySession.values()).sort(function (a, b) {
-      return String(a.username || '').localeCompare(String(b.username || ''), 'fr');
-    }).forEach(function (item) {
-      const wrapper = document.createElement('span');
-      wrapper.className = 'connected-user';
-
-      const dot = document.createElement('span');
-      dot.className = 'connected-user-dot';
-      dot.style.backgroundColor = assignments.get(item.sessionId) || CURSOR_PALETTE[0];
-
-      const text = document.createElement('span');
-      text.textContent = item.sessionId === LOCAL_SESSION_ID
-        ? (item.username || 'Vous')
-        : (item.username || 'Utilisateur');
-
-      wrapper.appendChild(dot);
-      wrapper.appendChild(text);
-      connectedUsersEl.appendChild(wrapper);
-    });
-
-    remoteCursors.forEach(function (_, sessionId) {
-      updateRemoteCursorColor(sessionId, assignments.get(sessionId));
-    });
-  }
-
-  function nodePath(root, node) {
-    const path = [];
-    let current = node;
-
-    while (current && current !== root) {
-      const parent = current.parentNode;
-      if (!parent) return null;
-      path.unshift(Array.prototype.indexOf.call(parent.childNodes, current));
-      current = parent;
-    }
-
-    return current === root ? path : null;
-  }
-
-  function nodeFromPath(root, path) {
-    let current = root;
-    for (const index of path) {
-      if (!current || !current.childNodes || !current.childNodes[index]) return null;
-      current = current.childNodes[index];
-    }
-    return current;
-  }
-
-  function getLocalCursorData() {
-    const editor = getEditor();
-    const selection = window.getSelection();
-
-    if (!editor || !selection || selection.rangeCount === 0) return null;
-
-    const range = selection.getRangeAt(0);
-    if (!editor.contains(range.startContainer)) return null;
-
-    const path = nodePath(editor, range.startContainer);
-    if (!path) return null;
-
-    return {
-      path: path,
-      offset: range.startOffset,
-      active: localCursorActive
-    };
-  }
-
-  function sendCursorNow() {
-    cursorSendTimer = null;
-
-    if (!presenceChannel || !window.RDPoteSupabaseUser) return;
-
-    const cursor = getLocalCursorData();
-    if (!cursor) return;
-
-    presenceChannel.send({
-      type: 'broadcast',
-      event: 'cursor',
-      payload: {
-        sessionId: LOCAL_SESSION_ID,
-        username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur',
-        path: cursor.path,
-        offset: cursor.offset,
-        active: cursor.active
-      }
-    });
-  }
-
-  function scheduleCursorSend(active) {
-    localCursorActive = active;
-
-    if (cursorSendTimer !== null) return;
-    cursorSendTimer = setTimeout(sendCursorNow, 40);
-  }
-
-  function updateRemoteCursorColor(sessionId, color) {
-    const entry = remoteCursors.get(sessionId);
-    if (!entry || !entry.el) return;
-
-    const actualColor = color || CURSOR_PALETTE[0];
-    entry.color = actualColor;
-    entry.el.style.backgroundColor = actualColor;
-    if (entry.dot) entry.dot.style.backgroundColor = actualColor;
-    if (entry.label) entry.label.style.backgroundColor = actualColor;
-  }
-
-  function removeRemoteCursor(sessionId) {
-    const entry = remoteCursors.get(sessionId);
-    if (entry && entry.el) entry.el.remove();
-    remoteCursors.delete(sessionId);
-  }
-
-  function drawRemoteCursor(sessionId) {
-    const entry = remoteCursors.get(sessionId);
-    const editor = getEditor();
-
-    if (!entry || !editor || !entry.active) {
-      if (entry && entry.el) entry.el.style.display = 'none';
-      return;
-    }
-
-    const node = nodeFromPath(editor, entry.path);
-    if (!node) {
-      if (entry.el) entry.el.style.display = 'none';
-      return;
-    }
-
-    try {
-      const range = document.createRange();
-      const maxOffset = node.nodeType === Node.TEXT_NODE
-        ? node.textContent.length
-        : node.childNodes.length;
-      const safeOffset = Math.min(entry.offset, maxOffset);
-
-      range.setStart(node, safeOffset);
-      range.collapse(true);
-
-      const rect = range.getBoundingClientRect();
-      const editorRect = editor.getBoundingClientRect();
-
-      if (!rect || (!rect.width && !rect.height)) {
-        if (entry.el) entry.el.style.display = 'none';
-        return;
-      }
-
-      if (!entry.el) {
-        const caret = document.createElement('div');
-        caret.className = 'remote-cursor';
-
-        const dot = document.createElement('div');
-        dot.className = 'remote-cursor-dot';
-
-        const label = document.createElement('div');
-        label.className = 'remote-cursor-label';
-
-        caret.appendChild(dot);
-        caret.appendChild(label);
-        remoteCursorsEl.appendChild(caret);
-
-        entry.el = caret;
-        entry.dot = dot;
-        entry.label = label;
-      }
-
-      const assignments = getColorAssignments();
-      updateRemoteCursorColor(sessionId, assignments.get(sessionId));
-
-      const presence = getPresenceEntries().find(function (item) {
-        return item.sessionId === sessionId;
-      });
-      const username = (presence && presence.username) || entry.username || 'Utilisateur';
-
-      entry.label.textContent = username;
-
-      entry.el.style.display = 'block';
-      entry.el.style.left = (rect.left - editorRect.left) + 'px';
-      entry.el.style.top = (rect.top - editorRect.top) + 'px';
-      entry.el.style.height = Math.max(20, rect.height || 22) + 'px';
-      entry.el.title = username;
-    } catch (error) {
-      console.warn('Impossible de positionner le curseur distant :', error);
-    }
-  }
-
-  function redrawAllRemoteCursors() {
-    remoteCursors.forEach(function (_, sessionId) {
-      drawRemoteCursor(sessionId);
-    });
-  }
-
-  async function subscribeToPresence() {
-    if (!window.RDPoteSupabaseUser) return;
-
-    if (presenceChannel) {
-      await supabaseClient.removeChannel(presenceChannel);
-      presenceChannel = null;
-    }
-
-    presenceChannel = supabaseClient
-      .channel(CURSOR_CHANNEL_NAME, {
-        config: {
-          presence: {
-            key: LOCAL_SESSION_ID
-          },
-          broadcast: {
-            self: false
-          }
-        }
-      })
-      .on('presence', { event: 'sync' }, function () {
-        renderConnectedUsers();
-        redrawAllRemoteCursors();
-      })
-      .on('presence', { event: 'join' }, function () {
-        renderConnectedUsers();
-      })
-      .on('presence', { event: 'leave' }, function (payload) {
-        (payload.leftPresences || []).forEach(function (item) {
-          if (item.sessionId && item.sessionId !== LOCAL_SESSION_ID) {
-            removeRemoteCursor(item.sessionId);
-          }
-        });
-        renderConnectedUsers();
-      })
-      .on('broadcast', { event: 'cursor' }, function (message) {
-        const payload = message.payload || {};
-        if (!payload.sessionId || payload.sessionId === LOCAL_SESSION_ID) return;
-
-        if (payload.active === false) {
-          removeRemoteCursor(payload.sessionId);
-          renderConnectedUsers();
-          return;
-        }
-
-        const previous = remoteCursors.get(payload.sessionId) || {};
-
-        remoteCursors.set(payload.sessionId, {
-          path: Array.isArray(payload.path) ? payload.path : [],
-          offset: Number.isFinite(payload.offset) ? payload.offset : 0,
-          active: true,
-          username: payload.username || previous.username || 'Utilisateur',
-          el: previous.el || null,
-          dot: previous.dot || null,
-          label: previous.label || null
-        });
-
-        renderConnectedUsers();
-        drawRemoteCursor(payload.sessionId);
-      })
-      .subscribe(async function (state) {
-        if (state === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            sessionId: LOCAL_SESSION_ID,
-            username: window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email || 'Utilisateur'
-          });
-          renderConnectedUsers();
-          scheduleCursorSend(true);
-        }
-      });
-
-    const editor = getEditor();
-    if (editor && editor.dataset.cursorListeners !== '1') {
-      editor.dataset.cursorListeners = '1';
-
-      editor.addEventListener('scroll', redrawAllRemoteCursors);
-      window.addEventListener('resize', redrawAllRemoteCursors);
-
-      editor.addEventListener('focus', function () {
-        scheduleCursorSend(true);
-      });
-
-      editor.addEventListener('blur', function () {
-        scheduleCursorSend(false);
-      });
-
-      editor.addEventListener('keyup', function () {
-        scheduleCursorSend(true);
-      });
-
-      editor.addEventListener('mouseup', function () {
-        scheduleCursorSend(true);
-      });
-
-      document.addEventListener('selectionchange', function () {
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) return;
-        const range = selection.getRangeAt(0);
-        if (editor.contains(range.startContainer)) {
-          scheduleCursorSend(document.activeElement === editor);
-        }
-      });
-    }
-  }
-
-  async function stopPresence() {
-    if (presenceChannel) {
-      try {
-        await presenceChannel.untrack();
-      } catch (e) {}
-
-      try {
-        await supabaseClient.removeChannel(presenceChannel);
-      } catch (e) {}
-
-      presenceChannel = null;
-    }
-
-    remoteCursors.forEach(function (entry) {
-      if (entry.el) entry.el.remove();
-    });
-    remoteCursors.clear();
-    renderConnectedUsers();
+    crdtObserverAttached = false;
+    crdtEditorListenerAttached = false;
+    crdtSeeded = false;
   }
 
   async function initSupabase() {
@@ -3166,8 +2662,15 @@ mettreAJourBoutons();
       await initCRDT();
       subscribeToPresence();
     } catch (error) {
-      console.error('Impossible de charger le document Supabase :', error);
-      showLogin('Connexion établie, mais impossible de charger le document.');
+      console.error('Initialisation RDPote/CRDT impossible :', error);
+
+      const detail = error && error.message
+        ? error.message
+        : 'Erreur inconnue';
+
+      // The previous message was misleading because an error in CRDT
+      // initialization was reported as a document-loading error.
+      showLogin('Connexion établie, mais RDPote n’a pas pu démarrer : ' + detail);
     }
   }
 
