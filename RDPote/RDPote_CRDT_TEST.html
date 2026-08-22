@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- V7 -->
+<!-- V8 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2216,6 +2216,7 @@ mettreAJourBoutons();
   // de sauvegarde HTML/realtime ne sont volontairement pas utilisées ici.
   let crdtDoc = null;
   let crdtText = null;
+  let crdtLastHtml = '';
   let crdtChannel = null;
   let crdtReady = false;
   let crdtApplyingRemote = false;
@@ -2426,6 +2427,8 @@ mettreAJourBoutons();
     // Replacing innerHTML normally moves the caret to the beginning.
     // Restore it to the same textual position afterwards.
     crdtRestoreSelectionOffsets(editor, savedSelection);
+
+    crdtLastHtml = html;
   }
 
   function crdtCurrentHtml() {
@@ -2504,19 +2507,45 @@ mettreAJourBoutons();
       if (!crdtReady || crdtApplyingRemote || !crdtText) return;
 
       const html = crdtModelFromEditor();
-      const current = crdtCurrentHtml();
+      const current = crdtLastHtml || crdtCurrentHtml();
 
       if (html === current) return;
 
-      // Pour cette V2, on représente chaque changement DOM comme une
-      // nouvelle valeur Y.Text. Cela valide d'abord la synchronisation
-      // CRDT/Realtime de bout en bout. L'étape suivante remplacera ce
-      // remplacement par de vraies opérations caractère par caractère.
+      // Convert the local DOM change into the smallest contiguous
+      // insertion/deletion we can safely infer from the old/new HTML.
+      // This is already much closer to a real collaborative editor:
+      // Yjs keeps character identities instead of replacing the whole
+      // shared string on every keystroke.
+      let prefix = 0;
+      const maxPrefix = Math.min(current.length, html.length);
+
+      while (prefix < maxPrefix &&
+             current.charCodeAt(prefix) === html.charCodeAt(prefix)) {
+        prefix++;
+      }
+
+      let oldEnd = current.length;
+      let newEnd = html.length;
+
+      while (oldEnd > prefix && newEnd > prefix &&
+             current.charCodeAt(oldEnd - 1) === html.charCodeAt(newEnd - 1)) {
+        oldEnd--;
+        newEnd--;
+      }
+
+      const deletedLength = oldEnd - prefix;
+      const insertedText = html.slice(prefix, newEnd);
+
       crdtDoc.transact(function() {
-        crdtText.delete(0, crdtText.length);
-        crdtText.insert(0, html);
+        if (deletedLength > 0) {
+          crdtText.delete(prefix, deletedLength);
+        }
+        if (insertedText.length > 0) {
+          crdtText.insert(prefix, insertedText);
+        }
       }, 'editor-local');
 
+      crdtLastHtml = crdtCurrentHtml();
       setSyncStatus('Modification partagée…', '#888');
     });
   }
@@ -2718,6 +2747,8 @@ mettreAJourBoutons();
       crdtApplyHtmlToEditor(crdtCurrentHtml());
     }
 
+    crdtLastHtml = crdtCurrentHtml();
+
     await crdtSubscribe();
 
     setSyncStatus('CRDT connecté', '#2a7a2a');
@@ -2745,6 +2776,7 @@ mettreAJourBoutons();
 
     crdtDoc = null;
     crdtText = null;
+    crdtLastHtml = '';
     crdtObserverAttached = false;
     crdtEditorListenerAttached = false;
     crdtSeeded = false;
