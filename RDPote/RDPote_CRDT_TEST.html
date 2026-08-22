@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 restauree V14 -->
+<!-- Version 20 août 2026 restauree 14bis Claude-->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2453,11 +2453,59 @@ mettreAJourBoutons();
     }
   }
 
-  function crdtApplyHtmlToEditor(html) {
+  // Sauvegarde la position du curseur LOCAL (celui de l'utilisateur qui lit
+  // cet écran) sous forme de RelativePosition Yjs, en plus de sa position
+  // absolue. La RelativePosition est ancrée à un caractère précis du
+  // document CRDT : si une modification distante insère ou supprime du
+  // texte avant le curseur, elle "suit" le bon caractère au lieu de rester
+  // figée sur un index numérique devenu obsolète.
+  //
+  // À appeler AVANT Y.applyUpdate(), pendant que crdtCursorText reflète
+  // encore l'état du document tel que l'utilisateur le voyait.
+  function crdtSauvegarderPositionCurseurLocal(editor) {
+    const offsets = crdtGetSelectionOffsets(editor);
+    if (!offsets || offsets.start == null || offsets.end == null) return null;
+
+    return {
+      startAbs: offsets.start,
+      endAbs: offsets.end,
+      collapsed: offsets.collapsed,
+      startRel: encoderPositionRelativeYjs(offsets.start),
+      endRel: encoderPositionRelativeYjs(offsets.end)
+    };
+  }
+
+  // Restaure la position du curseur LOCAL après application d'une mise à
+  // jour distante. On préfère la RelativePosition Yjs (qui a suivi les
+  // insertions/suppressions concurrentes) ; si elle est indisponible on
+  // retombe sur l'ancienne position absolue.
+  function crdtRestaurerPositionCurseurLocal(editor, saved) {
+    if (!saved) return;
+
+    let start = saved.startRel ? decoderPositionRelativeYjs(saved.startRel) : null;
+    let end = saved.endRel ? decoderPositionRelativeYjs(saved.endRel) : null;
+
+    if (start == null) start = saved.startAbs;
+    if (end == null) end = saved.endAbs;
+
+    if (start == null || end == null) return;
+
+    crdtRestoreSelectionOffsets(editor, {
+      start: start,
+      end: end,
+      collapsed: saved.collapsed
+    });
+  }
+
+  function crdtApplyHtmlToEditor(html, curseurLocalSauvegarde) {
     const editor = getEditor();
     if (!editor) return;
 
-    const savedSelection = crdtGetSelectionOffsets(editor);
+    // Si l'appelant a déjà capturé la position du curseur local avant
+    // d'appliquer la mise à jour CRDT distante (RelativePosition), on
+    // l'utilise. Sinon (cas d'un rendu local, pas de modification distante
+    // entre-temps) on se contente de la position absolue actuelle.
+    const savedSelection = curseurLocalSauvegarde || crdtGetSelectionOffsets(editor);
 
     crdtApplyingRemote = true;
     try {
@@ -2469,8 +2517,12 @@ mettreAJourBoutons();
     }
 
     // Replacing innerHTML normally moves the caret to the beginning.
-    // Restore it to the same textual position afterwards.
-    crdtRestoreSelectionOffsets(editor, savedSelection);
+    // Restore it to the same logical position afterwards.
+    if (curseurLocalSauvegarde) {
+      crdtRestaurerPositionCurseurLocal(editor, curseurLocalSauvegarde);
+    } else {
+      crdtRestoreSelectionOffsets(editor, savedSelection);
+    }
 
     crdtLastHtml = html;
   }
@@ -2705,9 +2757,17 @@ mettreAJourBoutons();
         if (!payload.update || !crdtDoc) return;
 
         try {
+          const editorPourCurseur = getEditor();
           const update = crdtBase64ToBytes(payload.update);
           const ancienTexteDistant =
             crdtCursorText ? crdtCursorText.toString() : '';
+
+          // Capturer la position du curseur LOCAL (RelativePosition Yjs)
+          // avant d'appliquer la mise à jour distante, pour qu'elle
+          // "suive" le bon caractère au lieu de rester à un index figé.
+          const curseurLocalSauvegarde = editorPourCurseur
+            ? crdtSauvegarderPositionCurseurLocal(editorPourCurseur)
+            : null;
 
           Y.applyUpdate(crdtDoc, update, 'remote');
 
@@ -2719,7 +2779,7 @@ mettreAJourBoutons();
             nouveauTexteDistant
           );
 
-          crdtApplyHtmlToEditor(crdtCurrentHtml());
+          crdtApplyHtmlToEditor(crdtCurrentHtml(), curseurLocalSauvegarde);
           redessinerTousLesCurseurs();
           setSyncStatus('Synchronisé', '#2a7a2a');
         } catch (error) {
@@ -2742,8 +2802,13 @@ mettreAJourBoutons();
         if (!payload.update || !crdtDoc) return;
 
         try {
+          const editorPourCurseur = getEditor();
           const ancienTexteDistant =
             crdtCursorText ? crdtCursorText.toString() : '';
+
+          const curseurLocalSauvegarde = editorPourCurseur
+            ? crdtSauvegarderPositionCurseurLocal(editorPourCurseur)
+            : null;
 
           Y.applyUpdate(
             crdtDoc,
@@ -2759,7 +2824,7 @@ mettreAJourBoutons();
             nouveauTexteDistant
           );
 
-          crdtApplyHtmlToEditor(crdtCurrentHtml());
+          crdtApplyHtmlToEditor(crdtCurrentHtml(), curseurLocalSauvegarde);
           redessinerTousLesCurseurs();
           crdtSaveLocalState();
           setSyncStatus('Synchronisé', '#2a7a2a');
