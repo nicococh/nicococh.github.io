@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 20 août 2026 restauree 14bis Claude-->
+<!-- Version 20 août 2026 restauree 14ter -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -796,6 +796,20 @@ editor.setRangeText = function(texte, start, end, mode) {
     r2.setEnd(pos.node, pos.offset);
   }
   sel.addRange(r2);
+
+  // setRangeText modifie le DOM directement (Range.deleteContents /
+  // insertNode) : contrairement à une frappe clavier normale, cela ne
+  // déclenche PAS d'événement 'input' sur l'éditeur. Or c'est cet
+  // événement qui alimente la synchronisation CRDT (voir plus bas dans
+  // le fichier) : sans lui, les boutons "Insérer un caractère spécial",
+  // "dictionnaire des signes", "Supprimer les sauts de ligne", la
+  // correction de typo, les majuscules/minuscules et l'auto-expansion de
+  // snippet ne seraient PAS transmis aux autres utilisateurs, et ne
+  // passeraient pas non plus par la logique qui préserve la position de
+  // leur curseur. On déclenche donc ici un 'input' synthétique, pour que
+  // ces actions empruntent exactement le même chemin qu'une frappe
+  // clavier classique.
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
 };
 
 function selectionActive() {
