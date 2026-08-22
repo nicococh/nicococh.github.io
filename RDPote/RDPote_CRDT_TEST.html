@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- V3 --> 
+<!-- V4 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -622,7 +622,20 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
 </div>
 
 
-<script src="https://cdn.jsdelivr.net/npm/yjs@13.6.27/dist/yjs.js"></script>
+<script>
+  // Yjs 13.x fournit un bundle ESM pour le navigateur.
+  // On l'importe comme module puis on expose l'API sous window.Y pour
+  // le reste du fichier RDPote (qui est un script classique).
+  window.RDPoteYjsReady = import('https://cdn.jsdelivr.net/npm/yjs@13.6.27/dist/yjs.mjs')
+    .then(function(Yjs) {
+      window.Y = Yjs;
+      return Yjs;
+    })
+    .catch(function(error) {
+      console.error('Impossible de charger Yjs :', error);
+      throw error;
+    });
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = 'https://cvknbeisuecvuihuolft.supabase.co';
@@ -2565,7 +2578,15 @@ mettreAJourBoutons();
   }
 
   async function initCRDT() {
-    if (typeof Y === 'undefined') {
+    // Attendre explicitement le chargement du module Yjs.
+    try {
+      await window.RDPoteYjsReady;
+    } catch (error) {
+      throw new Error('Impossible de charger Yjs depuis le CDN : ' +
+        (error.message || error));
+    }
+
+    if (typeof window.Y === 'undefined') {
       throw new Error('Yjs n’est pas chargé.');
     }
 
