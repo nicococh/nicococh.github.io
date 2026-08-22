@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- V6 -->
+<!-- V7 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2329,9 +2329,90 @@ mettreAJourBoutons();
     return editor.innerHTML;
   }
 
+  function crdtGetSelectionOffsets(editor) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) return null;
+
+    const range = sel.getRangeAt(0);
+
+    function offset(root, node, nodeOffset) {
+      const r = document.createRange();
+      r.selectNodeContents(root);
+      try {
+        r.setEnd(node, nodeOffset);
+      } catch (e) {
+        return null;
+      }
+      return r.toString().length;
+    }
+
+    return {
+      start: offset(editor, range.startContainer, range.startOffset),
+      end: offset(editor, range.endContainer, range.endOffset),
+      collapsed: range.collapsed
+    };
+  }
+
+  function crdtRestoreSelectionOffsets(editor, saved) {
+    if (!saved || saved.start == null || saved.end == null) return;
+
+    const walker = document.createTreeWalker(
+      editor,
+      NodeFilter.SHOW_TEXT
+    );
+
+    let pos = 0;
+    let startNode = null, endNode = null;
+    let startOffset = 0, endOffset = 0;
+    let node;
+
+    while ((node = walker.nextNode())) {
+      const next = pos + node.nodeValue.length;
+
+      if (!startNode && saved.start <= next) {
+        startNode = node;
+        startOffset = Math.max(0, saved.start - pos);
+      }
+
+      if (!endNode && saved.end <= next) {
+        endNode = node;
+        endOffset = Math.max(0, saved.end - pos);
+        break;
+      }
+
+      pos = next;
+    }
+
+    // Empty document / selection at the end.
+    if (!startNode) {
+      startNode = editor;
+      startOffset = editor.childNodes.length;
+    }
+
+    if (!endNode) {
+      endNode = startNode;
+      endOffset = startOffset;
+    }
+
+    try {
+      const range = document.createRange();
+      range.setStart(startNode, startOffset);
+      range.setEnd(endNode, endOffset);
+
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (e) {
+      // The DOM may have changed again between the remote update and
+      // restoration; in that case leave the browser's current selection.
+    }
+  }
+
   function crdtApplyHtmlToEditor(html) {
     const editor = getEditor();
     if (!editor) return;
+
+    const savedSelection = crdtGetSelectionOffsets(editor);
 
     crdtApplyingRemote = true;
     try {
@@ -2341,6 +2422,10 @@ mettreAJourBoutons();
     } finally {
       crdtApplyingRemote = false;
     }
+
+    // Replacing innerHTML normally moves the caret to the beginning.
+    // Restore it to the same textual position afterwards.
+    crdtRestoreSelectionOffsets(editor, savedSelection);
   }
 
   function crdtCurrentHtml() {
