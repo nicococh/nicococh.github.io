@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- V12 -->
+<!-- Version 20 août 2026 restauree V13 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2259,6 +2259,7 @@ mettreAJourBoutons();
   // de sauvegarde HTML/realtime ne sont volontairement pas utilisées ici.
   let crdtDoc = null;
   let crdtText = null;
+  let crdtCursorText = null;
   let crdtLastHtml = '';
   let crdtChannel = null;
   let crdtReady = false;
@@ -2483,8 +2484,15 @@ mettreAJourBoutons();
     if (crdtText.length > 0) return;
     if (!html) return;
 
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    const visibleText = temp.textContent || '';
+
     crdtDoc.transact(function() {
       crdtText.insert(0, html);
+      if (visibleText) {
+        crdtCursorText.insert(0, visibleText);
+      }
     }, 'initial-document');
   }
 
@@ -2554,8 +2562,13 @@ mettreAJourBoutons();
 
       if (html === current) return;
 
-      // Convert the local DOM change into the smallest contiguous
-      // insertion/deletion we can safely infer from the old/new HTML.
+      const editorVisibleText = editor.textContent || '';
+      const currentVisibleText = crdtCursorText
+        ? crdtCursorText.toString()
+        : '';
+
+      // Convert the visible-text change into the same smallest contiguous
+      // insertion/deletion used by the caret RelativePosition type.
       // This is already much closer to a real collaborative editor:
       // Yjs keeps character identities instead of replacing the whole
       // shared string on every keystroke.
@@ -2579,6 +2592,38 @@ mettreAJourBoutons();
       const deletedLength = oldEnd - prefix;
       const insertedText = html.slice(prefix, newEnd);
 
+      // Diff of visible text (caret coordinate system).
+      let textPrefix = 0;
+      const textMaxPrefix = Math.min(
+        currentVisibleText.length,
+        editorVisibleText.length
+      );
+
+      while (
+        textPrefix < textMaxPrefix &&
+        currentVisibleText.charCodeAt(textPrefix) ===
+          editorVisibleText.charCodeAt(textPrefix)
+      ) {
+        textPrefix++;
+      }
+
+      let oldTextEnd = currentVisibleText.length;
+      let newTextEnd = editorVisibleText.length;
+
+      while (
+        oldTextEnd > textPrefix &&
+        newTextEnd > textPrefix &&
+        currentVisibleText.charCodeAt(oldTextEnd - 1) ===
+          editorVisibleText.charCodeAt(newTextEnd - 1)
+      ) {
+        oldTextEnd--;
+        newTextEnd--;
+      }
+
+      const deletedVisibleLength = oldTextEnd - textPrefix;
+      const insertedVisibleText =
+        editorVisibleText.slice(textPrefix, newTextEnd);
+
       // Les curseurs distants utilisent désormais les RelativePosition Yjs.
       // On ne décale donc plus leurs positions avec un simple +1/-1 :
       // Yjs conserve leur position logique à travers les opérations concurrentes.
@@ -2589,6 +2634,15 @@ mettreAJourBoutons();
         }
         if (insertedText.length > 0) {
           crdtText.insert(prefix, insertedText);
+        }
+
+        if (crdtCursorText) {
+          if (deletedVisibleLength > 0) {
+            crdtCursorText.delete(textPrefix, deletedVisibleLength);
+          }
+          if (insertedVisibleText.length > 0) {
+            crdtCursorText.insert(textPrefix, insertedVisibleText);
+          }
         }
       }, 'editor-local');
 
@@ -2759,6 +2813,10 @@ mettreAJourBoutons();
 
     crdtDoc = new Y.Doc();
     crdtText = crdtDoc.getText('html');
+    // Separate Y.Text for caret positions: it contains visible text only,
+    // not HTML markup. This makes RelativePosition indices match the DOM
+    // selection offsets exactly.
+    crdtCursorText = crdtDoc.getText('cursor-text');
 
     await crdtOpenIndexedDB();
 
@@ -2786,6 +2844,19 @@ mettreAJourBoutons();
       if (html) {
         crdtSetInitialHtml(html);
         crdtSeeded = true;
+      }
+    }
+
+    // Older local CRDT states contain only the HTML Y.Text. Populate the
+    // cursor-text type once from the visible document text.
+    if (crdtCursorText.length === 0 && crdtText.length > 0) {
+      const temp = document.createElement('div');
+      temp.innerHTML = crdtText.toString();
+      const visibleText = temp.textContent || '';
+      if (visibleText) {
+        crdtDoc.transact(function() {
+          crdtCursorText.insert(0, visibleText);
+        }, 'cursor-text-migration');
       }
     }
 
@@ -2826,6 +2897,7 @@ mettreAJourBoutons();
 
     crdtDoc = null;
     crdtText = null;
+    crdtCursorText = null;
     crdtLastHtml = '';
     crdtObserverAttached = false;
     crdtEditorListenerAttached = false;
@@ -2941,14 +3013,15 @@ mettreAJourBoutons();
 
 
   function encoderPositionRelativeYjs(position) {
-    if (!crdtText || !window.Y || typeof Y.createRelativePositionFromTypeIndex !== 'function') {
+    if (!crdtCursorText || !window.Y ||
+        typeof Y.createRelativePositionFromTypeIndex !== 'function') {
       return null;
     }
 
     try {
       const rel = Y.createRelativePositionFromTypeIndex(
-        crdtText,
-        Math.max(0, Math.min(position, crdtText.length))
+        crdtCursorText,
+        Math.max(0, Math.min(position, crdtCursorText.length))
       );
       return Array.from(Y.encodeRelativePosition(rel));
     } catch (error) {
@@ -2967,7 +3040,7 @@ mettreAJourBoutons();
       const rel = Y.decodeRelativePosition(Uint8Array.from(encoded));
       const abs = Y.createAbsolutePositionFromRelativePosition(rel, crdtDoc);
 
-      if (!abs || !abs.type || abs.type !== crdtText) return null;
+      if (!abs || !abs.type || abs.type !== crdtCursorText) return null;
       return abs.index;
     } catch (error) {
       console.warn('Décodage RelativePosition Yjs :', error);
