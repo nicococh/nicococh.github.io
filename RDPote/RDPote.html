@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 23 aout correc chariots -->
+<!-- Version 23 aout correc sigles -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -899,7 +899,7 @@
 </div>
 
 <div id="editorWrap">
-  <div id="editor" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="true"></div>
+  <div id="editor" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="false"></div>
   <div id="remoteCursors" aria-hidden="true"></div>
   <div id="snippetBubble" class="snippet-bubble" style="display: none;"></div>
 </div>
@@ -2162,20 +2162,34 @@ function surlignerCorrespondance(expression, requeteNormalisee) {
   return echapperHtml(avant) + '<mark>' + echapperHtml(trouve) + '</mark>' + echapperHtml(apres);
 }
 
+// Position du curseur dans l'éditeur mémorisée avant l'ouverture du dictionnaire.
+// Le focus passe ensuite dans le champ de recherche de la modale, ce qui fait
+// perdre la sélection DOM de l'éditeur.
+let dictionnaireSelectionStart = 0;
+let dictionnaireSelectionEnd = 0;
+
+function memoriserSelectionDictionnaire() {
+  dictionnaireSelectionStart = editor.selectionStart;
+  dictionnaireSelectionEnd = editor.selectionEnd;
+}
+
 function insererExpression(expression) {
-  // Comme pour les caractères spéciaux : editor.selectionStart/End reflètent
-  // la dernière position du curseur, même sans focus (modale ouverte).
-  const start = editor.selectionStart;
-  const end = editor.selectionEnd;
+  // La sélection a été mémorisée avant que le focus ne passe au champ
+  // de recherche du dictionnaire.
+  const start = dictionnaireSelectionStart;
+  const end = dictionnaireSelectionEnd;
 
   empilerUndo(etatActuel());
   terminerGroupe();
 
+  masquerModalDictionnaire();
+  editor.focus();
+
+  // Restaure la sélection réelle dans l'éditeur avant l'insertion.
+  editor.setSelectionRange(start, end);
   editor.setRangeText(expression, start, end, 'end');
 
-  masquerModalDictionnaire();
   status.textContent = "Expression insérée : " + expression;
-  editor.focus();
   sauvegarder();
 }
 
@@ -2227,7 +2241,12 @@ function masquerModalDictionnaire() {
   dictionnaireModal.style.display = 'none';
 }
 
-dictionnaireBtn.addEventListener('click', afficherModalDictionnaire);
+dictionnaireBtn.addEventListener('click', function() {
+  // Important : mémoriser la position AVANT de donner le focus
+  // au champ de recherche du dictionnaire.
+  memoriserSelectionDictionnaire();
+  afficherModalDictionnaire();
+});
 dictionnaireClose.addEventListener('click', function() {
   masquerModalDictionnaire();
   editor.focus();
