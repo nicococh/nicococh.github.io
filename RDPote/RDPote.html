@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 23 chariots repares -->
+<!-- Version 23 pause balade -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -186,7 +186,7 @@
     background: #dbe5f7;
     border-color: #003087;
   }
-  #undoBtn {
+  #historyBtn {
     margin-left: auto;
   }
   #helpBtn {
@@ -873,8 +873,9 @@
 
   <h1>RDPote, l'assistant de la revue de presse</h1>
   <div id="actionbar">
-  
-  <button id="boldBtn" type="button" title="Gras. Ctrl+B"><strong>G</strong></button>
+
+
+   <button id="boldBtn" type="button" title="Gras. Ctrl+B"><strong>G</strong></button>
   <button id="italicBtn" type="button" title="Italique. Ctrl+I"><em>I</em></button>
   <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
@@ -891,7 +892,9 @@
   <button id="zoomInBtn" type="button" title="Agrandir le texte">🔎➕</button>
  <button id="zoomOutBtn" type="button" title="Réduire le texte">🔍➖</button>
   
-  <button id="helpBtn" type="button" title="Aide">?</button>
+   <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
+  <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes locales">🕑</button>
+  <button id="helpBtn" type="button" title="Aide">❓</button>
   </div>
 </div>
 
@@ -1049,8 +1052,75 @@ zoomInBtn.addEventListener('click', function () {
  * programme (sélectionStart/End, setRangeText, editor.value...), on fournit
  * une petite couche de compatibilité autour du contenteditable.
  */
+/*
+ * BUGFIX (sauts de ligne décalés) :
+ * ----------------------------------
+ * `value` était basé sur `innerText`, qui insère un vrai "\n" à chaque
+ * <br> et à chaque changement de bloc (<div>/<p>). Mais selectionStart,
+ * selectionEnd et setRangeText, eux, étaient basés sur Range.toString()
+ * / un TreeWalker qui ne parcourt QUE les nœuds texte : ils ignorent
+ * totalement les <br> et les frontières de bloc, donc ne comptent AUCUN
+ * caractère pour un saut de ligne.
+ *
+ * Résultat : "value" et "selectionStart/End" ne comptaient pas les
+ * caractères de la même façon. À chaque saut de ligne traversé avant (ou
+ * dans) la sélection, le décalage grandissait d'un cran - exactement le
+ * symptôme "décalé de quelques caractères, pas toujours du même nombre".
+ *
+ * Le correctif : une seule fonction (extraireTexteAvecSauts) définit ce
+ * qu'est un "caractère" dans l'éditeur, et TOUT le reste (value, les
+ * positions de sélection, et la conversion inverse position -> nœud DOM)
+ * s'appuie sur cette même fonction. Elles ne peuvent plus diverger.
+ */
+const BLOCS_LIGNE = new Set([
+  'DIV', 'P', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+  'BLOCKQUOTE', 'PRE', 'TR', 'TD', 'TH'
+]);
+
+function extraireTexteAvecSauts(racine) {
+  let texte = '';
+
+  function enDebutDeLigne() {
+    return texte.length === 0 || texte.charAt(texte.length - 1) === '\n';
+  }
+
+  function visiter(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      texte += node.nodeValue;
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+    if (node.tagName === 'BR') {
+      texte += '\n';
+      return;
+    }
+
+    const bloc = BLOCS_LIGNE.has(node.tagName);
+    if (bloc && node !== racine && !enDebutDeLigne()) {
+      texte += '\n';
+    }
+    for (const enfant of node.childNodes) visiter(enfant);
+  }
+
+  for (const enfant of racine.childNodes) visiter(enfant);
+  return texte;
+}
+
 function texteEditeur() {
-  return editor.innerText.replace(/\\u00a0/g, ' ');
+  return extraireTexteAvecSauts(editor).replace(/\u00a0/g, ' ');
+}
+
+// Renvoie le plus proche ancêtre "bloc" (<div>/<p>/...) d'un nœud DOM,
+// sans dépasser l'éditeur. Renvoie null pour une structure "à plat" (texte
+// et <br> directement dans l'éditeur, sans <div>/<p> par ligne).
+function blocParentDe(node) {
+  let n = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  while (n && n !== editor) {
+    if (BLOCS_LIGNE.has(n.tagName)) return n;
+    n = n.parentElement;
+  }
+  return null;
 }
 
 /*
@@ -1160,17 +1230,72 @@ function positionTexteDepuisNoeud(noeud, offset) {
   const range = document.createRange();
   range.selectNodeContents(editor);
   range.setEnd(noeud, offset);
-  return range.toString().length;
+  // On extrait le texte du même fragment avec le MÊME algorithme que
+  // texteEditeur(), au lieu de Range.toString() qui ignore <br> et les
+  // frontières de bloc (voir explication plus haut).
+  return extraireTexteAvecSauts(range.cloneContents()).length;
 }
 
 function trouverPositionTexte(position) {
-  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-  let restant = position;
-  let node;
-  while ((node = walker.nextNode())) {
-    if (restant <= node.nodeValue.length) return { node, offset: restant };
-    restant -= node.nodeValue.length;
+  // Rejoue exactement le même parcours que extraireTexteAvecSauts, en
+  // s'arrêtant dès que la position cherchée est atteinte, pour rester
+  // rigoureusement l'inverse de cette fonction.
+  let texte = '';
+  let resultat = null;
+
+  function enDebutDeLigne() {
+    return texte.length === 0 || texte.charAt(texte.length - 1) === '\n';
   }
+
+  function essayerConclure(node, offset) {
+    if (texte.length === position) {
+      resultat = { node, offset };
+      return true;
+    }
+    return false;
+  }
+
+  function visiter(node) {
+    if (resultat) return true;
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      const len = node.nodeValue.length;
+      if (position >= texte.length && position <= texte.length + len) {
+        resultat = { node, offset: position - texte.length };
+        return true;
+      }
+      texte += node.nodeValue;
+      return false;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return false;
+
+    if (node.tagName === 'BR') {
+      const idx = Array.prototype.indexOf.call(node.parentNode.childNodes, node);
+      if (essayerConclure(node.parentNode, idx)) return true;
+      texte += '\n';
+      return false;
+    }
+
+    const bloc = BLOCS_LIGNE.has(node.tagName);
+    if (bloc && node !== editor && !enDebutDeLigne()) {
+      const idx = Array.prototype.indexOf.call(node.parentNode.childNodes, node);
+      if (essayerConclure(node.parentNode, idx)) return true;
+      texte += '\n';
+    }
+
+    for (const enfant of node.childNodes) {
+      if (visiter(enfant)) return true;
+    }
+
+    if (essayerConclure(node, node.childNodes.length)) return true;
+    return false;
+  }
+
+  for (const enfant of editor.childNodes) {
+    if (visiter(enfant)) return resultat;
+  }
+
   return { node: editor, offset: editor.childNodes.length };
 }
 
@@ -1227,11 +1352,55 @@ editor.select = function() {
 editor.setRangeText = function(texte, start, end, mode) {
   const a = trouverPositionTexte(start);
   const b = trouverPositionTexte(end);
+
+  // BUGFIX (voir plus haut) : quand la sélection traverse plusieurs blocs
+  // (<div>/<p>, ex. plusieurs lignes/paragraphes), le point d'insertion que
+  // laisse Range.deleteContents() une fois "collapsed" n'est pas fiable :
+  // il peut se retrouver au niveau de l'éditeur, entre deux blocs, au lieu
+  // de rester à l'intérieur du bloc de départ. On repère donc les blocs de
+  // départ et de fin AVANT la suppression, pour pouvoir contrôler
+  // nous-mêmes où le texte de remplacement atterrit.
+  const blocDebut = blocParentDe(a.node);
+  const blocFin = blocParentDe(b.node);
+  const traverseBlocs = blocDebut && blocFin && blocDebut !== blocFin;
+
   const range = document.createRange();
   range.setStart(a.node, a.offset);
   range.setEnd(b.node, b.offset);
   range.deleteContents();
-  if (texte) range.insertNode(document.createTextNode(texte));
+
+  if (texte) {
+    const noeudTexte = document.createTextNode(texte);
+    if (traverseBlocs) {
+      // Après deleteContents(), le bloc de départ ne contient plus que le
+      // texte qui précédait le début de la sélection : on ajoute donc le
+      // remplacement à sa suite, explicitement.
+      blocDebut.appendChild(noeudTexte);
+    } else {
+      // Sélection dans un seul bloc (ou structure "à plat" avec <br>) :
+      // le point laissé par deleteContents() est fiable dans ce cas simple.
+      range.insertNode(noeudTexte);
+    }
+  }
+
+  if (traverseBlocs && editor.contains(blocDebut) && editor.contains(blocFin)) {
+    // Le bloc de fin ne contient plus que le texte qui suivait la fin de
+    // la sélection : on le rattache à la suite du bloc de départ, puis on
+    // supprime le bloc de fin devenu un doublon vide - sinon la frontière
+    // de bloc restante serait interprétée comme un saut de ligne fantôme.
+    while (blocFin.firstChild) blocDebut.appendChild(blocFin.firstChild);
+    blocFin.remove();
+  }
+
+  // Nettoie les blocs (<div>/<p>) devenus complètement vides (sans texte
+  // ni <br>) suite à la suppression - sinon ils introduisent eux aussi un
+  // saut de ligne fantôme.
+  editor.querySelectorAll('div, p').forEach(function (el) {
+    if (el !== editor && el.textContent === '' && !el.querySelector('br')) {
+      el.remove();
+    }
+  });
+
   const nouvellePosition = start + texte.length;
   const pos = trouverPositionTexte(nouvellePosition);
   const sel = window.getSelection();
