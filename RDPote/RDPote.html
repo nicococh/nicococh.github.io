@@ -54,11 +54,12 @@
     font-family: monospace;
   }
   #editor {
+    --editor-font-size: 17px;
     width: 100%;
     height: 500px;
     max-height: calc(100vh - 260px);
     box-sizing: border-box;
-    font-size: 17px;
+    font-size: var(--editor-font-size);
     font-family: Arial, sans-serif;
     padding: 12px;
     border: 1px solid #ccc;
@@ -69,6 +70,14 @@
     white-space: pre-wrap;
     outline: none;
   }
+
+  /* Police et taille toujours uniformes dans l'éditeur.
+     Le gras et l'italique restent autorisés. */
+  #editor, #editor * {
+    font-family: Arial, sans-serif !important;
+    font-size: var(--editor-font-size) !important;
+  }
+
   #editor:focus {
     border-color: #8aa4d6;
   }
@@ -164,6 +173,11 @@
     color: #aaa;
     cursor: default;
   }
+  #zoomOutBtn,
+  #zoomInBtn {
+    min-width: 68px;
+  }
+
   #boldBtn strong,
   #italicBtn em {
     font-size: 17px;
@@ -866,6 +880,8 @@
   <button id="italicBtn" type="button" title="Italique. Ctrl+I"><em>I</em></button>
   <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
+  <button id="zoomOutBtn" type="button" title="Réduire la taille du texte">Zoom−</button>
+  <button id="zoomInBtn" type="button" title="Augmenter la taille du texte">Zoom+</button>
   <button id="supprBtn" type="button" title="Supprimer les sauts de ligne. Ctrl+M">💥↵</button>
   <button id="dictionnaireBtn" type="button" title="Dico des sigles">📖</button>
   <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
@@ -978,6 +994,53 @@ const editor = document.getElementById('editor');
 const status = document.getElementById('status');
 const boldBtn = document.getElementById('boldBtn');
 const italicBtn = document.getElementById('italicBtn');
+const zoomOutBtn = document.getElementById('zoomOutBtn');
+const zoomInBtn = document.getElementById('zoomInBtn');
+
+const EDITOR_ZOOM_MIN = 12;
+const EDITOR_ZOOM_MAX = 30;
+const EDITOR_ZOOM_STEP = 1;
+let editorFontSize = 17;
+
+function appliquerTailleEditeur() {
+  editor.style.setProperty('--editor-font-size', editorFontSize + 'px');
+}
+
+function modifierTailleEditeur(delta) {
+  editorFontSize = Math.max(
+    EDITOR_ZOOM_MIN,
+    Math.min(EDITOR_ZOOM_MAX, editorFontSize + delta)
+  );
+  appliquerTailleEditeur();
+  localStorage.setItem('rdpote-editor-font-size', String(editorFontSize));
+}
+
+try {
+  const tailleSauvegardee = parseInt(
+    localStorage.getItem('rdpote-editor-font-size') || '',
+    10
+  );
+  if (!Number.isNaN(tailleSauvegardee)) {
+    editorFontSize = Math.max(
+      EDITOR_ZOOM_MIN,
+      Math.min(EDITOR_ZOOM_MAX, tailleSauvegardee)
+    );
+  }
+} catch (e) {}
+
+appliquerTailleEditeur();
+
+zoomOutBtn.addEventListener('click', function () {
+  modifierTailleEditeur(-EDITOR_ZOOM_STEP);
+  editor.focus();
+});
+
+zoomInBtn.addEventListener('click', function () {
+  modifierTailleEditeur(EDITOR_ZOOM_STEP);
+  editor.focus();
+});
+
+
 
 /*
  * L'ancien éditeur était un <textarea>. Pour conserver tout le reste du
@@ -987,6 +1050,103 @@ const italicBtn = document.getElementById('italicBtn');
 function texteEditeur() {
   return editor.innerText.replace(/\\u00a0/g, ' ');
 }
+
+/*
+ * Collage avec conservation de la mise en forme utile :
+ * - liens, gras, italiques, etc. conservés ;
+ * - police et taille importées neutralisées ;
+ * - l'opération passe par un événement input pour être prise en compte
+ *   par la synchronisation CRDT exactement comme une frappe normale.
+ */
+editor.addEventListener('paste', function (event) {
+  event.preventDefault();
+
+  const clipboard = event.clipboardData || window.clipboardData;
+  if (!clipboard) return;
+
+  const htmlColle = clipboard.getData('text/html');
+  const texteBrut = clipboard.getData('text/plain');
+
+  editor.focus();
+
+  if (htmlColle) {
+    const temp = document.createElement('div');
+    temp.innerHTML = htmlColle;
+
+    // On conserve la structure HTML utile (notamment <a>, <strong>, <em>),
+    // mais on retire les indications de police et de taille importées.
+    temp.querySelectorAll('*').forEach(function (element) {
+      element.removeAttribute('face');
+      element.removeAttribute('size');
+
+      if (element.hasAttribute('style')) {
+        const style = element.getAttribute('style');
+
+        const nouveauStyle = style
+          .replace(/(?:^|;)\s*font-family\s*:[^;]*/gi, '')
+          .replace(/(?:^|;)\s*font-size\s*:[^;]*/gi, '')
+          .replace(/(?:^|;)\s*font\s*:[^;]*/gi, '')
+          .replace(/;;+/g, ';')
+          .replace(/^\s*;|;\s*$/g, '')
+          .trim();
+
+        if (nouveauStyle) {
+          element.setAttribute('style', nouveauStyle);
+        } else {
+          element.removeAttribute('style');
+        }
+      }
+    });
+
+    const selection = window.getSelection();
+
+    if (selection && selection.rangeCount && selection.getRangeAt(0)) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+
+      const fragment = document.createDocumentFragment();
+      while (temp.firstChild) {
+        fragment.appendChild(temp.firstChild);
+      }
+
+      range.insertNode(fragment);
+      range.collapse(false);
+
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  } else if (texteBrut) {
+    // Certains logiciels ne fournissent pas de text/html.
+    // Dans ce cas, on insère le texte brut.
+    const selection = window.getSelection();
+
+    if (selection && selection.rangeCount && selection.getRangeAt(0)) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+
+      const noeud = document.createTextNode(texteBrut);
+      range.insertNode(noeud);
+      range.setStartAfter(noeud);
+      range.collapse(true);
+
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  }
+
+  /*
+   * IMPORTANT : le collage a modifié le DOM directement.
+   * Il faut donc déclencher input pour que :
+   *   - Yjs/CRDT enregistre la modification ;
+   *   - la sauvegarde locale fonctionne ;
+   *   - la saisie auto et les autres listeners restent cohérents.
+   */
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+  mettreAJourEtatFormat();
+  masquerBulle();
+});
+
 
 function echapperTextePourHtml(texte) {
   const div = document.createElement('div');
@@ -1940,29 +2100,53 @@ const SNIPPETS = [
 // le préfixe d'un autre, ex. "L'Opi" ne doit pas être masqué par un "L'O" plus court).
 SNIPPETS.sort((a, b) => b.trigger.length - a.trigger.length);
 
-let activeSnippet = null; // { trigger, expansion, start, end }
+let activeSnippet = null; // { trigger, expansion, range }
 
 function caractereFrontiere(c) {
-  // Un déclencheur ne doit pas être précédé d'une lettre/chiffre, sinon on
-  // risque de le détecter au milieu d'un mot (ex. "ÉchelLe M...").
+  // Un déclencheur ne doit pas être précédé d'une lettre/chiffre.
   return c === undefined || !/[A-Za-zÀ-ÖØ-öø-ÿ0-9]/.test(c);
 }
 
 function detecterSnippet() {
-  if (editor.selectionStart !== editor.selectionEnd) {
+  const selection = window.getSelection();
+
+  if (!selection || !selection.rangeCount || !selection.isCollapsed ||
+      !editor.contains(selection.anchorNode)) {
     masquerBulle();
     return;
   }
-  const pos = editor.selectionStart;
+
+  const rangeCourant = selection.getRangeAt(0);
+  const pos = positionTexteDepuisNoeud(
+    rangeCourant.startContainer,
+    rangeCourant.startOffset
+  );
   const texte = editor.value;
 
   for (const snippet of SNIPPETS) {
     const debut = pos - snippet.trigger.length;
+
     if (debut < 0) continue;
     if (texte.slice(debut, pos) !== snippet.trigger) continue;
     if (!caractereFrontiere(texte[debut - 1])) continue;
 
-    activeSnippet = { ...snippet, start: debut, end: pos };
+    /*
+     * On mémorise LA RANGE DOM exacte correspondant au déclencheur.
+     * C'est beaucoup plus fiable que de recalculer la position plus tard
+     * avec selectionStart/End dans un contenteditable enrichi.
+     */
+    const debutDOM = trouverPositionTexte(debut);
+    const finDOM = trouverPositionTexte(pos);
+
+    const rangeSnippet = document.createRange();
+    rangeSnippet.setStart(debutDOM.node, debutDOM.offset);
+    rangeSnippet.setEnd(finDOM.node, finDOM.offset);
+
+    activeSnippet = {
+      ...snippet,
+      range: rangeSnippet
+    };
+
     afficherBulle();
     return;
   }
@@ -1972,12 +2156,24 @@ function detecterSnippet() {
 
 function afficherBulle() {
   if (!activeSnippet) return;
-  snippetBubble.innerHTML = activeSnippet.expansion + '<span class="hint">↵ pour insérer</span>';
+
+  snippetBubble.innerHTML =
+    activeSnippet.expansion + '<span class="hint">↵ pour insérer</span>';
   snippetBubble.style.display = 'block';
 
-  const coords = getCaretCoordinates(editor, editor.selectionStart);
-  snippetBubble.style.left = Math.max(0, coords.left - editor.scrollLeft) + 'px';
-  snippetBubble.style.top = (coords.top - editor.scrollTop) + 'px';
+  const selection = window.getSelection();
+  const posFin = selection && selection.rangeCount
+    ? positionTexteDepuisNoeud(
+        selection.getRangeAt(0).startContainer,
+        selection.getRangeAt(0).startOffset
+      )
+    : editor.value.length;
+
+  const coords = getCaretCoordinates(editor, posFin);
+  snippetBubble.style.left =
+    Math.max(0, coords.left - editor.scrollLeft) + 'px';
+  snippetBubble.style.top =
+    (coords.top - editor.scrollTop) + 'px';
 }
 
 function masquerBulle() {
@@ -1986,16 +2182,44 @@ function masquerBulle() {
 }
 
 function accepterSnippet() {
-  if (!activeSnippet) return;
-  const { expansion, start, end } = activeSnippet;
+  if (!activeSnippet || !activeSnippet.range) return;
+
+  const expansion = activeSnippet.expansion;
+  const range = activeSnippet.range.cloneRange();
 
   empilerUndo(etatActuel());
   terminerGroupe();
 
-  editor.setRangeText(expansion, start, end, 'end');
+  editor.focus();
+
+  /*
+   * On remplace directement la RANGE DOM mémorisée au moment où le snippet
+   * a été détecté. Le premier caractère du déclencheur ne peut donc plus
+   * être oublié à cause d'un mauvais calcul de selectionStart.
+   */
+  range.deleteContents();
+
+  const noeudExpansion = document.createTextNode(expansion);
+  range.insertNode(noeudExpansion);
+
+  const selection = window.getSelection();
+  const nouvelleRange = document.createRange();
+  nouvelleRange.setStartAfter(noeudExpansion);
+  nouvelleRange.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(nouvelleRange);
+
   masquerBulle();
   status.textContent = "Expression insérée.";
   editor.focus();
+
+  /*
+   * Indispensable : la modification directe du DOM doit suivre exactement
+   * le même chemin que les autres modifications pour entrer dans Yjs/CRDT,
+   * la sauvegarde locale et les autres listeners.
+   */
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+  mettreAJourEtatFormat();
   sauvegarder();
 }
 
