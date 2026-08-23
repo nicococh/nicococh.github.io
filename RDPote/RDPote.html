@@ -1,18 +1,40 @@
 <!DOCTYPE html> 
-<!-- 23-1 -->
-<html lang="fr"> 
+<!-- Version 20 août 2026 restauree 14ter -->
+<html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
 <link rel="shortcut icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Linecons_daily-newspaper.svg/250px-Linecons_daily-newspaper.svg.png">
 
  <title>RDPote</title>
-<style> 
+<style>
   body {
     font-family: Arial, sans-serif;
-    max-width: 1000px; 
-    margin: 30px auto;
-    padding: 0 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px 30px;
     background: #F5F5F5;
+  }
+
+  #pageHeader {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: #F5F5F5;
+    padding: 18px 0 10px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  #connectionRow {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 34px;
+    margin-bottom: 12px;
+  }
+
+  #pageHeader h1 {
+    margin-top: 8px;
+    margin-bottom: 14px;
   }
   h1 {
     font-size: 32px;
@@ -34,6 +56,7 @@
   #editor {
     width: 100%;
     height: 500px;
+    max-height: calc(100vh - 260px);
     box-sizing: border-box;
     font-size: 17px;
     font-family: Arial, sans-serif;
@@ -97,10 +120,7 @@
     min-height: 18px;
   }
   #connectedUsers {
-    position: fixed;
-    top: 14px;
-    right: 18px;
-    z-index: 50;
+    position: static;
     display: flex;
     gap: 9px;
     align-items: center;
@@ -108,7 +128,7 @@
     color: #555;
     max-width: 55vw;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
   .connected-user {
     display: inline-flex;
@@ -155,6 +175,62 @@
   #historyBtn {
     margin-left: auto;
   }
+  #helpBtn {
+    width: 34px;
+    height: 34px;
+    padding: 0 !important;
+    font-size: 18px !important;
+    line-height: 1;
+  }
+  #helpModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100001;
+  }
+  #helpBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px 24px;
+    max-width: 650px;
+    width: 90%;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  #helpBox h2 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    color: #003087;
+  }
+  #helpBox p {
+    margin: 0 0 14px 0;
+    color: #333;
+    line-height: 1.5;
+    font-size: 15px;
+  }
+  #helpBox p:last-child {
+    margin-bottom: 0;
+  }
+  #helpClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+  #helpClose:hover {
+    color: #a33;
+  }
+
   #savebar {
     display: flex;
     justify-content: space-between;
@@ -412,7 +488,7 @@
     background: rgba(0, 0, 0, 0.45);
     align-items: center;
     justify-content: center;
-    z-index: 100;
+    z-index: 100001;
   }
   #historyBox {
     position: relative;
@@ -600,7 +676,7 @@
     background: rgba(0, 0, 0, 0.45);
     align-items: center;
     justify-content: center;
-    z-index: 100;
+    z-index: 100001;
   }
 
   #dictionnaireBox {
@@ -690,29 +766,71 @@
   }
 
     .top-right-users {
-      position: absolute;
-      top: 8px;
-      right: 10px;
-      z-index: 1000;
       display: flex;
       align-items: center;
-      gap: 12px;
-      max-width: calc(100% - 20px);
+      justify-content: flex-start;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    #supabaseConnectionIndicator {
+      position: static;
+      display: inline-flex;
+      align-items: center;
+      align-self: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid #ccc;
+      background: #fff;
+    }
+
+    #supabaseConnectionIndicator .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.2);
+    }
+
+    #supabaseConnectionIndicator.connected {
+      color: #2a7a2a;
+      border-color: #b8d8b8;
+    }
+
+    #supabaseConnectionIndicator.connected .dot {
+      background: #2a9a2a;
+    }
+
+    #supabaseConnectionIndicator.disconnected {
+      color: #a33;
+      border-color: #e0b8b8;
+    }
+
+    #supabaseConnectionIndicator.disconnected .dot {
+      background: #c33;
     }
 
     #connectedUsers {
+      position: static;
       display: flex;
       align-items: center;
+      align-self: center;
+      justify-content: flex-start;
       gap: 8px;
       min-width: 0;
+      line-height: 1;
     }
 
     .logout-btn {
       display: inline-block !important;
       visibility: visible !important;
       opacity: 1 !important;
-      position: relative;
-      z-index: 1001;
+      position: static;
+      margin-left: auto;
       flex: 0 0 auto;
       white-space: nowrap;
       border: 1px solid #999;
@@ -724,28 +842,23 @@
       line-height: 1.2;
       cursor: pointer;
     }
-
-    .logout-btn:hover {
-      background: #eee;
-    }
 </style>
 </head>
 <body>
 
-<div id="supabaseConnectionIndicator" class="disconnected" title="État de la connexion à Supabase">
-  <span class="dot"></span><span id="supabaseConnectionIndicatorText">Déconnecté</span>
-</div>
+<div id="pageHeader">
+  <div id="connectionRow">
+    <div id="topRightUsers" class="top-right-users">
+      <div id="supabaseConnectionIndicator" class="disconnected" title="État de la connexion à Supabase">
+        <span class="dot"></span><span id="supabaseConnectionIndicatorText">Déconnecté</span>
+      </div>
+      <div id="connectedUsers" title="Utilisateurs connectés"></div>
+    </div>
+    <button id="logoutBtn" class="logout-btn" type="button">Se déconnecter</button>
+  </div>
 
-<h1>RDPote, l'assistant de la revue de presse</h1>
-<p class="info">
-  Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).<br>
-Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
-
-<div id="topRightUsers" class="top-right-users">
-  <div id="connectedUsers" title="Utilisateurs connectés"></div>
-  <button id="logoutBtn" class="logout-btn" type="button">Déconnecter</button>
-</div>
-<div id="actionbar">
+  <h1>RDPote, l'assistant de la revue de presse</h1>
+  <div id="actionbar">
   <button id="undoBtn" type="button" disabled title="Annuler. Ctrl+Z">↩️</button>
   <button id="redoBtn" type="button" disabled title="Rétablir. Ctrl+Y">↪️</button>
   <button id="copyBtn" type="button" title="Copier tout. Ctrl+A puis Ctrl+C">⿻</button>
@@ -760,6 +873,8 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
   
    <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
   <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes locales">🕑</button>
+  <button id="helpBtn" type="button" title="Aide">?</button>
+  </div>
 </div>
 
 <div id="editorWrap">
@@ -814,6 +929,15 @@ Saisie automatique: si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px
       <button id="remoteUpdateKeepBtn" type="button">Conserver ma version</button>
       <button id="remoteUpdateApplyBtn" type="button">Mettre à jour</button>
     </div>
+  </div>
+</div>
+
+<div id="helpModal">
+  <div id="helpBox">
+    <button id="helpClose" type="button" title="Fermer">✕</button>
+    <h2>Aide</h2>
+    <p><strong>Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).</strong></p>
+    <p><strong>Saisie automatique : si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</strong></p>
   </div>
 </div>
 
@@ -979,6 +1103,24 @@ function selectionActive() {
   const sel = window.getSelection();
   return sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode);
 }
+const helpBtn = document.getElementById('helpBtn');
+const helpModal = document.getElementById('helpModal');
+const helpClose = document.getElementById('helpClose');
+
+function ouvrirAide() {
+  helpModal.style.display = 'flex';
+}
+
+function fermerAide() {
+  helpModal.style.display = 'none';
+}
+
+helpBtn.addEventListener('click', ouvrirAide);
+helpClose.addEventListener('click', fermerAide);
+helpModal.addEventListener('click', function(event) {
+  if (event.target === helpModal) fermerAide();
+});
+
 const savestatus = document.getElementById('savestatus');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
