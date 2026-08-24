@@ -2272,17 +2272,17 @@ dictionnaireSearch.addEventListener('keydown', function(e) {
 // Toute autre touche, ou un déplacement du curseur, referme la bulle.
 
 const SNIPPETS = [
-  { trigger: "Le M",   expansion: "(Le Monde, px)" },
+  { trigger: "(Le M",   expansion: "(Le Monde, px)" },
   { trigger: "lemo",   expansion: "(Le Monde, px)" },
   { trigger: "lmù*",   expansion: "(Le Monde science et médecine, px)" },
   { trigger: "(Le P",   expansion: "(Le Parisien, px)" },
   { trigger: "(Le G",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
-  { trigger: "Les E",  expansion: "(Les Échos, px)" },
-  { trigger: "Le F",   expansion: "(Le Figaro, px)" },
-  { trigger: "La C",   expansion: "(La Croix, px)" },
-  { trigger: "L'H",    expansion: "(L'Humanité, px)" },
-  { trigger: "Libé",   expansion: "(Libération, px)" },
-  { trigger: "L'Opi",  expansion: "(L'Opinion, px)" }
+  { trigger: "(Les",  expansion: "(Les Échos, px)" },
+  { trigger: "(Le F",   expansion: "(Le Figaro, px)" },
+  { trigger: "(La C",   expansion: "(La Croix, px)" },
+  { trigger: "(L'H",    expansion: "(L'Humanité, px)" },
+  { trigger: "(Lib",   expansion: "(Libération, px)" },
+  { trigger: "L'O",  expansion: "(L'Opinion, px)" }
 ];
 // Les déclencheurs les plus longs sont testés en premier (utile si l'un est
 // le préfixe d'un autre, ex. "L'Opi" ne doit pas être masqué par un "L'O" plus court).
