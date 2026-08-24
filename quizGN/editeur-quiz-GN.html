@@ -825,7 +825,7 @@ const resultEl = document.getElementById('result');
 function updateProgress() {
   const pct = (i / quiz.length) * 100;
   progressEl.style.width = pct + '%';
-  counterEl.textContent = 'Question ' + (i + 1) + '/' + quiz.length;
+  counterEl.textContent = (i + 1) + '/' + quiz.length;
 }
 
 function show() {
