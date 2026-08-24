@@ -956,7 +956,7 @@
     <button id="helpClose" type="button" title="Fermer">✕</button>
     <h2>Aide</h2>
     <p><strong>Colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd> pour supprimer les sauts de ligne. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).</strong></p>
-    <p><strong>Saisie automatique : si tu saisis "(Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</strong></p>
+    <p><strong>Saisie automatique : si tu saisis "Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</strong></p>
   </div>
 </div>
 
@@ -2272,16 +2272,16 @@ dictionnaireSearch.addEventListener('keydown', function(e) {
 // Toute autre touche, ou un déplacement du curseur, referme la bulle.
 
 const SNIPPETS = [
-  { trigger: "(Le M",   expansion: "(Le Monde, px)" },
+  { trigger: "Le M",   expansion: "(Le Monde, px)" },
   { trigger: "lemo",   expansion: "(Le Monde, px)" },
   { trigger: "lmù*",   expansion: "(Le Monde science et médecine, px)" },
-  { trigger: "(Le P",   expansion: "(Le Parisien, px)" },
-  { trigger: "(Le G",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
-  { trigger: "(Les",  expansion: "(Les Échos, px)" },
-  { trigger: "(Le F",   expansion: "(Le Figaro, px)" },
-  { trigger: "(La C",   expansion: "(La Croix, px)" },
-  { trigger: "(L'H",    expansion: "(L'Humanité, px)" },
-  { trigger: "(Lib",   expansion: "(Libération, px)" },
+  { trigger: "Le P",   expansion: "(Le Parisien, px)" },
+  { trigger: "Le G",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
+  { trigger: "Les E",  expansion: "(Les Échos, px)" },
+  { trigger: "Le F",   expansion: "(Le Figaro, px)" },
+  { trigger: "La C",   expansion: "(La Croix, px)" },
+  { trigger: "L'H",    expansion: "(L'Humanité, px)" },
+  { trigger: "Lib",   expansion: "(Libération, px)" },
   { trigger: "L'O",  expansion: "(L'Opinion, px)" }
 ];
 // Les déclencheurs les plus longs sont testés en premier (utile si l'un est
