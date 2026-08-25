@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 25 aout synchro -->
+<!-- Version 25/08 login -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2548,8 +2548,6 @@ mettreAJourBoutons();
     <input id="supabaseEmail" type="email" autocomplete="username" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
     <label for="supabasePassword" style="display:block; margin-bottom:6px;">Mot de passe</label>
     <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:10px;">
-    <label for="supabaseUsername" style="display:block; margin-bottom:6px;">Nom d'utilisateur</label>
-    <input id="supabaseUsername" type="text" maxlength="40" autocomplete="nickname" placeholder="Ex. Nico" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:16px;">
     <button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
     <button id="supabaseForgotBtn" type="button" style="margin-left:10px; padding:9px 0; cursor:pointer; border:0; background:none; color:#003087; text-decoration:underline;">Mot de passe oublié ?</button>
     <div id="supabaseLoginMsg" style="margin-top:12px; color:#b00020; min-height:18px;"></div>
@@ -2583,7 +2581,6 @@ mettreAJourBoutons();
   const LOGIN = document.getElementById('supabaseLogin');
   const EMAIL = document.getElementById('supabaseEmail');
   const PASSWORD = document.getElementById('supabasePassword');
-  const USERNAME = document.getElementById('supabaseUsername');
   const LOGIN_BTN = document.getElementById('supabaseLoginBtn');
   const FORGOT_BTN = document.getElementById('supabaseForgotBtn');
   const LOGIN_MSG = document.getElementById('supabaseLoginMsg');
@@ -2633,7 +2630,7 @@ mettreAJourBoutons();
   }
 
 
-  async function chargerProfilUtilisateur(user, remplirChampConnexion = false) {
+  async function chargerProfilUtilisateur(user) {
     if (!user) return null;
 
     const { data, error } = await supabaseClient
@@ -2647,13 +2644,7 @@ mettreAJourBoutons();
       return null;
     }
 
-    const username = (data && data.username) ? data.username.trim() : '';
-
-    if (remplirChampConnexion && USERNAME) {
-      USERNAME.value = username;
-    }
-
-    return username;
+    return (data && data.username) ? data.username.trim() : '';
   }
 
   async function enregistrerNomUtilisateur(user, username) {
@@ -3267,7 +3258,7 @@ mettreAJourBoutons();
           if (recoverySession.session) {
             window.RDPoteSupabaseUser = recoverySession.session.user;
             window.RDPoteSupabaseUser.username =
-              await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
+              await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
               window.RDPoteSupabaseUser.email ||
               'Utilisateur';
           }
@@ -4684,7 +4675,7 @@ mettreAJourBoutons();
     try {
       window.RDPoteSupabaseUser = session.user;
       window.RDPoteSupabaseUser.username =
-        await chargerProfilUtilisateur(window.RDPoteSupabaseUser, true) ||
+        await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
       await loadRemoteDocument();
