@@ -1,8 +1,9 @@
 <!DOCTYPE html> 
-<!-- Version 25/08 login -->
+<!-- Version 23 aout mobile -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="shortcut icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Linecons_daily-newspaper.svg/250px-Linecons_daily-newspaper.svg.png">
 
  <title>RDPote</title>
@@ -856,6 +857,52 @@
       line-height: 1.2;
       cursor: pointer;
     }
+
+
+  /* Affichage mobile : l'éditeur reste entièrement dans la largeur de l'écran. */
+  @media (max-width: 700px) {
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0 10px 20px;
+    }
+
+    #pageHeader {
+      padding-top: 10px;
+    }
+
+    #pageHeader h1 {
+      font-size: 21px;
+      margin-top: 6px;
+      margin-bottom: 10px;
+    }
+
+    #editor {
+      width: 100%;
+      max-width: 100%;
+      height: calc(100vh - 260px);
+      max-height: none;
+      box-sizing: border-box;
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding: 10px;
+      line-height: 1.8;
+    }
+
+    #actionbar {
+      flex-wrap: wrap;
+    }
+
+    #connectedUsers {
+      max-width: 100%;
+    }
+  }
 </style>
 </head>
 <body>
