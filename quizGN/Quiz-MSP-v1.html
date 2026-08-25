@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta name="robots" content="noindex, nofollow" charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex"/>
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --card: #ffffff;
+    --accent: #1a1a2e;
+    --accent2: #008EAA;
+    --correct: #008EAA;
+    --wrong: #F75D00;
+    --wrong-feedback-bg: #FEEEE4;
+    --muted: #888;
+    --border: #e0ddd6;
+    --text: #1a1a2e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    padding: 16px;
+    color: var(--text);
+  }
+  #quiz {
+    background: var(--card);
+    border: 2px solid var(--accent);
+    border-radius: 4px;
+    overflow: hidden;
+    max-width: 100%;
+  }
+  #progress-bar-wrap { background: var(--border); height: 4px; }
+  #progress-bar { height: 4px; background: var(--accent2); transition: width 0.4s ease; width: 0%; }
+  #quiz-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 8px; border-bottom: 1px solid var(--border); }
+  #quiz-title { font-size: 16px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent2); }
+  #counter { font-size: 16px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; }
+  #quiz-body { padding: 16px; }
+  #quiz-body.hide { display: none; }
+  #q { font-size: 20px; font-weight: 700; line-height: 1.5; margin-bottom: 14px; color: var(--text); }
+  #a { display: flex; flex-direction: column; gap: 8px; }
+  .answer-btn {
+    display: block; width: 100%; padding: 10px 14px; background: transparent; border: 1.5px solid var(--border); border-radius: 3px;
+    font-family: inherit; font-size: 18px; font-weight: 500; color: var(--text); text-align: left; cursor: pointer; transition: all 0.15s;
+  }
+  .answer-btn:hover:not(:disabled) { border-color: var(--accent); background: #f0ede8; }
+  .answer-btn:disabled { cursor: default; }
+  .answer-btn.correct { border-color: var(--correct); background: #FFFFFF; color: var(--correct); font-weight: 700; }
+  .answer-btn.wrong { border-color: var(--wrong); background: #FFFFFF; color: var(--wrong); }
+  #feedback { display: none; margin-top: 18px; padding: 10px 14px; border-radius: 3px; font-size: 18px; font-weight: 600; line-height: 1.5; }
+  #feedback.show-correct { display: block; background: #EBFEEF; border: 1.5px solid var(--correct); color: var(--text); }
+  #feedback.show-wrong { display: block; background: var(--wrong-feedback-bg); border: 1.5px solid var(--wrong); color: var(--text); }
+  #next-btn {
+    display: none; margin-top: 12px; width: 100%; padding: 11px 14px; background: var(--accent); border: none; border-radius: 3px;
+    font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: 0.05em; color: #fff; cursor: pointer; transition: background 0.15s;
+  }
+  #next-btn:hover { background: #2d2d4e; }
+  #next-btn.show { display: block; }
+  #result { display: none; padding: 24px 16px; text-align: center; }
+  #result.show { display: block; }
+  #result-emoji { font-size: 40px; margin-bottom: 10px; }
+  #result-message { font-size: 20px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  #result-score { font-size: 20px; color: var(--accent2); font-weight: 600; }
+  #restart-btn {
+    margin-top: 16px; padding: 10px 22px; background: transparent; border: 1.5px solid var(--accent); border-radius: 3px;
+    font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); cursor: pointer; transition: all 0.15s;
+  }
+  #restart-btn:hover { background: var(--accent); color: #fff; }
+  #fullscreen-btn {
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+  }
+  #fullscreen-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  body.is-fullscreen {
+    background: var(--bg) !important;
+    padding: 0 !important;
+  }
+  body.is-fullscreen #quiz {
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-width: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--card) !important;
+    overflow: hidden !important;
+  }
+  body.is-fullscreen #quiz-header,
+  body.is-fullscreen #progress-bar-wrap {
+    width: 100% !important;
+    max-width: 900px !important;
+    margin: 0 auto !important;
+    flex-shrink: 0 !important;
+  }
+  body.is-fullscreen #quiz-body,
+  body.is-fullscreen #result {
+    width: 100% !important;
+    max-width: 900px !important;
+    margin: 0 auto !important;
+  }
+  body.is-fullscreen #quiz-body.hide {
+    display: none !important;
+  }
+  body.is-fullscreen #quiz-body:not(.hide) {
+    flex-grow: 1 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    padding: 32px 24px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  body.is-fullscreen #result.show {
+    flex-grow: 1 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 32px 24px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  body.is-fullscreen #q {
+    font-size: 22px !important;
+    margin-bottom: 24px !important;
+  }
+  body.is-fullscreen .answer-btn {
+    font-size: 18px !important;
+    padding: 14px 20px !important;
+  }
+  body.is-fullscreen #feedback {
+    font-size: 18px !important;
+    padding: 14px 20px !important;
+    margin-top: 20px !important;
+  }
+  body.is-fullscreen #next-btn {
+    font-size: 16px !important;
+    padding: 14px 20px !important;
+    margin-top: 20px !important;
+  }
+  body.is-fullscreen #restart-btn {
+    font-size: 16px !important;
+    padding: 12px 28px !important;
+  }
+  
+  /* Media query pour le responsive sur mobile */
+  @media (max-width: 600px) {
+    body {
+      padding: 8px;
+    }
+    #quiz-body {
+      padding: 12px;
+    }
+    #q {
+      font-size: 18px;
+    }
+    .answer-btn {
+      padding: 8px 12px;
+      font-size: 16px;
+    }
+#feedback {
+      font-size: 16px;
+    }
+    
+    /* Adaptations spécifiques au mode plein écran sur mobile */
+    body.is-fullscreen {
+      padding: 0 !important;
+    }
+    body.is-fullscreen #quiz-body {
+      padding: 16px 12px !important;
+    }
+    body.is-fullscreen #q {
+      font-size: 18px !important;
+      margin-bottom: 16px !important;
+    }
+    body.is-fullscreen .answer-btn {
+      font-size: 18px !important;
+      padding: 10px 14px !important;
+    }
+  }
+
+  /* Pluie de cotillons (confettis) pour un score de 100% */
+  #confetti-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 9999;
+  }
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 9px;
+    height: 14px;
+    opacity: 0.9;
+    animation-name: confetti-fall;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  @keyframes confetti-fall {
+    0% {
+      transform: translateY(0) translateX(0) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(110vh) translateX(var(--drift, 0px)) rotate(720deg);
+      opacity: 0.9;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="quiz">
+  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  <div id="quiz-header">
+    <span id="quiz-title">Les maisons de santé</span>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span id="counter"></span>
+      <button id="fullscreen-btn" title="Plein écran" aria-label="Plein écran">
+        <svg id="fullscreen-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        <span id="fullscreen-label">Plein écran</span>
+      </button>
+      <img id="gn-logo" src="https://www.apmnews.com/images/logo_apmnews_h70.png" alt="APMnews" style="height: 23px; width: auto; display: block;">
+    </div>
+  </div>
+  <div id="quiz-body">
+    <div id="q"></div>
+    <div id="a"></div>
+    <div id="feedback"></div>
+    <button id="next-btn"></button>
+  </div>
+  <div id="result">
+    <div id="result-emoji"></div>
+    <div id="result-message"></div>
+    <div id="result-score"></div>
+    <button id="restart-btn">Recommencer</button>
+  </div>
+</div>
+<div id="confetti-layer"></div>
+
+<script>
+const quiz = [
+  {
+    "q": "Combien comptait-on de maisons de santé pluridisciplinaires en France fin 2025 ?",
+    "a": [
+      "1.981",
+      "Près de 4.000",
+      "2.981",
+      "34.935, soit une par commune"
+    ],
+    "c": 2,
+    "expl": "",
+    "liens": []
+  },
+  {
+    "q": "Une maison de santé est-elle forcément installée sur un seul site ?",
+    "a": [
+      "Non, elle peut être multisite",
+      "Oui, en vertu du cahier des charges national",
+      "Oui, mais seulement si chaque site comporte au moins un médecin",
+      "Tout dépend du bon vouloir du directeur de l'ARS"
+    ],
+    "c": 0,
+    "expl": "",
+    "liens": []
+  },
+  {
+    "q": "Quels professionnels une MSP doit-elle regrouper, au minimum ?",
+    "a": [
+      "Un médecin, un infirmier et un kinésithérapeute",
+      "Au moins deux médecins généralistes et un professionnel paramédical",
+      "Un médecin généraliste et un infirmier",
+      "Un magnétiseur, un coupeur de feu et un cristallothérapeute"
+    ],
+    "c": 1,
+    "expl": "",
+    "liens": []
+  },
+  {
+    "q": "Dans l'ACI, quels sont les grands axes d'objectifs qui font varier la rémunération ?",
+    "a": [
+      "Suivi des pathologies chroniques, prévention et efficience des prescriptions",
+      "Suivi des pathologies chroniques, prévention et système d'information",
+      "Accès aux soins, travail en équipe et coordination, système d'information",
+      "Convivialité, disponibilité, ponctualité"
+    ],
+    "c": 2,
+    "expl": "",
+    "liens": []
+  },
+  {
+    "q": "Quel est l'objectif du label France santé annoncé en 2025 ?",
+    "a": [
+      "\"Permettre à chaque Français d'être soigné au tarif Sécu à moins de 30 minutes de chez lui\"",
+      "\"Offrir à chaque Français une solution de santé à moins de 30 minutes de chez lui et un rendez-vous médical sous 48 heures\"",
+      "\"Donner à la France les moyens d'une véritable politique de prévention en soins primaires\"",
+      "\"Remettre le patient au cœur dans une logique de décloisonnement du parcours de soins\""
+    ],
+    "c": 1,
+    "expl": "",
+    "liens": []
+  },
+  {
+    "q": "Lequel de ces points n'est pas exigé pour le financement conventionnel France santé ?",
+    "a": [
+      "Un minimum de 80 % des consultations des médecins généralistes réalisées à tarif opposable",
+      "La présence d'un infirmier à hauteur de 0,5 équivalent temps plein par semaine",
+      "La participation au service d'accès aux soins (SAS) d'au moins la moitié des médecins de la structure",
+      "La participation à des olympiades avec d'autres acteurs de soins du territoire"
+    ],
+    "c": 3,
+    "expl": "",
+    "liens": []
+  }
+];
+let i = 0, score = 0;
+
+const qEl = document.getElementById('q');
+const aEl = document.getElementById('a');
+const feedbackEl = document.getElementById('feedback');
+const nextBtn = document.getElementById('next-btn');
+const counterEl = document.getElementById('counter');
+const progressEl = document.getElementById('progress-bar');
+const quizBody = document.getElementById('quiz-body');
+const resultEl = document.getElementById('result');
+
+function updateProgress() {
+  const pct = (i / quiz.length) * 100;
+  progressEl.style.width = pct + '%';
+  counterEl.textContent = (i + 1) + '/' + quiz.length;
+}
+
+function show() {
+  feedbackEl.className = ''; feedbackEl.textContent = ''; nextBtn.className = ''; aEl.innerHTML = '';
+  updateProgress();
+  qEl.textContent = quiz[i].q;
+  quiz[i].a.forEach((text, n) => {
+    if(!text) return;
+    const b = document.createElement('button');
+    b.className = 'answer-btn';
+    b.textContent = text;
+    b.onclick = () => pick(n);
+    aEl.appendChild(b);
+  });
+}
+
+function pick(n) {
+  const correct = quiz[i].c;
+  const buttons = aEl.querySelectorAll('.answer-btn');
+  buttons.forEach(b => b.disabled = true);
+  buttons[correct].classList.add('correct');
+  const q = quiz[i];
+  feedbackEl.innerHTML = '';
+
+  if (n !== correct) {
+    if(buttons[n]) buttons[n].classList.add('wrong');
+    feedbackEl.className = 'show-wrong';
+    const main = document.createElement('span');
+    main.textContent = '✗ Incorrect. La bonne réponse était: ' + q.a[correct] + '. ';
+    feedbackEl.appendChild(main);
+  } else {
+    score++;
+    feedbackEl.className = 'show-correct';
+    const main = document.createElement('span');
+    main.textContent = '✓ Bonne réponse! ';
+    feedbackEl.appendChild(main);
+  }
+
+  if (q.expl) {
+    const expl = document.createElement('span');
+    expl.textContent = q.expl + ' ';
+    feedbackEl.appendChild(expl);
+  }
+
+  if (q.liens && q.liens.length > 0) {
+    q.liens.forEach((l, idx) => {
+      if(!l.texte || !l.url) return;
+      if (idx > 0) feedbackEl.appendChild(document.createTextNode(' '));
+      const a = document.createElement('a');
+      a.href = l.url; a.textContent = l.texte; a.target = '_blank'; a.rel = 'noopener';
+      a.style.cssText = 'color: inherit; font-weight: 700; text-decoration: underline;';
+      feedbackEl.appendChild(a);
+    });
+  }
+
+  const isLast = (i === quiz.length - 1);
+  nextBtn.textContent = isLast ? 'Voir le résultat →' : 'Question suivante →';
+  nextBtn.className = 'show';
+}
+
+nextBtn.onclick = () => {
+  i++;
+  if (i < quiz.length) { show(); } else { showResult(); }
+};
+
+function showResult() {
+  quizBody.classList.add('hide'); resultEl.classList.add('show'); progressEl.style.width = '100%';
+  counterEl.textContent = 'Terminé !';
+  const pourcentage = Math.round((score / quiz.length) * 100);
+  let emoji, message;
+  
+  if (pourcentage === 100) { emoji = '🏅'; message = 'Parfait ! Vous êtes un excellent connaisseur des maisons de santé pluridisciplinaires.'; }
+  else if (pourcentage >= 80) { emoji = '😎'; message = 'Très bien ! Vous y étiez presque.'; }
+  else if (pourcentage >= 50) { emoji = '👍'; message = 'Pas mal ! Révisez bien avec notre synthèse sur les MSP.'; }
+  else if (pourcentage >= 20) { emoji = '💪'; message = 'Encore un peu d\'entraînement ! Révisez donc notre synthèse sur les MSP.'; }
+  else { emoji = '😭'; message = 'Ouille ! Lisez bien notre synthèse sur les MSP et essayez encore !'; }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-message').textContent = message;
+  document.getElementById('result-score').textContent = 'Score : ' + score + ' / ' + quiz.length + '';
+
+  if (pourcentage === 100) {
+    launchConfetti();
+  }
+}
+
+// Déclenche une pluie de cotillons (confettis) en pur CSS/JS, sans dépendance externe
+function launchConfetti() {
+  const layer = document.getElementById('confetti-layer');
+  if (!layer) return;
+  const colors = ['#008EAA', '#008EAA', '#1a1a2e', '#F75D00', '#f2c94c', '#2d9cdb'];
+  const total = 140;
+
+  for (let n = 0; n < total; n++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const left = Math.random() * 100;
+    const duration = 2.6 + Math.random() * 1.8;
+    const delay = Math.random() * 0.6;
+    const drift = (Math.random() * 160 - 80) + 'px';
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const isCircle = Math.random() > 0.5;
+
+    piece.style.left = left + 'vw';
+    piece.style.background = color;
+    piece.style.borderRadius = isCircle ? '50%' : '2px';
+    piece.style.setProperty('--drift', drift);
+    piece.style.animationDuration = duration + 's';
+    piece.style.animationDelay = delay + 's';
+
+    layer.appendChild(piece);
+
+    setTimeout(() => piece.remove(), (duration + delay) * 1000 + 200);
+  }
+}
+
+document.getElementById('restart-btn').onclick = () => {
+  i = 0; score = 0; quizBody.classList.remove('hide'); resultEl.className = ''; show();
+};
+
+// Gestion du plein écran
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const fullscreenIcon = document.getElementById('fullscreen-icon');
+
+const enterIcon = '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>';
+const exitIcon = '<path d="M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4"/>';
+
+function toggleFullscreen() {
+  const isFullScreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  if (!isFullScreen) {
+    const el = document.body;
+    if (el.requestFullscreen) {
+      el.requestFullscreen();
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen();
+    } else if (el.mozRequestFullScreen) {
+      el.mozRequestFullScreen();
+    } else if (el.msRequestFullscreen) {
+      el.msRequestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  }
+}
+
+if (fullscreenBtn) {
+  const isFullscreenSupported = document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || document.msFullscreenEnabled;
+  if (!isFullscreenSupported) {
+    fullscreenBtn.style.display = 'none';
+  } else {
+    fullscreenBtn.onclick = toggleFullscreen;
+    
+    const handleFullscreenChange = () => {
+      const isFullScreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+      const labelEl = document.getElementById('fullscreen-label');
+      if (isFullScreen) {
+        document.body.classList.add('is-fullscreen');
+        fullscreenIcon.innerHTML = exitIcon;
+        fullscreenBtn.title = "Quitter le plein écran";
+        if (labelEl) labelEl.textContent = "Quitter";
+      } else {
+        document.body.classList.remove('is-fullscreen');
+        fullscreenIcon.innerHTML = enterIcon;
+        fullscreenBtn.title = "Plein écran";
+        if (labelEl) labelEl.textContent = "Plein écran";
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+  }
+}
+
+show();
+</script>
+</body>
+</html>
