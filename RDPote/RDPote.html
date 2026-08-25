@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 23 aout correc sigles -->
+<!-- Version 25 aout synchro -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2878,8 +2878,30 @@ mettreAJourBoutons();
         }
       }
 
+      const knownUpdatedAt = window.RDPoteRemoteDocument &&
+        window.RDPoteRemoteDocument.updated_at;
+
+      const remoteTime = data.updated_at ? new Date(data.updated_at).getTime() : 0;
+      const knownTime = knownUpdatedAt ? new Date(knownUpdatedAt).getTime() : 0;
+
+      const contenuAffiche = getEditor() ? getEditor().innerHTML : '';
+      const contenuDiffere = data.contenu_html !== contenuAffiche;
+
       if (!supabaseHasBeenChecked) {
         supabaseHasBeenChecked = true;
+
+        // Le contenu affiché à ce stade peut provenir du cache CRDT local
+        // (IndexedDB) restauré par initCRDT(), et non de la version qui
+        // vient d'être récupérée de Supabase : si aucun autre appareil
+        // n'était connecté pour renvoyer l'état CRDT à jour, ce cache local
+        // peut être périmé. On vérifie donc systématiquement, dès ce tout
+        // premier contrôle, plutôt que d'accepter aveuglément l'état affiché
+        // comme référence.
+        if (contenuDiffere && data.contenu_html) {
+          afficherRemoteUpdateModal(data);
+          return;
+        }
+
         if (window.RDPoteRemoteDocument) {
           window.RDPoteRemoteDocument.updated_at = data.updated_at;
           window.RDPoteRemoteDocument.contenu_html = data.contenu_html || '';
@@ -2889,22 +2911,29 @@ mettreAJourBoutons();
         return;
       }
 
-      const knownUpdatedAt = window.RDPoteRemoteDocument &&
-        window.RDPoteRemoteDocument.updated_at;
-
-      const remoteTime = data.updated_at ? new Date(data.updated_at).getTime() : 0;
-      const knownTime = knownUpdatedAt ? new Date(knownUpdatedAt).getTime() : 0;
-
       // Une reconnexion est l'occasion de vérifier si le serveur a avancé
       // pendant notre absence. On ne remplace jamais le document sans accord.
-      if (remoteTime > knownTime &&
-          data.contenu_html !== (getEditor() ? getEditor().innerHTML : '') &&
+      if (crdtReady) {
+        // Le canal CRDT est actif : le document est déjà synchronisé en
+        // temps réel pendant que la fenêtre reste ouverte. La table
+        // "documents" n'est qu'un instantané qui peut être momentanément en
+        // retard (sauvegarde différée de 900 ms, ou modification distante en
+        // cours), donc la comparer à ce qui est affiché ici déclencherait
+        // régulièrement de fausses alertes « version plus récente
+        // disponible ». On se contente de rafraîchir les métadonnées
+        // connues, sans alerter l'utilisateur.
+        if (remoteTime > knownTime && window.RDPoteRemoteDocument) {
+          window.RDPoteRemoteDocument.updated_at = data.updated_at;
+          if (!contenuDiffere) {
+            window.RDPoteRemoteDocument.contenu_html = data.contenu_html || '';
+          }
+          sauvegarderMetaRemoteLocale(window.RDPoteRemoteDocument);
+        }
+      } else if (remoteTime > knownTime && contenuDiffere &&
           data.updated_at !== remoteVersionPrompted) {
         afficherRemoteUpdateModal(data);
         return;
-      }
-
-      if (remoteTime === knownTime && data.contenu_html &&
+      } else if (remoteTime === knownTime && data.contenu_html &&
           window.RDPoteRemoteDocument &&
           data.contenu_html !== window.RDPoteRemoteDocument.contenu_html &&
           data.updated_at !== remoteVersionPrompted) {
@@ -4571,6 +4600,39 @@ mettreAJourBoutons();
     if (connectedUsersEl) connectedUsersEl.innerHTML = '';
   }
 
+
+  // Déconnexion "best effort" à la fermeture de l'onglet/navigateur : on ne
+  // peut pas attendre une réponse réseau à ce moment-là, donc on se contente
+  // de couper immédiatement les canaux temps réel (présence + CRDT). Fermer
+  // le canal de présence entraîne l'événement "leave" côté autres postes
+  // bien plus vite que d'attendre l'expiration du websocket.
+  let deconnexionFermetureEffectuee = false;
+  function deconnecterFermetureOnglet() {
+    if (deconnexionFermetureEffectuee) return;
+    deconnexionFermetureEffectuee = true;
+
+    try {
+      if (presenceChannel) {
+        presenceChannel.untrack();
+        supabaseClient.removeChannel(presenceChannel);
+      }
+    } catch (e) {}
+
+    try {
+      if (crdtChannel) {
+        supabaseClient.removeChannel(crdtChannel);
+      }
+    } catch (e) {}
+
+    try {
+      if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+      }
+    } catch (e) {}
+  }
+
+  window.addEventListener('pagehide', deconnecterFermetureOnglet);
+  window.addEventListener('beforeunload', deconnecterFermetureOnglet);
 
   // --- Déconnexion ---
   async function deconnecterUtilisateur() {
