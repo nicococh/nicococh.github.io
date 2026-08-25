@@ -1663,6 +1663,8 @@ window.addEventListener('DOMContentLoaded', function() {
   } catch (err) {
     // pas de sauvegarde valide, on ignore
   }
+
+  appliquerCouleursRubriques();
 });
 
 editor.addEventListener('input', planifierSauvegarde);
@@ -1817,6 +1819,45 @@ function corrigerTypo() {
   sauvegarder();
 }
 
+function appliquerCouleursRubriques() {
+  const BLEU_MARINE = '#003087';
+  const BLEU_TURQUOISE = '#008EAA';
+
+  // On repart de noir partout : les couleurs sont recalculées à chaque appel.
+  const elements = editor.querySelectorAll('*');
+  elements.forEach(function(el) {
+    el.style.removeProperty('color');
+  });
+  editor.style.removeProperty('color');
+
+  // Les rubriques sont des paragraphes/blocs directs de l'éditeur.
+  // On regarde le début du texte visible, sans tenir compte d'éventuels
+  // espaces ou balises HTML placées au début du paragraphe.
+  Array.from(editor.children).forEach(function(paragraphe) {
+    const texte = (paragraphe.textContent || '').trimStart();
+    let couleur = null;
+
+    if (texte.startsWith('La santé dans la presse')) {
+      couleur = BLEU_MARINE;
+    } else if (
+      texte.startsWith('POLITIQUE') ||
+      texte.startsWith('ÉTABLISSEMENTS') ||
+      texte.startsWith('ETABLISSEMENTS') ||
+      texte.startsWith('ENTREPRISES') ||
+      texte.startsWith('SANT') ||
+      texte.startsWith('RECHERCHE') ||
+      texte.startsWith('ENVIRONNEMENT') ||
+      texte.startsWith('ET AUSSI')
+    ) {
+      couleur = BLEU_TURQUOISE;
+    }
+
+    if (couleur) {
+      paragraphe.style.color = couleur;
+    }
+  });
+}
+
 function insererPlan() {
   const plan = `La santé dans la presse xxx
 PARIS, xx xxx 2026 (APMnews) -
@@ -1842,6 +1883,8 @@ ET AUSSI...
 
   editor.value = plan + editor.value;
   editor.setSelectionRange(plan.length, plan.length);
+
+  appliquerCouleursRubriques();
 
   masquerBulle();
   status.textContent = "Plan inséré en tête du document.";
