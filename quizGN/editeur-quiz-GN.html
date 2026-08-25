@@ -6,7 +6,7 @@
   <title>Générateur de quiz GN</title>
   <style>
     :root {
-      --bg: #f7f5f0;
+      : #f7f5f0;
       --card: #ffffff;
       --accent: #1a1a2e;
       --accent2: #509b15;
@@ -550,7 +550,7 @@ function exportQuiz() {
 <meta name="robots" content="noindex"/>
 <style>
   :root {
-    --bg: #f7f5f0;
+    : #ffffff;
     --card: #ffffff;
     --accent: #1a1a2e;
     --accent2: ${brandConfig[selectedBrand].accent2};
@@ -564,7 +564,7 @@ function exportQuiz() {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-    background: var(--bg);
+    background: var();
     padding: 16px;
     color: var(--text);
   }
@@ -612,7 +612,7 @@ function exportQuiz() {
   }
   #restart-btn:hover { background: var(--accent); color: #fff; }
   #fullscreen-btn {
-    background: var(--bg);
+    background: var();
     border: 1.5px solid var(--border);
     cursor: pointer;
     color: var(--text);
@@ -634,7 +634,7 @@ function exportQuiz() {
     color: white;
   }
   body.is-fullscreen {
-    background: var(--bg) !important;
+    background: var() !important;
     padding: 0 !important;
   }
   body.is-fullscreen #quiz {
