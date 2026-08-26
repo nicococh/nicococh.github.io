@@ -4,6 +4,10 @@
 // aucune autre modification n'est nécessaire, la recherche et l'affichage
 // s'adaptent automatiquement à son contenu.
 const DICTIONNAIRE_EXPRESSIONS = [
+"la ministre de la santé, des familles, de l'autonomie et des personnes handicapées, Stéphanie Rist,",
+"la ministre déléguée chargée de l'autonomie et des personnes handicapées, Charlotte Parmentier-Lecocq,",
+"le ministre de l'enseignement supérieur, de la recherche et de l'espace, Philippe Baptiste,",
+"la ministre de l'action et des comptes publics, Amélie de Montchalin",
   "l'American Society of Clinical Oncology (ASCO)",
   "l'allocation personnalisée d'autonomie (APA)",
   "l'Assistance publique-hôpitaux de Paris (AP-HP)",
@@ -56,8 +60,7 @@ const DICTIONNAIRE_EXPRESSIONS = [
   "l'allocation journalière d'accompagnement d'une personne en fin de vie",
   "l'Association départementale de parents et amis de personnes handicapées mentales (Adapei)",
   "l'Agence de services et de paiement (ASP)",
-  "la ministre de la santé et de la prévention, Brigitte Bourguignon",
-  "la branche associative sanitaire, sociale et médico-sociale privée à but non lucratif (BASSMS)",
+    "la branche associative sanitaire, sociale et médico-sociale privée à but non lucratif (BASSMS)",
   "la bronchopneumopathie chronique obstructive (BPCO)",
   "l'union syndicale Le Bloc, qui regroupe l'UCDF, le Syndicat des gynécologues-obstétriciens de France (Syngof) et le Syndicat des anesthésistes libéraux (AAL)",
   "la commission d'évaluation économique et de santé publique (Ceesp) de la Haute autorité de santé (HAS)",
