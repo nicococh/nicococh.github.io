@@ -1195,6 +1195,7 @@ editor.addEventListener('paste', function (event) {
     temp.querySelectorAll('*').forEach(function (element) {
       element.removeAttribute('face');
       element.removeAttribute('size');
+      element.removeAttribute('color');
 
       if (element.hasAttribute('style')) {
         const style = element.getAttribute('style');
@@ -1203,6 +1204,7 @@ editor.addEventListener('paste', function (event) {
           .replace(/(?:^|;)\s*font-family\s*:[^;]*/gi, '')
           .replace(/(?:^|;)\s*font-size\s*:[^;]*/gi, '')
           .replace(/(?:^|;)\s*font\s*:[^;]*/gi, '')
+          .replace(/(?:^|;)\s*color\s*:[^;]*/gi, '')
           .replace(/;;+/g, ';')
           .replace(/^\s*;|;\s*$/g, '')
           .trim();
@@ -1821,41 +1823,76 @@ function corrigerTypo() {
 
 function appliquerCouleursRubriques() {
   const BLEU_MARINE = '#003087';
-  const BLEU_TURQUOISE = '#008EAA';
+  const BLEU_TURQUOISE = '#0E7F95';
+  const CLASSE_COULEUR_RUBRIQUE = 'rdpote-rubrique-couleur';
 
-  // On repart de noir partout : les couleurs sont recalculées à chaque appel.
-  const elements = editor.querySelectorAll('*');
-  elements.forEach(function(el) {
-    el.style.removeProperty('color');
+  // On retire uniquement les spans créés par cette fonction.
+  // Les autres couleurs éventuelles du document ne sont donc pas touchées.
+  editor.querySelectorAll('span.' + CLASSE_COULEUR_RUBRIQUE).forEach(function(span) {
+    const parent = span.parentNode;
+    while (span.firstChild) parent.insertBefore(span.firstChild, span);
+    parent.removeChild(span);
   });
-  editor.style.removeProperty('color');
 
-  // Les rubriques sont des paragraphes/blocs directs de l'éditeur.
-  // On regarde le début du texte visible, sans tenir compte d'éventuels
-  // espaces ou balises HTML placées au début du paragraphe.
-  Array.from(editor.children).forEach(function(paragraphe) {
-    const texte = (paragraphe.textContent || '').trimStart();
+  const lignes = texteEditeur().split('\n');
+  const lignesACouleur = [];
+
+  for (let i = 0; i < lignes.length; i++) {
+    const texte = lignes[i].trim();
     let couleur = null;
 
     if (texte.startsWith('La santé dans la presse')) {
       couleur = BLEU_MARINE;
     } else if (
-      texte.startsWith('POLITIQUE') ||
-      texte.startsWith('ÉTABLISSEMENTS') ||
-      texte.startsWith('ETABLISSEMENTS') ||
-      texte.startsWith('ENTREPRISES') ||
-      texte.startsWith('SANT') ||
-      texte.startsWith('RECHERCHE') ||
-      texte.startsWith('ENVIRONNEMENT') ||
-      texte.startsWith('ET AUSSI')
+      texte === 'POLITIQUE DE SANTÉ' ||
+      texte === 'ÉTABLISSEMENTS - SOINS DE VILLE' ||
+      texte === 'ENTREPRISES' ||
+      texte === 'SANTÉ - MÉDECINE' ||
+      texte === 'RECHERCHE' ||
+      texte === 'ENVIRONNEMENT' ||
+      texte === 'ET AUSSI...'
     ) {
       couleur = BLEU_TURQUOISE;
     }
 
     if (couleur) {
-      paragraphe.style.color = couleur;
+      const debut = lignes.slice(0, i).reduce(function(total, ligne) {
+        return total + ligne.length + 1;
+      }, 0);
+      lignesACouleur.push({
+        debut: debut,
+        fin: debut + lignes[i].length,
+        couleur: couleur
+      });
     }
-  });
+  }
+
+  // On traite de bas en haut : les modifications du DOM n'affectent ainsi
+  // jamais les positions textuelles des lignes qui restent à traiter.
+  for (let i = lignesACouleur.length - 1; i >= 0; i--) {
+    const item = lignesACouleur[i];
+    const debut = trouverPositionTexte(item.debut);
+    const fin = trouverPositionTexte(item.fin);
+    if (!debut || !fin) continue;
+
+    const range = document.createRange();
+    range.setStart(debut.node, debut.offset);
+    range.setEnd(fin.node, fin.offset);
+
+    const span = document.createElement('span');
+    span.className = CLASSE_COULEUR_RUBRIQUE;
+    span.style.color = item.couleur;
+
+    try {
+      range.surroundContents(span);
+    } catch (err) {
+      // Si la ligne traverse une structure HTML plus complexe, on conserve
+      // le contenu et on applique tout de même la couleur au fragment.
+      const fragment = range.extractContents();
+      span.appendChild(fragment);
+      range.insertNode(span);
+    }
+  }
 }
 
 function insererPlan() {
