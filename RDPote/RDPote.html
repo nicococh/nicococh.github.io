@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 23 aout rubcouleur -->
+<!-- Version 27 aout correc insertions en double -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3465,6 +3465,46 @@ mettreAJourBoutons();
   let crdtSeeded = false;
   let crdtLocalChangeTimer = null;
   let crdtIndexedDb = null;
+  // Devient vrai dès qu'une mise à jour ou un état CRDT provenant d'un
+  // autre pair a été appliqué. Sert à éviter de "semer" le document depuis
+  // le HTML local si un pair a déjà répondu avec le véritable historique
+  // partagé (voir initCRDT / crdtAttendreEtatDistant).
+  let crdtRemoteStateReceived = false;
+  let crdtRemoteStateResolver = null;
+
+  function crdtSignalerEtatDistantRecu() {
+    crdtRemoteStateReceived = true;
+    if (crdtRemoteStateResolver) {
+      const resolve = crdtRemoteStateResolver;
+      crdtRemoteStateResolver = null;
+      resolve();
+    }
+  }
+
+  // Laisse une courte fenêtre de temps à un pair déjà connecté pour
+  // répondre avec son état CRDT réel avant de continuer. Se résout dès
+  // qu'un état distant arrive, ou au bout de timeoutMs sinon (cas où l'on
+  // est réellement le premier utilisateur du document).
+  function crdtAttendreEtatDistant(timeoutMs) {
+    return new Promise(function(resolve) {
+      if (crdtRemoteStateReceived) {
+        resolve();
+        return;
+      }
+      let settled = false;
+      crdtRemoteStateResolver = function() {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      setTimeout(function() {
+        if (settled) return;
+        settled = true;
+        crdtRemoteStateResolver = null;
+        resolve();
+      }, timeoutMs);
+    });
+  }
 
   const CRDT_DOC_NAME = 'rdpote-document-1-v2';
   const CRDT_CHANNEL_NAME = 'rdpote-crdt-document-v2';
@@ -3920,6 +3960,8 @@ mettreAJourBoutons();
     }
 
     crdtReady = false;
+    crdtRemoteStateReceived = false;
+    crdtRemoteStateResolver = null;
 
     // Explicitly refresh the Supabase session so Realtime receives a
     // current JWT before subscribing to the private channel.
@@ -3962,6 +4004,8 @@ mettreAJourBoutons();
         if (!payload.update || !crdtDoc) return;
 
         try {
+          crdtSignalerEtatDistantRecu();
+
           const editorPourCurseur = getEditor();
           const update = crdtBase64ToBytes(payload.update);
           const ancienTexteDistant =
@@ -4007,6 +4051,8 @@ mettreAJourBoutons();
         if (!payload.update || !crdtDoc) return;
 
         try {
+          crdtSignalerEtatDistantRecu();
+
           const editorPourCurseur = getEditor();
           const ancienTexteDistant =
             crdtCursorText ? crdtCursorText.toString() : '';
@@ -4131,9 +4177,42 @@ mettreAJourBoutons();
       }
     }
 
-    // If there is no local CRDT state, seed from the current stable HTML
-    // exactly once.
-    if (crdtText.length === 0) {
+    crdtAttachDocObserver();
+    crdtAttachEditorListener();
+
+    // Se connecter au canal temps réel et laisser une chance à un pair déjà
+    // présent de nous transmettre son état CRDT réel AVANT de décider de
+    // "semer" le document depuis le HTML affiché localement.
+    //
+    // Sans cette attente, un second utilisateur qui rejoint pendant qu'un
+    // premier est en train de taper crée sa propre copie indépendante du
+    // texte déjà tapé (recopiée depuis l'aperçu HTML chargé de Supabase,
+    // via loadRemoteDocument). Comme Yjs fusionne des opérations
+    // d'insertion et non des chaînes de caractères, cette copie
+    // indépendante n'est jamais reconnue comme identique au texte déjà
+    // présent dans le Y.Doc du premier utilisateur : à la fusion CRDT,
+    // les deux séries d'insertions survivent toutes les deux, d'où le
+    // texte dupliqué juste en dessous de l'original.
+    if (!options.skipRealtime) {
+      try {
+        await crdtSubscribe();
+        // Courte fenêtre pour laisser le temps à un pair de répondre au
+        // "crdt-state-request" envoyé par crdtSubscribe(). Se résout
+        // immédiatement si une réponse arrive avant l'échéance.
+        await crdtAttendreEtatDistant(800);
+      } catch (error) {
+        console.warn(
+          'Connexion CRDT impossible, poursuite en local :', error
+        );
+      }
+    }
+
+    // Semer depuis le HTML stable UNIQUEMENT si, après avoir laissé sa
+    // chance à un éventuel pair, le document CRDT est toujours vide. Cela
+    // garantit qu'on ne crée des insertions "fondatrices" que lorsqu'on est
+    // vraiment le premier participant (ou hors ligne), jamais en
+    // concurrence avec un historique déjà partagé par un autre pair.
+    if (crdtText.length === 0 && !crdtRemoteStateReceived) {
       const editor = getEditor();
       const html = editor ? editor.innerHTML : '';
 
@@ -4156,9 +4235,6 @@ mettreAJourBoutons();
       }
     }
 
-    crdtAttachDocObserver();
-    crdtAttachEditorListener();
-
     // Display the local CRDT immediately.
     if (crdtText.length > 0) {
       crdtApplyHtmlToEditor(crdtCurrentHtml());
@@ -4166,10 +4242,13 @@ mettreAJourBoutons();
 
     crdtLastHtml = crdtCurrentHtml();
 
-    if (!options.skipRealtime) {
-      await crdtSubscribe();
+    if (!options.skipRealtime && crdtReady) {
+      // Republier notre état maintenant que le contenu définitif est connu
+      // (reçu d'un pair, ou semé faute de pair) : un pair qui nous
+      // rejoindrait juste après doit voir cette version finale.
+      crdtSendFullState();
       setSyncStatus('CRDT connecté', '#2a7a2a');
-    } else {
+    } else if (options.skipRealtime) {
       setSyncStatus('Hors ligne : document local disponible', '#a33');
     }
     crdtSaveLocalState();
