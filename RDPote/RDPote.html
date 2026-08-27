@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 27 aout correc insertions en double -->
+<!-- Version 27 aout rubcouleur + palette couleurs -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -174,6 +174,25 @@
     color: #aaa;
     cursor: default;
   }
+
+  /* Palette de couleurs */
+  #colorMenuWrap { position: relative; flex: 0 0 auto; }
+  #colorBtn { white-space: nowrap; }
+  #colorPalette {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 10001;
+    width: 188px; padding: 8px; box-sizing: border-box;
+    grid-template-columns: repeat(4, 1fr); gap: 6px;
+    background: #fff; border: 1px solid #ccc; border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.2);
+  }
+  #colorPalette.open { display: grid; }
+  .color-swatch {
+    width: 34px; height: 30px; padding: 0 !important;
+    border: 1px solid #999 !important; border-radius: 4px !important;
+    cursor: pointer; box-sizing: border-box;
+  }
+  .color-swatch:hover { outline: 2px solid #003087; outline-offset: 1px; }
+  .color-swatch.color-noir { box-shadow: inset 0 0 0 1px #fff; }
   #zoomOutBtn,
   #zoomInBtn {
     min-width: 68px;
@@ -927,9 +946,30 @@
   <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
   <button id="supprBtn" type="button" title="Supprimer les sauts de ligne. Ctrl+M">💥↵</button>
+  <div id="colorMenuWrap">
+    <button id="colorBtn" type="button" title="Couleur du texte">🎨</button>
+    <div id="colorPalette" aria-label="Palette de couleurs">
+      <button class="color-swatch color-noir" type="button" data-color="#000000" title="Noir" aria-label="Noir" style="background:#000000"></button>
+      <button class="color-swatch" type="button" data-color="#003087" title="Bleu marine" aria-label="Bleu marine" style="background:#003087"></button>
+      <button class="color-swatch" type="button" data-color="#0E7F95" title="Turquoise" aria-label="Turquoise" style="background:#0E7F95"></button>
+      <button class="color-swatch" type="button" data-color="#D51622" title="Rouge — Ctrl+Alt+R" aria-label="Rouge" style="background:#D51622"></button>
+      <button class="color-swatch" type="button" data-color="#176B3A" title="Vert" aria-label="Vert" style="background:#176B3A"></button>
+      <button class="color-swatch" type="button" data-color="#6A1B9A" title="Violet" aria-label="Violet" style="background:#6A1B9A"></button>
+      <button class="color-swatch" type="button" data-color="#C45100" title="Orange foncé" aria-label="Orange foncé" style="background:#C45100"></button>
+      <button class="color-swatch" type="button" data-color="#795548" title="Brun" aria-label="Brun" style="background:#795548"></button>
+      <button class="color-swatch" type="button" data-color="#555555" title="Gris foncé" aria-label="Gris foncé" style="background:#555555"></button>
+      <button class="color-swatch" type="button" data-color="#AD1457" title="Rose foncé" aria-label="Rose foncé" style="background:#AD1457"></button>
+      <button class="color-swatch" type="button" data-color="#00695C" title="Vert canard" aria-label="Vert canard" style="background:#00695C"></button>
+      <button class="color-swatch" type="button" data-color="#7A5C00" title="Ocre" aria-label="Ocre" style="background:#7A5C00"></button>
+      <button class="color-swatch" type="button" data-color="#283593" title="Indigo" aria-label="Indigo" style="background:#283593"></button>
+      <button class="color-swatch" type="button" data-color="#00838F" title="Cyan foncé" aria-label="Cyan foncé" style="background:#00838F"></button>
+      <button class="color-swatch" type="button" data-color="#4E5D2C" title="Olive" aria-label="Olive" style="background:#4E5D2C"></button>
+      <button class="color-swatch" type="button" data-color="#8E244D" title="Prune" aria-label="Prune" style="background:#8E244D"></button>
+    </div>
+  </div>
   <button id="dictionnaireBtn" type="button" title="Dico des sigles">📖</button>
   <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
-  <button id="planBtn" type="button" title="Insérer les rubriques vides">🗒</button>
+  <button id="planBtn" type="button" title="Insérer les rubriques vides">🆕</button>
   <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
   <button id="copyBtn" type="button" title="Copier tout. Ctrl+A puis Ctrl+C">⿻</button>
    
@@ -1044,6 +1084,8 @@ const editor = document.getElementById('editor');
 const status = document.getElementById('status');
 const boldBtn = document.getElementById('boldBtn');
 const italicBtn = document.getElementById('italicBtn');
+const colorBtn = document.getElementById('colorBtn');
+const colorPalette = document.getElementById('colorPalette');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomInBtn = document.getElementById('zoomInBtn');
 
@@ -1964,6 +2006,64 @@ minBtn.addEventListener('click', mettreEnMinuscules);
 typoBtn.addEventListener('click', corrigerTypo);
 supprBtn.addEventListener('click', supprimerSautsDeLigne);
 copyBtn.addEventListener('click', copierContenu);
+
+// --- Couleurs du texte ---
+function fermerPaletteCouleurs() {
+  colorPalette.classList.remove('open');
+}
+
+function basculerPaletteCouleurs() {
+  colorPalette.classList.toggle('open');
+}
+
+function appliquerCouleur(couleur) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !selectionActive()) {
+    status.textContent = "Sélectionne du texte avant de choisir une couleur.";
+    return;
+  }
+
+  empilerUndo(etatActuel());
+  terminerGroupe();
+  document.execCommand('foreColor', false, couleur);
+
+  // Les commandes de mise en forme modifient directement le DOM : on déclenche
+  // input pour qu'elles soient synchronisées par Yjs/CRDT et sauvegardées.
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+  fermerPaletteCouleurs();
+  status.textContent = "Couleur appliquée à la sélection.";
+  editor.focus();
+  sauvegarder();
+}
+
+colorBtn.addEventListener('mousedown', function(e) {
+  e.preventDefault();
+  basculerPaletteCouleurs();
+});
+
+colorPalette.querySelectorAll('.color-swatch').forEach(function(btn) {
+  btn.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    appliquerCouleur(btn.dataset.color);
+  });
+});
+
+document.addEventListener('mousedown', function(e) {
+  if (!document.getElementById('colorMenuWrap').contains(e.target)) {
+    fermerPaletteCouleurs();
+  }
+});
+
+// Raccourci pratique pour le rouge : Ctrl+Alt+R.
+// Ctrl+Shift+R est évité car Chrome/Edge l'utilisent pour le rechargement forcé.
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey &&
+      e.key.toLowerCase() === 'r') {
+    e.preventDefault();
+    appliquerCouleur('#D51622');
+  }
+});
 
 // --- Mise en forme riche ---
 function basculerFormat(format) {
