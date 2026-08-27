@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 27 aout copcol ameliore -->
+<!-- Version 27 aout copcolV2 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1972,73 +1972,66 @@ ET AUSSI...
   sauvegarder();
 }
 
-// Prépare le HTML destiné au presse-papier.
-// Les blocs de texte sont normalisés en <p> afin que les retours
-// à la ligne soient conservés par Outlook, les CMS et les autres
-// éditeurs HTML. Le DOM réel de l'éditeur n'est jamais modifié.
-function preparerHtmlPourCopie(fragment) {
+// Prépare le HTML pour les logiciels qui interprètent mal les
+// changements de blocs <div>/<p> lors d'un collage enrichi.
+// On conserve les éléments inline (gras, italique, liens, couleurs...)
+// mais on représente chaque séparation de paragraphe par un <br>.
+function htmlPourCopier(racine) {
   const wrapper = document.createElement('div');
-  wrapper.appendChild(fragment);
+  const enfants = Array.from(racine.childNodes);
 
-  function normaliserBloc(bloc) {
-    const blocsEnfants = Array.from(bloc.children).filter(function (enfant) {
-      return BLOCS_LIGNE.has(enfant.tagName);
-    });
-
-    if (bloc.tagName === 'DIV' && blocsEnfants.length > 0) {
-      const parent = bloc.parentNode;
-      while (bloc.firstChild) {
-        parent.insertBefore(bloc.firstChild, bloc);
-      }
-      bloc.remove();
-      return;
-    }
-
-    if (bloc.tagName === 'DIV' || bloc.tagName === 'P') {
-      const p = document.createElement('p');
-      for (const attr of bloc.attributes) {
-        p.setAttribute(attr.name, attr.value);
-      }
-      while (bloc.firstChild) {
-        p.appendChild(bloc.firstChild);
-      }
-      bloc.replaceWith(p);
-    }
+  function estBloc(el) {
+    return el && el.nodeType === Node.ELEMENT_NODE &&
+      ['DIV','P','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE'].includes(el.tagName);
   }
 
-  Array.from(wrapper.querySelectorAll('div, p')).forEach(function (bloc) {
-    if (bloc.isConnected) normaliserBloc(bloc);
+  enfants.forEach(function(node, index) {
+    const clone = node.cloneNode(true);
+
+    if (estBloc(node)) {
+      while (clone.firstChild) wrapper.appendChild(clone.firstChild);
+      if (index < enfants.length - 1) {
+        wrapper.appendChild(document.createElement('br'));
+      }
+    } else {
+      wrapper.appendChild(clone);
+    }
   });
 
   return wrapper.innerHTML;
 }
 
-// Ctrl+C / Cmd+C : utilise exactement le même HTML que le bouton Copier.
-function ecrirePressePapierDepuisSelection(event) {
+// Copie classique Ctrl+C : on fournit nous-mêmes les deux formats du
+// presse-papier. Cela évite que Chrome/Edge transmette les <div>/<p>
+// internes de contenteditable tels quels à Outlook ou au CMS.
+editor.addEventListener('copy', function(event) {
   const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
   if (!editor.contains(selection.anchorNode) || !editor.contains(selection.focusNode)) return;
-  if (selection.isCollapsed) return;
-
-  event.preventDefault();
 
   const range = selection.getRangeAt(0);
-  const html = preparerHtmlPourCopie(range.cloneContents());
-  const plain = selection.toString();
+  const fragment = range.cloneContents();
+  const html = htmlPourCopier(fragment);
+  const temp = document.createElement('div');
+  temp.appendChild(fragment.cloneNode(true));
+  const plain = temp.innerText || temp.textContent || '';
 
+  event.preventDefault();
   event.clipboardData.setData('text/html', html);
   event.clipboardData.setData('text/plain', plain);
-}
-
-editor.addEventListener('copy', ecrirePressePapierDepuisSelection);
+});
 
 async function copierContenu() {
   try {
     const range = document.createRange();
     range.selectNodeContents(editor);
 
-    const html = preparerHtmlPourCopie(range.cloneContents());
-    const plain = editor.innerText;
+    const fragment = range.cloneContents();
+    const html = htmlPourCopier(fragment);
+
+    const temp = document.createElement('div');
+    temp.appendChild(fragment.cloneNode(true));
+    const plain = temp.innerText || temp.textContent || '';
 
     if (navigator.clipboard && window.ClipboardItem) {
       const item = new ClipboardItem({
@@ -2047,6 +2040,8 @@ async function copierContenu() {
       });
       await navigator.clipboard.write([item]);
     } else {
+      // Fallback : sélectionner réellement l'éditeur puis utiliser
+      // la copie native du navigateur.
       editor.focus();
       editor.select();
       document.execCommand('copy');
@@ -2055,7 +2050,7 @@ async function copierContenu() {
 
     status.textContent = "Contenu enrichi copié dans le presse-papier.";
   } catch (err) {
-    console.error("Erreur lors de la copie :", err);
+    console.error('Erreur copie :', err);
     status.textContent = "Impossible de copier le contenu.";
   }
 }
