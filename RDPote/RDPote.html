@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 30 aout corrigee -->
+<!-- Version restaurée 29 aout -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -542,43 +542,6 @@
     font-size: 16px;
     color: #003087;
   }
-  #historyHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding-right: 34px;
-  }
-  #historyTitle {
-    margin: 0;
-    font-size: 16px;
-    color: #003087;
-  }
-  #historyModeBtn {
-    flex-shrink: 0;
-    border: 1px solid #c7c7c7;
-    border-radius: 5px;
-    background: #f7f7f7;
-    color: #003087;
-    padding: 6px 10px;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  #historyModeBtn:hover {
-    background: #eaf0fa;
-    border-color: #003087;
-  }
-  #historyInfo {
-    margin: 0 0 12px;
-    color: #666;
-    font-size: 12px;
-  }
-  .history-item .auteur {
-    font-size: 11px;
-    margin-top: 2px;
-    opacity: 0.9;
-  }
   #historyClose {
     position: absolute;
     top: 10px;
@@ -1048,11 +1011,8 @@
 <div id="historyModal">
   <div id="historyBox">
     <button id="historyClose" type="button" title="Fermer">✕</button>
-    <div id="historyHeader">
-      <h2 id="historyTitle">Sauvegardes sur ton ordi</h2>
-      <button id="historyModeBtn" type="button">Sauvegardes en ligne</button>
-    </div>
-    <p id="historyInfo">Ces sauvegardes sont stockées dans le navigateur de cet ordinateur. Une copie des instantanés est également enregistrée en ligne toutes les 30 secondes lorsque la connexion est disponible.</p>
+    <h2>Sauvegardes sur ton ordi (les 100 dernières)</h2>
+    <p style="margin:0 0 12px; color:#666; font-size:12px;">Ces sauvegardes sont stockées uniquement dans le navigateur de cet ordinateur. Elles ne sont pas synchronisées avec la base de données en ligne.</p>
     <div id="historyContent">
       <div id="historyList"></div>
       <div id="historyPreviewCol">
@@ -2287,15 +2247,14 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// --- Historique des sauvegardes (un instantané toutes les 30 secondes, les 100 dernières) ---
+// --- Historique des sauvegardes (un instantané par minute, les 100 dernières) ---
 // Distinct de la sauvegarde "à chaque frappe" ci-dessus (qui sert à la
 // récupération après fermeture inopinée) : celui-ci garde une trace de
 // versions successives du texte, consultables et copiables, sans jamais
 // écraser le contenu actuel de l'éditeur.
 
 const HISTORY_KEY = 'editeur-texte-historique';
-const CLOUD_HISTORY_PENDING_KEY = 'editeur-texte-historique-cloud-pending';
-const HISTORY_INTERVALLE_MS = 30 * 1000;       // un instantané toutes les 30 secondes
+const HISTORY_INTERVALLE_MS = 60 * 1000;       // un instantané par minute
 const HISTORY_MAX_ENTREES = 100;               // au-delà, les plus anciennes sont purgées
 
 const historyModal = document.getElementById('historyModal');
@@ -2304,15 +2263,9 @@ const historyClose = document.getElementById('historyClose');
 const historyList = document.getElementById('historyList');
 const historyPreview = document.getElementById('historyPreview');
 const historyCopyBtn = document.getElementById('historyCopyBtn');
-const historyTitle = document.getElementById('historyTitle');
-const historyInfo = document.getElementById('historyInfo');
-const historyModeBtn = document.getElementById('historyModeBtn');
 
-let historique = [];       // [{ texte, html, date }], du plus ancien au plus récent
-let historiqueCloud = [];
+let historique = [];       // [{ texte, date }], du plus ancien au plus récent
 let instantaneSelectionne = null;
-let historiqueMode = 'local';
-let chargementHistoriqueCloud = false;
 
 function chargerHistorique() {
   try {
@@ -2334,133 +2287,20 @@ function sauvegarderHistorique() {
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(historique));
   } catch (err) {
-    // Espace de stockage plein ou indisponible : on ignore silencieusement.
+    // Espace de stockage plein ou indisponible : on ignore silencieusement,
+    // la sauvegarde "à chaque frappe" continue de fonctionner de son côté.
   }
 }
 
-function chargerFileAttenteHistoriqueCloud() {
-  try {
-    const brut = localStorage.getItem(CLOUD_HISTORY_PENDING_KEY);
-    return brut ? JSON.parse(brut) : [];
-  } catch (err) {
-    return [];
-  }
-}
-
-function sauvegarderFileAttenteHistoriqueCloud(entries) {
-  try {
-    // On évite que la file d'attente locale grossisse sans limite.
-    localStorage.setItem(
-      CLOUD_HISTORY_PENDING_KEY,
-      JSON.stringify(entries.slice(-HISTORY_MAX_ENTREES))
-    );
-  } catch (err) {}
-}
-
-function ajouterSauvegardeCloudEnAttente(snapshot) {
-  const pending = chargerFileAttenteHistoriqueCloud();
-  const derniere = pending[pending.length - 1];
-  if (derniere && derniere.date === snapshot.date && derniere.document_id === snapshot.document_id) {
-    return;
-  }
-  pending.push(snapshot);
-  sauvegarderFileAttenteHistoriqueCloud(pending);
-}
-
-async function enregistrerInstantaneCloud(snapshot) {
-  if (!snapshot || !snapshot.document_id) return false;
-  if (!window.RDPoteSupabaseUser || !supabaseClient) {
-    ajouterSauvegardeCloudEnAttente(snapshot);
-    return false;
-  }
-  if (!navigator.onLine || !supabaseConnected) {
-    ajouterSauvegardeCloudEnAttente(snapshot);
-    return false;
-  }
-
-  try {
-    const { error } = await supabaseClient
-      .from('document_history')
-      .insert({
-        document_id: snapshot.document_id,
-        contenu_html: snapshot.html,
-        username: snapshot.username || 'Utilisateur',
-        created_at: snapshot.date
-      });
-
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error('Erreur insertion historique cloud :', error);
-    ajouterSauvegardeCloudEnAttente(snapshot);
-    return false;
-  }
-}
-
-async function envoyerHistoriqueCloudEnAttente() {
-  if (!window.RDPoteSupabaseUser || !supabaseClient || !navigator.onLine || !supabaseConnected) return;
-
-  const pending = chargerFileAttenteHistoriqueCloud();
-  if (!pending.length) return;
-
-  const restant = [];
-  for (const snapshot of pending) {
-    try {
-      const { error } = await supabaseClient
-        .from('document_history')
-        .insert({
-          document_id: snapshot.document_id,
-          contenu_html: snapshot.html,
-          username: snapshot.username || 'Utilisateur',
-          created_at: snapshot.date
-        });
-      if (error) throw error;
-    } catch (error) {
-      console.error('Historique cloud en attente non envoyé :', error);
-      restant.push(snapshot);
-    }
-  }
-
-  sauvegarderFileAttenteHistoriqueCloud(restant);
-}
-
-async function enregistrerInstantane() {
+function enregistrerInstantane() {
   if (editor.value.length === 0) return;
   const dernier = historique[historique.length - 1];
   // Pas la peine de garder deux instantanés identiques à la suite.
   if (dernier && dernier.texte === editor.value && dernier.html === editor.innerHTML) return;
 
-  const date = new Date().toISOString();
-  const snapshot = {
-    texte: editor.value,
-    html: editor.innerHTML,
-    date: date
-  };
-
-  historique.push(snapshot);
+  historique.push({ texte: editor.value, html: editor.innerHTML, date: new Date().toISOString() });
   elaguerHistorique();
   sauvegarderHistorique();
-
-  // La sauvegarde cloud est un historique indépendant : elle conserve
-  // exactement l'instantané pris ici, et non le contenu qui pourrait changer
-  // pendant l'appel réseau.
-  const remote = window.RDPoteRemoteDocument;
-  if (remote && remote.id != null) {
-    snapshot.document_id = remote.id;
-    snapshot.username = (window.RDPoteSupabaseUser &&
-      (window.RDPoteSupabaseUser.username || window.RDPoteSupabaseUser.email)) ||
-      'Utilisateur';
-    await enregistrerInstantaneCloud(snapshot);
-  }
-
-  // On continue aussi à mettre à jour la version courante de documents.
-  try {
-    if (typeof saveRemoteDocument === 'function') {
-      await saveRemoteDocument();
-    }
-  } catch (error) {
-    console.warn("Sauvegarde Supabase du document impossible :", error);
-  }
 }
 
 setInterval(enregistrerInstantane, HISTORY_INTERVALLE_MS);
@@ -2473,6 +2313,8 @@ function formatRelatif(date) {
   const heures = Math.floor((totalMinutes % 1440) / 60);
   const minutes = totalMinutes % 60;
 
+  // On affiche au plus les deux unités les plus significatives
+  // (ex. "1j 3h", "2h 15min", "45min"), jamais les secondes.
   const parts = [];
   if (jours > 0) parts.push(jours + "j");
   if (heures > 0) parts.push(heures + "h");
@@ -2481,7 +2323,7 @@ function formatRelatif(date) {
   return "il y a " + parts.join(' ');
 }
 
-function construireListeHistoriqueLocal() {
+function construireListeHistorique() {
   elaguerHistorique();
   historyList.innerHTML = '';
   instantaneSelectionne = null;
@@ -2490,144 +2332,49 @@ function construireListeHistoriqueLocal() {
 
   if (historique.length === 0) {
     const vide = document.createElement('p');
-    vide.textContent = "Aucune sauvegarde pour l'instant. Reviens dans 30 secondes.";
+    vide.textContent = "Aucune sauvegarde pour l'instant. Reviens dans une minute.";
     historyList.appendChild(vide);
     return;
   }
 
-  historique.slice().reverse().forEach(function(entree) {
-    ajouterElementHistorique(entree, false);
+  // Du plus récent au plus ancien
+  const entrees = historique.slice().reverse();
+  entrees.forEach(function(entree) {
+    const date = new Date(entree.date);
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'history-item';
+
+    const heure = document.createElement('span');
+    heure.className = 'heure';
+    heure.textContent = formatDateHeure(date);
+
+    const relatif = document.createElement('span');
+    relatif.className = 'relatif';
+    relatif.textContent = formatRelatif(date);
+
+    item.appendChild(heure);
+    item.appendChild(relatif);
+
+    item.addEventListener('click', function() {
+      document.querySelectorAll('.history-item.selected').forEach(function(el) {
+        el.classList.remove('selected');
+      });
+      item.classList.add('selected');
+      instantaneSelectionne = entree;
+      historyPreview.value = entree.texte;
+      historyCopyBtn.disabled = false;
+    });
+
+    historyList.appendChild(item);
   });
 
+  // On présélectionne la sauvegarde la plus récente pour éviter un clic inutile.
   historyList.querySelector('.history-item').click();
 }
 
-function ajouterElementHistorique(entree, cloud) {
-  const date = new Date(entree.date || entree.created_at);
-  const item = document.createElement('button');
-  item.type = 'button';
-  item.className = 'history-item';
-
-  const heure = document.createElement('span');
-  heure.className = 'heure';
-  heure.textContent = formatDateHeure(date);
-
-  const relatif = document.createElement('span');
-  relatif.className = 'relatif';
-  relatif.textContent = formatRelatif(date);
-
-  item.appendChild(heure);
-  item.appendChild(relatif);
-
-  if (cloud) {
-    const auteur = document.createElement('span');
-    auteur.className = 'auteur';
-    auteur.textContent = entree.username || 'Utilisateur';
-    item.appendChild(auteur);
-  }
-
-  item.addEventListener('click', function() {
-    historyList.querySelectorAll('.history-item.selected').forEach(function(el) {
-      el.classList.remove('selected');
-    });
-    item.classList.add('selected');
-    instantaneSelectionne = entree;
-    historyPreview.value = entree.texte || texteVisibleDepuisHtml(entree.contenu_html || '');
-    historyCopyBtn.disabled = false;
-  });
-
-  historyList.appendChild(item);
-}
-
-async function chargerHistoriqueCloud() {
-  historyList.innerHTML = '';
-  instantaneSelectionne = null;
-  historyPreview.value = '';
-  historyCopyBtn.disabled = true;
-
-  if (!window.RDPoteSupabaseUser || !supabaseClient || !window.RDPoteRemoteDocument) {
-    const vide = document.createElement('p');
-    vide.textContent = "Connecte-toi à Supabase pour consulter les sauvegardes en ligne.";
-    historyList.appendChild(vide);
-    return;
-  }
-
-  if (!navigator.onLine || !supabaseConnected) {
-    const vide = document.createElement('p');
-    vide.textContent = "Sauvegardes en ligne momentanément indisponibles : connexion à Supabase absente.";
-    historyList.appendChild(vide);
-    return;
-  }
-
-  if (chargementHistoriqueCloud) return;
-  chargementHistoriqueCloud = true;
-
-  const chargement = document.createElement('p');
-  chargement.textContent = 'Chargement des sauvegardes en ligne…';
-  historyList.appendChild(chargement);
-
-  try {
-    const { data, error } = await supabaseClient
-      .from('document_history')
-      .select('id, document_id, contenu_html, username, created_at')
-      .eq('document_id', window.RDPoteRemoteDocument.id)
-      .order('created_at', { ascending: false })
-      .limit(HISTORY_MAX_ENTREES);
-
-    if (error) throw error;
-
-    historiqueCloud = data || [];
-    historyList.innerHTML = '';
-
-    if (!historiqueCloud.length) {
-      const vide = document.createElement('p');
-      vide.textContent = "Aucune sauvegarde en ligne pour ce document pour l'instant.";
-      historyList.appendChild(vide);
-      return;
-    }
-
-    historiqueCloud.forEach(function(entree) {
-      entree.texte = texteVisibleDepuisHtml(entree.contenu_html || '');
-      ajouterElementHistorique(entree, true);
-    });
-
-    historyList.querySelector('.history-item').click();
-  } catch (error) {
-    console.error('Erreur chargement historique cloud :', error);
-    historyList.innerHTML = '';
-    const vide = document.createElement('p');
-    vide.textContent = "Impossible de charger les sauvegardes en ligne.";
-    historyList.appendChild(vide);
-  } finally {
-    chargementHistoriqueCloud = false;
-  }
-}
-
-function afficherModeHistorique(mode) {
-  historiqueMode = mode;
-  const enLigne = mode === 'cloud';
-
-  historyTitle.textContent = enLigne
-    ? 'Sauvegardes en ligne'
-    : 'Sauvegardes sur ton ordi';
-
-  historyModeBtn.textContent = enLigne
-    ? 'Sauvegardes sur ton ordi'
-    : 'Sauvegardes en ligne';
-
-  historyInfo.textContent = enLigne
-    ? 'Versions enregistrées dans Supabase toutes les 30 secondes, avec le nom de l’utilisateur qui a créé chaque sauvegarde.'
-    : 'Versions stockées dans le navigateur de cet ordinateur, toutes les 30 secondes.';
-
-  if (enLigne) {
-    chargerHistoriqueCloud();
-  } else {
-    construireListeHistoriqueLocal();
-  }
-}
-
 function afficherModalHistorique() {
-  afficherModeHistorique(historiqueMode);
+  construireListeHistorique();
   historyModal.style.display = 'flex';
 }
 
@@ -2637,14 +2384,13 @@ function masquerModalHistorique() {
 
 async function copierApercuHistorique() {
   if (!instantaneSelectionne) return;
-  const date = new Date(instantaneSelectionne.date || instantaneSelectionne.created_at);
   try {
-    await navigator.clipboard.writeText(instantaneSelectionne.texte || texteVisibleDepuisHtml(instantaneSelectionne.contenu_html || ''));
-    status.textContent = "Sauvegarde de " + formatDateHeure(date) + " copiée dans le presse-papier.";
+    await navigator.clipboard.writeText(instantaneSelectionne.texte);
+    status.textContent = "Sauvegarde de " + formatDateHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
   } catch (err) {
     historyPreview.select();
     document.execCommand('copy');
-    status.textContent = "Sauvegarde de " + formatDateHeure(date) + " copiée dans le presse-papier.";
+    status.textContent = "Sauvegarde de " + formatDateHeure(new Date(instantaneSelectionne.date)) + " copiée dans le presse-papier.";
   }
 }
 
@@ -2652,9 +2398,6 @@ historyBtn.addEventListener('click', afficherModalHistorique);
 historyClose.addEventListener('click', function() {
   masquerModalHistorique();
   editor.focus();
-});
-historyModeBtn.addEventListener('click', function() {
-  afficherModeHistorique(historiqueMode === 'local' ? 'cloud' : 'local');
 });
 historyModal.addEventListener('click', function(e) {
   if (e.target === historyModal) {
@@ -3556,10 +3299,6 @@ mettreAJourBoutons();
     supabaseHasBeenChecked = true;
     setSupabaseConnectionState(true);
     setSyncStatus('Synchronisé avec Supabase', '#2a7a2a');
-    // À la reconnexion, envoyer les instantanés cloud pris pendant la coupure.
-    if (typeof envoyerHistoriqueCloudEnAttente === 'function') {
-      envoyerHistoriqueCloudEnAttente();
-    }
   }
 
   let saveTimer = null;
@@ -4249,9 +3988,14 @@ mettreAJourBoutons();
       if (origin === 'remote') return;
       crdtBroadcastUpdate(update, origin);
 
-      // La sauvegarde HTML dans la table Supabase est maintenant alignée
-      // sur les instantanés locaux de 30 secondes (voir enregistrerInstantane()).
-      // Le CRDT continue, lui, à se synchroniser immédiatement par Realtime.
+      // Les modifications locales sont aussi persistées dans la table
+      // Supabase. En cas de coupure, elles restent dans le CRDT local et
+      // seront proposées comme version à conserver/récupérer à la reconnexion.
+      if (supabaseConnected && !remoteUpdatePending) {
+        scheduleRemoteSave();
+      } else {
+        remoteSavePendingOffline = true;
+      }
     });
   }
 
