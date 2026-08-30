@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 30 aout doubleSAV -->
+<!-- Version 27 aout copcolV2 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -537,10 +537,39 @@
     display: flex;
     flex-direction: column;
   }
+  #historyHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-right: 34px;
+  }
   #historyBox h2 {
-    margin: 0 0 12px 0;
+    margin: 0;
     font-size: 16px;
     color: #003087;
+  }
+  #historyModeBtn {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    background: #fff;
+    color: #003087;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #historyModeBtn:hover {
+    background: #eef3fb;
+    border-color: #003087;
+  }
+  #historyDescription {
+    margin: 0 0 12px;
+    color: #666;
+    font-size: 12px;
   }
   #historyClose {
     position: absolute;
@@ -1011,8 +1040,11 @@
 <div id="historyModal">
   <div id="historyBox">
     <button id="historyClose" type="button" title="Fermer">✕</button>
-    <h2>Sauvegardes sur ton ordi (les 100 dernières)</h2>
-    <p style="margin:0 0 12px; color:#666; font-size:12px;">Ces sauvegardes sont stockées dans le navigateur de cet ordinateur. Une copie du même instantané est également enregistrée dans Supabase toutes les 30 secondes lorsque la connexion est disponible.</p>
+    <div id="historyHeader">
+      <h2 id="historyTitle">Sauvegardes sur ton ordi</h2>
+      <button id="historyModeBtn" type="button">Sauvegardes en ligne</button>
+    </div>
+    <p id="historyDescription">Les 100 dernières sauvegardes stockées dans le navigateur de cet ordinateur.</p>
     <div id="historyContent">
       <div id="historyList"></div>
       <div id="historyPreviewCol">
@@ -2263,8 +2295,14 @@ const historyClose = document.getElementById('historyClose');
 const historyList = document.getElementById('historyList');
 const historyPreview = document.getElementById('historyPreview');
 const historyCopyBtn = document.getElementById('historyCopyBtn');
+const historyTitle = document.getElementById('historyTitle');
+const historyDescription = document.getElementById('historyDescription');
+const historyModeBtn = document.getElementById('historyModeBtn');
+const CLOUD_HISTORY_MAX_ENTRIES = 100;
 
-let historique = [];       // [{ texte, date }], du plus ancien au plus récent
+let historique = [];
+let historiqueCloud = [];
+let historiqueMode = 'local';       // [{ texte, date }], du plus ancien au plus récent
 let instantaneSelectionne = null;
 
 function chargerHistorique() {
@@ -2292,6 +2330,51 @@ function sauvegarderHistorique() {
   }
 }
 
+// Enregistre dans Supabase le même instantané que celui conservé localement.
+// La table document_history contient donc un véritable historique, distinct
+// de la table documents qui ne conserve que la version courante.
+async function enregistrerHistoriqueCloud(html, dateIso) {
+  const remote = window.RDPoteRemoteDocument;
+  if (!remote || !remote.id || !supabaseClient) return false;
+  if (!supabaseConnected || !navigator.onLine) return false;
+
+  try {
+    const { error: insertError } = await supabaseClient
+      .from('document_history')
+      .insert({
+        document_id: remote.id,
+        contenu_html: html,
+        created_at: dateIso || new Date().toISOString()
+      });
+
+    if (insertError) throw insertError;
+
+    // Comme en local, on ne conserve que les 100 dernières versions.
+    const { data: anciennes, error: selectError } = await supabaseClient
+      .from('document_history')
+      .select('id')
+      .eq('document_id', remote.id)
+      .order('created_at', { ascending: false })
+      .range(CLOUD_HISTORY_MAX_ENTRIES, 10000);
+
+    if (selectError) throw selectError;
+
+    if (anciennes && anciennes.length > 0) {
+      const ids = anciennes.map(function(entree) { return entree.id; });
+      const { error: deleteError } = await supabaseClient
+        .from('document_history')
+        .delete()
+        .in('id', ids);
+      if (deleteError) throw deleteError;
+    }
+
+    return true;
+  } catch (error) {
+    console.warn("Impossible d'enregistrer la sauvegarde cloud :", error);
+    return false;
+  }
+}
+
 async function enregistrerInstantane() {
   if (editor.value.length === 0) return;
   const dernier = historique[historique.length - 1];
@@ -2310,6 +2393,14 @@ async function enregistrerInstantane() {
     if (typeof saveRemoteDocument === 'function') {
       await saveRemoteDocument();
     }
+
+    // On crée également une entrée dans l'historique cloud.
+    // Elle est volontairement séparée de documents.contenu_html : cette
+    // dernière table représente uniquement la version actuelle.
+    await enregistrerHistoriqueCloud(
+      editor.innerHTML,
+      historique[historique.length - 1].date
+    );
   } catch (error) {
     console.warn("Sauvegarde Supabase de l'instantané impossible :", error);
   }
@@ -2344,12 +2435,11 @@ function construireListeHistorique() {
 
   if (historique.length === 0) {
     const vide = document.createElement('p');
-    vide.textContent = "Aucune sauvegarde pour l'instant. Reviens dans 30 secondes.";
+    vide.textContent = "Aucune sauvegarde locale pour l'instant. Reviens dans 30 secondes.";
     historyList.appendChild(vide);
     return;
   }
 
-  // Du plus récent au plus ancien
   const entrees = historique.slice().reverse();
   entrees.forEach(function(entree) {
     const date = new Date(entree.date);
@@ -2381,12 +2471,119 @@ function construireListeHistorique() {
     historyList.appendChild(item);
   });
 
-  // On présélectionne la sauvegarde la plus récente pour éviter un clic inutile.
   historyList.querySelector('.history-item').click();
 }
 
+async function chargerHistoriqueCloud() {
+  historyList.innerHTML = '';
+  instantaneSelectionne = null;
+  historyPreview.value = '';
+  historyCopyBtn.disabled = true;
+
+  const remote = window.RDPoteRemoteDocument;
+  if (!remote || !remote.id) {
+    const vide = document.createElement('p');
+    vide.textContent = 'Connexion à Supabase nécessaire pour afficher les sauvegardes en ligne.';
+    historyList.appendChild(vide);
+    return;
+  }
+
+  if (!navigator.onLine) {
+    const vide = document.createElement('p');
+    vide.textContent = 'Tu es hors ligne : les sauvegardes en ligne ne sont pas accessibles.';
+    historyList.appendChild(vide);
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('document_history')
+      .select('id, contenu_html, created_at')
+      .eq('document_id', remote.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+
+    historiqueCloud = (data || []).map(function(entree) {
+      return {
+        id: entree.id,
+        html: entree.contenu_html || '',
+        texte: texteDepuisHtmlHistorique(entree.contenu_html || ''),
+        date: entree.created_at
+      };
+    });
+
+    if (historiqueCloud.length === 0) {
+      const vide = document.createElement('p');
+      vide.textContent = "Aucune sauvegarde en ligne pour l'instant.";
+      historyList.appendChild(vide);
+      return;
+    }
+
+    historiqueCloud.forEach(function(entree) {
+      const date = new Date(entree.date);
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'history-item';
+
+      const heure = document.createElement('span');
+      heure.className = 'heure';
+      heure.textContent = formatDateHeure(date);
+
+      const relatif = document.createElement('span');
+      relatif.className = 'relatif';
+      relatif.textContent = formatRelatif(date);
+
+      item.appendChild(heure);
+      item.appendChild(relatif);
+
+      item.addEventListener('click', function() {
+        document.querySelectorAll('.history-item.selected').forEach(function(el) {
+          el.classList.remove('selected');
+        });
+        item.classList.add('selected');
+        instantaneSelectionne = entree;
+        historyPreview.value = entree.texte;
+        historyCopyBtn.disabled = false;
+      });
+
+      historyList.appendChild(item);
+    });
+
+    historyList.querySelector('.history-item').click();
+  } catch (error) {
+    console.error('Impossible de charger les sauvegardes en ligne :', error);
+    const vide = document.createElement('p');
+    vide.textContent = 'Impossible de charger les sauvegardes en ligne. Vérifie la connexion et la table document_history dans Supabase.';
+    historyList.appendChild(vide);
+  }
+}
+
+function texteDepuisHtmlHistorique(html) {
+  const temp = document.createElement('div');
+  temp.innerHTML = html || '';
+  return temp.innerText || temp.textContent || '';
+}
+
+function afficherModeHistorique(mode) {
+  historiqueMode = mode;
+
+  if (mode === 'cloud') {
+    historyTitle.textContent = 'Sauvegardes en ligne';
+    historyDescription.textContent = 'Les 100 dernières sauvegardes enregistrées dans Supabase.';
+    historyModeBtn.textContent = 'Sauvegardes sur ton ordi';
+    chargerHistoriqueCloud();
+  } else {
+    historyTitle.textContent = 'Sauvegardes sur ton ordi';
+    historyDescription.textContent = 'Les 100 dernières sauvegardes stockées dans le navigateur de cet ordinateur.';
+    historyModeBtn.textContent = 'Sauvegardes en ligne';
+    construireListeHistorique();
+  }
+}
+
 function afficherModalHistorique() {
-  construireListeHistorique();
+  afficherModeHistorique('local');
   historyModal.style.display = 'flex';
 }
 
@@ -2407,6 +2604,9 @@ async function copierApercuHistorique() {
 }
 
 historyBtn.addEventListener('click', afficherModalHistorique);
+historyModeBtn.addEventListener('click', function() {
+  afficherModeHistorique(historiqueMode === 'local' ? 'cloud' : 'local');
+});
 historyClose.addEventListener('click', function() {
   masquerModalHistorique();
   editor.focus();
