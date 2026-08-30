@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 27 aout copcolV2 -->
+<!-- Version 30 aout doubleSAV -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1012,7 +1012,7 @@
   <div id="historyBox">
     <button id="historyClose" type="button" title="Fermer">✕</button>
     <h2>Sauvegardes sur ton ordi (les 100 dernières)</h2>
-    <p style="margin:0 0 12px; color:#666; font-size:12px;">Ces sauvegardes sont stockées uniquement dans le navigateur de cet ordinateur. Elles ne sont pas synchronisées avec la base de données en ligne.</p>
+    <p style="margin:0 0 12px; color:#666; font-size:12px;">Ces sauvegardes sont stockées dans le navigateur de cet ordinateur. Une copie du même instantané est également enregistrée dans Supabase toutes les 30 secondes lorsque la connexion est disponible.</p>
     <div id="historyContent">
       <div id="historyList"></div>
       <div id="historyPreviewCol">
@@ -2247,14 +2247,14 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// --- Historique des sauvegardes (un instantané par minute, les 100 dernières) ---
+// --- Historique des sauvegardes (un instantané toutes les 30 secondes, les 100 dernières) ---
 // Distinct de la sauvegarde "à chaque frappe" ci-dessus (qui sert à la
 // récupération après fermeture inopinée) : celui-ci garde une trace de
 // versions successives du texte, consultables et copiables, sans jamais
 // écraser le contenu actuel de l'éditeur.
 
 const HISTORY_KEY = 'editeur-texte-historique';
-const HISTORY_INTERVALLE_MS = 60 * 1000;       // un instantané par minute
+const HISTORY_INTERVALLE_MS = 30 * 1000;       // un instantané toutes les 30 secondes
 const HISTORY_MAX_ENTREES = 100;               // au-delà, les plus anciennes sont purgées
 
 const historyModal = document.getElementById('historyModal');
@@ -2292,7 +2292,7 @@ function sauvegarderHistorique() {
   }
 }
 
-function enregistrerInstantane() {
+async function enregistrerInstantane() {
   if (editor.value.length === 0) return;
   const dernier = historique[historique.length - 1];
   // Pas la peine de garder deux instantanés identiques à la suite.
@@ -2301,6 +2301,18 @@ function enregistrerInstantane() {
   historique.push({ texte: editor.value, html: editor.innerHTML, date: new Date().toISOString() });
   elaguerHistorique();
   sauvegarderHistorique();
+
+  // À chaque instantané local de 30 secondes, on tente également
+  // d'enregistrer exactement le même état dans Supabase.
+  // Si Supabase est indisponible, saveRemoteDocument() conserve
+  // l'information qu'une sauvegarde reste à effectuer à la reconnexion.
+  try {
+    if (typeof saveRemoteDocument === 'function') {
+      await saveRemoteDocument();
+    }
+  } catch (error) {
+    console.warn("Sauvegarde Supabase de l'instantané impossible :", error);
+  }
 }
 
 setInterval(enregistrerInstantane, HISTORY_INTERVALLE_MS);
@@ -2332,7 +2344,7 @@ function construireListeHistorique() {
 
   if (historique.length === 0) {
     const vide = document.createElement('p');
-    vide.textContent = "Aucune sauvegarde pour l'instant. Reviens dans une minute.";
+    vide.textContent = "Aucune sauvegarde pour l'instant. Reviens dans 30 secondes.";
     historyList.appendChild(vide);
     return;
   }
@@ -3988,14 +4000,9 @@ mettreAJourBoutons();
       if (origin === 'remote') return;
       crdtBroadcastUpdate(update, origin);
 
-      // Les modifications locales sont aussi persistées dans la table
-      // Supabase. En cas de coupure, elles restent dans le CRDT local et
-      // seront proposées comme version à conserver/récupérer à la reconnexion.
-      if (supabaseConnected && !remoteUpdatePending) {
-        scheduleRemoteSave();
-      } else {
-        remoteSavePendingOffline = true;
-      }
+      // La sauvegarde HTML dans la table Supabase est maintenant alignée
+      // sur les instantanés locaux de 30 secondes (voir enregistrerInstantane()).
+      // Le CRDT continue, lui, à se synchroniser immédiatement par Realtime.
     });
   }
 
