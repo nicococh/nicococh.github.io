@@ -1,5 +1,6 @@
 <!DOCTYPE html> 
-<!-- Version Claude synchro corrigee 31aout -->
+<!-- Par Nicolas Cochard -->
+<!-- Version Claude synchro corrigee 31aout CRDT -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3865,6 +3866,12 @@ mettreAJourBoutons();
   let crdtRemoteStateReceived = false;
   let crdtRemoteStateResolver = null;
 
+  // Sessions des pairs ayant envoyé un "crdt-state-request" pendant notre
+  // propre connexion : signe qu'eux aussi démarrent à vide, en même temps
+  // que nous (cas rare de deux ouvertures quasi simultanées). Sert à la
+  // règle déterministe anti-double-semis ci-dessous (voir initCRDT).
+  let crdtPeersConcurrentsVus = new Set();
+
   function crdtSignalerEtatDistantRecu() {
     crdtRemoteStateReceived = true;
     if (crdtRemoteStateResolver) {
@@ -4355,6 +4362,7 @@ mettreAJourBoutons();
     crdtReady = false;
     crdtRemoteStateReceived = false;
     crdtRemoteStateResolver = null;
+    crdtPeersConcurrentsVus = new Set();
 
     // Explicitly refresh the Supabase session so Realtime receives a
     // current JWT before subscribing to the private channel.
@@ -4433,6 +4441,13 @@ mettreAJourBoutons();
         if (payload.doc !== CRDT_DOC_NAME) return;
         if (payload.sender &&
             payload.sender === (window.RDPoteSessionId || '')) return;
+
+        // Ce pair nous demande notre état alors que nous sommes peut-être
+        // nous-même en train de démarrer à vide : on le mémorise pour la
+        // règle déterministe anti-double-semis (voir initCRDT).
+        if (payload.sender) {
+          crdtPeersConcurrentsVus.add(payload.sender);
+        }
 
         crdtSendFullState();
       })
@@ -4630,11 +4645,47 @@ mettreAJourBoutons();
       }
     }
 
+    // Cas rare : deux utilisateurs lancent RDPote quasi simultanément.
+    // Aucun des deux n'a encore de contenu CRDT au moment où l'autre lui
+    // demande son état (crdt-state-request), donc ils se répondent chacun
+    // un état vide et aucun ne reçoit jamais de "vrai" historique dans les
+    // 800 ms d'attente ci-dessus. Sans garde-fou supplémentaire, les DEUX
+    // sèmeraient indépendamment le même texte depuis leur HTML local, et
+    // Yjs fusionnerait ces deux séries d'insertions fondatrices sans les
+    // reconnaître comme identiques → le texte apparaît deux fois.
+    //
+    // Règle déterministe : si on a vu un pair concurrent (qui nous a
+    // envoyé un crdt-state-request pendant notre propre connexion) et que
+    // son sessionId est plus petit que le nôtre, on lui laisse le rôle de
+    // "semeur" et on attend son état réel au lieu de semer nous-même.
+    if (crdtText.length === 0 && !crdtRemoteStateReceived &&
+        crdtPeersConcurrentsVus.size > 0) {
+      const monId = window.RDPoteSessionId || '';
+      let unPairDoitSemerAMaPlace = false;
+      crdtPeersConcurrentsVus.forEach(function(peerId) {
+        if (peerId < monId) unPairDoitSemerAMaPlace = true;
+      });
+
+      if (unPairDoitSemerAMaPlace) {
+        // On cède la priorité de semis à ce pair. Fenêtre d'attente plus
+        // large : le temps qu'il termine son propre initCRDT() et
+        // republie son état (crdtSendFullState() en fin de fonction).
+        await crdtAttendreEtatDistant(2500);
+      }
+    }
+
     // Semer depuis le HTML stable UNIQUEMENT si, après avoir laissé sa
-    // chance à un éventuel pair, le document CRDT est toujours vide. Cela
-    // garantit qu'on ne crée des insertions "fondatrices" que lorsqu'on est
+    // chance à un éventuel pair (y compris, ci-dessus, à un pair démarrant
+    // en même temps que nous mais désigné "semeur" par la règle
+    // déterministe), le document CRDT est toujours vide. Cela garantit
+    // qu'on ne crée des insertions "fondatrices" que lorsqu'on est
     // vraiment le premier participant (ou hors ligne), jamais en
     // concurrence avec un historique déjà partagé par un autre pair.
+    //
+    // Filet de sécurité : si le pair désigné "semeur" n'a en réalité
+    // jamais fini de démarrer (onglet fermé, crash, réseau...), on sème
+    // quand même après l'attente étendue plutôt que de laisser le
+    // document vide indéfiniment.
     if (crdtText.length === 0 && !crdtRemoteStateReceived) {
       const editor = getEditor();
       const html = editor ? editor.innerHTML : '';
