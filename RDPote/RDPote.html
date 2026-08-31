@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 <!-- Par Nicolas Cochard -->
-<!-- Version Claude synchro corrigee 31aout CRDT remise -->
+<!-- Version Claude synchro corrigee 31aout auth Claude -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3073,8 +3073,8 @@ mettreAJourBoutons();
 <div id="supabaseLogin" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(255,255,255,.97); align-items:center; justify-content:center; font-family:Arial,sans-serif;">
   <div style="width:340px; max-width:90vw; padding:28px; border:1px solid #ddd; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.12); background:white;">
     <h2 style="margin:0 0 18px; color:#4a5e81;">RDPote</h2>
-    <label for="supabaseEmail" style="display:block; margin-bottom:6px;">E-mail</label>
-    <input id="supabaseEmail" type="email" autocomplete="username" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
+    <label for="supabaseEmail" style="display:block; margin-bottom:6px;">E-mail ou identifiant</label>
+    <input id="supabaseEmail" type="text" autocomplete="username" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
     <label for="supabasePassword" style="display:block; margin-bottom:6px;">Mot de passe</label>
     <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:10px;">
     <button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
@@ -3683,14 +3683,44 @@ mettreAJourBoutons();
     }
   }
 
+  // Résout un identifiant (username) en adresse mail via la fonction
+  // Supabase `get_email_for_username` (SECURITY DEFINER côté base, seule
+  // capable de lire auth.users). Renvoie null si l'identifiant est inconnu.
+  async function resoudreEmailDepuisIdentifiant(identifiant) {
+    const { data, error } = await supabaseClient.rpc(
+      'get_email_for_username',
+      { p_username: identifiant }
+    );
+
+    if (error) {
+      console.error('Résolution identifiant → e-mail impossible :', error);
+      return null;
+    }
+
+    return data || null;
+  }
+
   async function signIn() {
     LOGIN_BTN.disabled = true;
     LOGIN_MSG.style.color = '#555';
     LOGIN_MSG.textContent = 'Connexion…';
 
     try {
+      const saisie = EMAIL.value.trim();
+      let emailConnexion = saisie;
+
+      // La saisie peut être une adresse mail ou un nom d'utilisateur
+      // (colonne "username" de la table profiles). Supabase Auth exigeant
+      // toujours une adresse mail, on la résout d'abord si besoin.
+      if (saisie && !saisie.includes('@')) {
+        emailConnexion = await resoudreEmailDepuisIdentifiant(saisie);
+        if (!emailConnexion) {
+          throw new Error('Identifiant inconnu.');
+        }
+      }
+
       const { error } = await supabaseClient.auth.signInWithPassword({
-        email: EMAIL.value.trim(),
+        email: emailConnexion,
         password: PASSWORD.value
       });
 
@@ -3721,11 +3751,12 @@ mettreAJourBoutons();
   }
 
   async function requestPasswordReset() {
-    const email = RESET_EMAIL.value.trim() || EMAIL.value.trim();
+    const email = RESET_EMAIL.value.trim() ||
+      (EMAIL.value.trim().includes('@') ? EMAIL.value.trim() : '');
 
     if (!email) {
       RESET_REQUEST_MSG.style.color = '#b00020';
-      RESET_REQUEST_MSG.textContent = 'Saisis ton adresse e-mail.';
+      RESET_REQUEST_MSG.textContent = 'Saisis ton adresse e-mail (un identifiant ne suffit pas pour la réinitialisation).';
       RESET_EMAIL.focus();
       return;
     }
@@ -3811,7 +3842,10 @@ mettreAJourBoutons();
 
   FORGOT_BTN.addEventListener('click', function () {
     RESET_REQUEST.style.display = 'block';
-    RESET_EMAIL.value = EMAIL.value.trim();
+    const saisie = EMAIL.value.trim();
+    // On ne préremplit que si la saisie ressemble à une adresse mail :
+    // un identifiant (username) ne peut pas servir à la réinitialisation.
+    RESET_EMAIL.value = saisie.includes('@') ? saisie : '';
     RESET_EMAIL.focus();
     LOGIN_MSG.textContent = '';
   });
