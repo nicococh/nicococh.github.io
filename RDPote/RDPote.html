@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 <!-- Par Nicolas Cochard -->
-<!-- Version Claude synchro corrigee 31aout auth -->
+<!-- Version Claude synchro corrigee 31aout CRDT -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3073,8 +3073,8 @@ mettreAJourBoutons();
 <div id="supabaseLogin" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(255,255,255,.97); align-items:center; justify-content:center; font-family:Arial,sans-serif;">
   <div style="width:340px; max-width:90vw; padding:28px; border:1px solid #ddd; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.12); background:white;">
     <h2 style="margin:0 0 18px; color:#4a5e81;">RDPote</h2>
-    <label for="supabaseEmail" style="display:block; margin-bottom:6px;">Adresse e-mail ou nom d'utilisateur</label>
-    <input id="supabaseEmail" type="text" autocomplete="username" placeholder="ex. : prenom.nom ou nom@exemple.fr" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
+    <label for="supabaseEmail" style="display:block; margin-bottom:6px;">E-mail</label>
+    <input id="supabaseEmail" type="email" autocomplete="username" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:14px;">
     <label for="supabasePassword" style="display:block; margin-bottom:6px;">Mot de passe</label>
     <input id="supabasePassword" type="password" autocomplete="current-password" style="box-sizing:border-box; width:100%; padding:9px; margin-bottom:10px;">
     <button id="supabaseLoginBtn" type="button" style="padding:9px 16px; cursor:pointer;">Entrer</button>
@@ -3158,23 +3158,6 @@ mettreAJourBoutons();
     return document.querySelector('[contenteditable="true"]');
   }
 
-
-  async function trouverEmailDepuisUsername(username) {
-    const identifiant = (username || '').trim();
-    if (!identifiant) return null;
-
-    const { data, error } = await supabaseClient.rpc(
-      'get_email_by_username',
-      { p_username: identifiant }
-    );
-
-    if (error) {
-      console.error('Erreur lors de la recherche du nom d’utilisateur :', error);
-      throw new Error('Impossible de rechercher ce nom d’utilisateur.');
-    }
-
-    return data || null;
-  }
 
   async function chargerProfilUtilisateur(user) {
     if (!user) return null;
@@ -3706,27 +3689,8 @@ mettreAJourBoutons();
     LOGIN_MSG.textContent = 'Connexion…';
 
     try {
-      const identifiant = EMAIL.value.trim();
-
-      if (!identifiant) {
-        throw new Error('Saisis ton adresse e-mail ou ton nom d’utilisateur.');
-      }
-
-      // Supabase Auth accepte une adresse e-mail, mais pas directement
-      // un username. Si l'utilisateur saisit un username, on retrouve
-      // d'abord l'adresse e-mail correspondante via la fonction SQL RPC.
-      let emailConnexion = identifiant;
-
-      if (!identifiant.includes('@')) {
-        emailConnexion = await trouverEmailDepuisUsername(identifiant);
-
-        if (!emailConnexion) {
-          throw new Error('Nom d’utilisateur ou mot de passe incorrect.');
-        }
-      }
-
       const { error } = await supabaseClient.auth.signInWithPassword({
-        email: emailConnexion,
+        email: EMAIL.value.trim(),
         password: PASSWORD.value
       });
 
@@ -3847,13 +3811,7 @@ mettreAJourBoutons();
 
   FORGOT_BTN.addEventListener('click', function () {
     RESET_REQUEST.style.display = 'block';
-
-    // La réinitialisation Supabase se fait par e-mail.
-    // On ne préremplit donc le champ que si l'identifiant saisi ressemble
-    // bien à une adresse e-mail, et non à un nom d'utilisateur.
-    const identifiant = EMAIL.value.trim();
-    RESET_EMAIL.value = identifiant.includes('@') ? identifiant : '';
-
+    RESET_EMAIL.value = EMAIL.value.trim();
     RESET_EMAIL.focus();
     LOGIN_MSG.textContent = '';
   });
@@ -3871,13 +3829,6 @@ mettreAJourBoutons();
   });
 
   LOGIN_BTN.addEventListener('click', signIn);
-
-  EMAIL.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      PASSWORD.focus();
-    }
-  });
 
   PASSWORD.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') signIn();
