@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version 31 aout Claude -->
+<!-- Version Claude synchro corrigee 31aout -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -4558,7 +4558,30 @@ mettreAJourBoutons();
     // Restore only this user's local CRDT state.
     const localState = await crdtLoadLocalState(crdtIndexedDb);
 
-    if (localState) {
+    // Le cache CRDT local (IndexedDB) n'est fiable que si CE navigateur
+    // était à jour avec Supabase au moment où il l'a enregistré. S'il ne
+    // l'était pas — par exemple parce que cet onglet était fermé pendant
+    // qu'un autre utilisateur modifiait le document — ce cache contient une
+    // version périmée (typiquement : le dernier texte tapé ICI, avant la
+    // fermeture de l'onglet). L'appliquer écraserait alors silencieusement
+    // la version fraîche déjà affichée par loadRemoteDocument() par cette
+    // version périmée, sans qu'aucun pair ne soit là pour corriger le tir.
+    //
+    // On détecte ce cas en comparant le "updated_at" du document que ce
+    // navigateur connaissait avant ce chargement (metaLocaleAvantChargement,
+    // capturé dans initSupabase() avant l'appel à loadRemoteDocument) à
+    // celui qu'on vient de recevoir de Supabase : s'ils diffèrent, le
+    // document a changé ailleurs pendant l'absence de ce navigateur, et le
+    // cache local est jugé périmé.
+    const remoteActuel = window.RDPoteRemoteDocument;
+    const metaAvant = options.metaLocaleAvantChargement;
+    const cacheLocalPerime = !!(
+      localState && metaAvant && remoteActuel &&
+      String(metaAvant.id) === String(remoteActuel.id) &&
+      metaAvant.updated_at !== remoteActuel.updated_at
+    );
+
+    if (localState && !cacheLocalPerime) {
       try {
         Y.applyUpdate(
           crdtDoc,
@@ -4568,6 +4591,13 @@ mettreAJourBoutons();
       } catch (error) {
         console.warn('État CRDT local illisible, ignoré.', error);
       }
+    } else if (cacheLocalPerime) {
+      console.warn(
+        'Cache CRDT local périmé (document modifié ailleurs pendant ' +
+        'l’absence de ce navigateur) : ignoré au démarrage, repli sur la ' +
+        'version fraîche de Supabase (ou sur un pair connecté, le cas ' +
+        'échéant).'
+      );
     }
 
     crdtAttachDocObserver();
@@ -5285,8 +5315,16 @@ mettreAJourBoutons();
         await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
+
+      // Capturer, AVANT d'écraser cette information avec la version
+      // fraîchement chargée, la dernière version du document que CE
+      // navigateur avait vue lors de sa dernière session. Sert à détecter,
+      // dans initCRDT(), si le cache CRDT local (IndexedDB) est périmé —
+      // voir le commentaire à ce sujet dans initCRDT().
+      const metaLocaleAvantChargement = chargerMetaRemoteLocale();
+
       await loadRemoteDocument();
-      await initCRDT();
+      await initCRDT({ metaLocaleAvantChargement: metaLocaleAvantChargement });
       subscribeToPresence();
       demarrerSurveillanceSupabase();
     } catch (error) {
