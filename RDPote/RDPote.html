@@ -1,5 +1,5 @@
 <!DOCTYPE html> 
-<!-- Version restaurée 29 aout -->
+<!-- Version 31 aout Claude -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -557,20 +557,48 @@
   #historyClose:hover {
     color: #a33;
   }
-  #historyContent {
+  #historyTabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+  .history-tab {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 7px 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px 4px 0 0;
+    border-bottom: none;
+    background: #f0f0f0;
+    color: #666;
+    cursor: pointer;
+  }
+  .history-tab.active {
+    background: #fff;
+    color: #003087;
+    border-color: #003087;
+  }
+  .history-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .history-content {
     display: flex;
     gap: 14px;
     flex: 1;
     min-height: 0;
   }
-  #historyList {
+  .history-list-col {
     width: 150px;
     flex-shrink: 0;
     overflow-y: auto;
     border-right: 1px solid #e0e0e0;
     padding-right: 10px;
   }
-  #historyList p {
+  .history-list-col p {
     font-size: 13px;
     color: #888;
   }
@@ -601,13 +629,19 @@
     font-size: 11px;
     opacity: 0.8;
   }
-  #historyPreviewCol {
+  .history-item .utilisateur {
+    font-size: 11px;
+    opacity: 0.85;
+    display: block;
+    font-style: italic;
+  }
+  .history-preview-col {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
   }
-  #historyPreview {
+  .history-preview-col textarea {
     flex: 1;
     resize: none;
     box-sizing: border-box;
@@ -620,12 +654,12 @@
     background: #fafafa;
     color: #333;
   }
-  #historyPreviewActions {
+  .history-preview-actions {
     margin-top: 10px;
     display: flex;
     justify-content: flex-end;
   }
-  #historyCopyBtn {
+  .history-preview-actions button {
     font-size: 13px;
     padding: 6px 14px;
     border: 1px solid #ccc;
@@ -633,9 +667,14 @@
     background: #fff;
     cursor: pointer;
   }
-  #historyCopyBtn:disabled {
+  .history-preview-actions button:disabled {
     color: #aaa;
     cursor: default;
+  }
+  .history-desc {
+    margin: 0 0 12px;
+    color: #666;
+    font-size: 12px;
   }
   #nnaireModal {
     display: none;
@@ -1011,14 +1050,35 @@
 <div id="historyModal">
   <div id="historyBox">
     <button id="historyClose" type="button" title="Fermer">✕</button>
-    <h2>Sauvegardes sur ton ordi (les 100 dernières)</h2>
-    <p style="margin:0 0 12px; color:#666; font-size:12px;">Ces sauvegardes sont stockées uniquement dans le navigateur de cet ordinateur. Elles ne sont pas synchronisées avec la base de données en ligne.</p>
-    <div id="historyContent">
-      <div id="historyList"></div>
-      <div id="historyPreviewCol">
-        <textarea id="historyPreview" readonly placeholder="Sélectionnez une sauvegarde à gauche pour la prévisualiser."></textarea>
-        <div id="historyPreviewActions">
-          <button id="historyCopyBtn" type="button" disabled>Copier</button>
+    <div id="historyTabs">
+      <button id="historyTabLocal" type="button" class="history-tab active">Sauvegardes locales</button>
+      <button id="historyTabOnline" type="button" class="history-tab">Sauvegarde en ligne</button>
+    </div>
+
+    <div id="historyPanelLocal" class="history-panel">
+      <h2>Sauvegardes sur ton ordi (les 100 dernières)</h2>
+      <p class="history-desc">Ces sauvegardes sont stockées uniquement dans le navigateur de cet ordinateur. Elles ne sont pas synchronisées avec la base de données en ligne.</p>
+      <div id="historyContent" class="history-content">
+        <div id="historyList" class="history-list-col"></div>
+        <div id="historyPreviewCol" class="history-preview-col">
+          <textarea id="historyPreview" readonly placeholder="Sélectionnez une sauvegarde à gauche pour la prévisualiser."></textarea>
+          <div class="history-preview-actions">
+            <button id="historyCopyBtn" type="button" disabled>Copier</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="historyPanelOnline" class="history-panel" style="display:none;">
+      <h2>Sauvegarde en ligne (les 100 dernières)</h2>
+      <p class="history-desc">Copie de sécurité des instantanés dans Supabase, marquée avec le nom de chaque utilisateur. Ceci s'ajoute simplement à la sauvegarde locale : la synchronisation en ligne du document n'est pas modifiée.</p>
+      <div id="historyContentOnline" class="history-content">
+        <div id="historyListOnline" class="history-list-col"><p>Ouvre cet onglet pour charger la liste.</p></div>
+        <div id="historyPreviewColOnline" class="history-preview-col">
+          <textarea id="historyPreviewOnline" readonly placeholder="Sélectionnez une sauvegarde à gauche pour la prévisualiser."></textarea>
+          <div class="history-preview-actions">
+            <button id="historyCopyBtnOnline" type="button" disabled>Copier</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2264,6 +2324,27 @@ const historyList = document.getElementById('historyList');
 const historyPreview = document.getElementById('historyPreview');
 const historyCopyBtn = document.getElementById('historyCopyBtn');
 
+// --- Onglet "Sauvegarde en ligne" (miroir Supabase de l'historique local) ---
+// Objectif : garder une deuxième copie des mêmes instantanés, hébergée en
+// ligne et marquée du nom de l'utilisateur qui les a créés, en plus (jamais
+// à la place) de la sauvegarde locale ci-dessus. Ceci ne touche à aucune
+// règle de synchronisation temps réel du document (CRDT / table
+// "documents") : c'est un simple journal parallèle, en écriture seule côté
+// éditeur (on n'y relit jamais le contenu courant du document).
+const ONLINE_HISTORY_TABLE = 'sauvegardes_historique';
+const ONLINE_HISTORY_MAX_ENTREES = 100;
+
+const historyTabLocal = document.getElementById('historyTabLocal');
+const historyTabOnline = document.getElementById('historyTabOnline');
+const historyPanelLocal = document.getElementById('historyPanelLocal');
+const historyPanelOnline = document.getElementById('historyPanelOnline');
+const historyListOnline = document.getElementById('historyListOnline');
+const historyPreviewOnline = document.getElementById('historyPreviewOnline');
+const historyCopyBtnOnline = document.getElementById('historyCopyBtnOnline');
+
+let instantaneSelectionneEnLigne = null;
+let historiqueEnLigneCharge = false;
+
 let historique = [];       // [{ texte, date }], du plus ancien au plus récent
 let instantaneSelectionne = null;
 
@@ -2298,12 +2379,51 @@ function enregistrerInstantane() {
   // Pas la peine de garder deux instantanés identiques à la suite.
   if (dernier && dernier.texte === editor.value && dernier.html === editor.innerHTML) return;
 
-  historique.push({ texte: editor.value, html: editor.innerHTML, date: new Date().toISOString() });
+  const entree = { texte: editor.value, html: editor.innerHTML, date: new Date().toISOString() };
+  historique.push(entree);
   elaguerHistorique();
   sauvegarderHistorique();
+
+  // Miroir en ligne, en plus de la sauvegarde locale ci-dessus (best-effort :
+  // une erreur ici ne doit jamais perturber la sauvegarde locale ni l'édition).
+  enregistrerInstantaneEnLigne(entree);
 }
 
 setInterval(enregistrerInstantane, HISTORY_INTERVALLE_MS);
+
+async function enregistrerInstantaneEnLigne(entree) {
+  try {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    const user = window.RDPoteSupabaseUser;
+    if (!user) return; // pas connecté : pas de sauvegarde en ligne possible
+
+    const documentId = window.RDPoteRemoteDocument && window.RDPoteRemoteDocument.id;
+    const username = user.username || user.email || 'Utilisateur';
+
+    const { error } = await supabaseClient
+      .from(ONLINE_HISTORY_TABLE)
+      .insert({
+        document_id: documentId != null ? documentId : null,
+        user_id: user.id,
+        username: username,
+        texte: entree.texte,
+        html: entree.html,
+        date: entree.date
+      });
+
+    if (error) throw error;
+
+    // Si l'onglet "Sauvegarde en ligne" est déjà ouvert, on rafraîchit sa
+    // liste pour que le nouvel instantané y apparaisse tout de suite.
+    if (historyPanelOnline && historyPanelOnline.style.display !== 'none') {
+      chargerHistoriqueEnLigne({ forcer: true });
+    }
+  } catch (error) {
+    // Hors ligne, table absente, etc. : on n'interrompt jamais la sauvegarde
+    // locale pour ça, on se contente de tracer l'erreur.
+    console.warn('Sauvegarde en ligne impossible pour cet instantané :', error);
+  }
+}
 
 function formatRelatif(date) {
   const totalMinutes = Math.round((Date.now() - date.getTime()) / 60000);
@@ -2375,6 +2495,7 @@ function construireListeHistorique() {
 
 function afficherModalHistorique() {
   construireListeHistorique();
+  afficherOngletHistorique('local');
   historyModal.style.display = 'flex';
 }
 
@@ -2394,6 +2515,121 @@ async function copierApercuHistorique() {
   }
 }
 
+// --- Onglets "Sauvegardes locales" / "Sauvegarde en ligne" ---
+
+function afficherOngletHistorique(onglet) {
+  const estLocal = onglet === 'local';
+
+  historyTabLocal.classList.toggle('active', estLocal);
+  historyTabOnline.classList.toggle('active', !estLocal);
+  historyPanelLocal.style.display = estLocal ? 'flex' : 'none';
+  historyPanelOnline.style.display = estLocal ? 'none' : 'flex';
+
+  if (!estLocal) {
+    chargerHistoriqueEnLigne();
+  }
+}
+
+function construireListeHistoriqueEnLigne(entrees) {
+  historyListOnline.innerHTML = '';
+  instantaneSelectionneEnLigne = null;
+  historyPreviewOnline.value = '';
+  historyCopyBtnOnline.disabled = true;
+
+  if (!entrees || entrees.length === 0) {
+    const vide = document.createElement('p');
+    vide.textContent = "Aucune sauvegarde en ligne pour l'instant.";
+    historyListOnline.appendChild(vide);
+    return;
+  }
+
+  entrees.forEach(function(entree) {
+    const date = new Date(entree.date);
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'history-item';
+
+    const heure = document.createElement('span');
+    heure.className = 'heure';
+    heure.textContent = formatDateHeure(date);
+
+    const relatif = document.createElement('span');
+    relatif.className = 'relatif';
+    relatif.textContent = formatRelatif(date);
+
+    const utilisateur = document.createElement('span');
+    utilisateur.className = 'utilisateur';
+    utilisateur.textContent = entree.username || 'Utilisateur';
+
+    item.appendChild(heure);
+    item.appendChild(utilisateur);
+    item.appendChild(relatif);
+
+    item.addEventListener('click', function() {
+      historyListOnline.querySelectorAll('.history-item.selected').forEach(function(el) {
+        el.classList.remove('selected');
+      });
+      item.classList.add('selected');
+      instantaneSelectionneEnLigne = entree;
+      historyPreviewOnline.value = entree.texte || '';
+      historyCopyBtnOnline.disabled = false;
+    });
+
+    historyListOnline.appendChild(item);
+  });
+
+  const premier = historyListOnline.querySelector('.history-item');
+  if (premier) premier.click();
+}
+
+async function chargerHistoriqueEnLigne(options) {
+  const forcer = options && options.forcer;
+  if (historiqueEnLigneCharge && !forcer) return;
+
+  historyListOnline.innerHTML = '<p>Chargement…</p>';
+
+  try {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+      throw new Error('Supabase indisponible.');
+    }
+
+    const documentId = window.RDPoteRemoteDocument && window.RDPoteRemoteDocument.id;
+    let requete = supabaseClient
+      .from(ONLINE_HISTORY_TABLE)
+      .select('texte, username, date')
+      .order('date', { ascending: false })
+      .limit(ONLINE_HISTORY_MAX_ENTREES);
+
+    if (documentId != null) {
+      requete = requete.eq('document_id', documentId);
+    }
+
+    const { data, error } = await requete;
+    if (error) throw error;
+
+    historiqueEnLigneCharge = true;
+    construireListeHistoriqueEnLigne(data || []);
+  } catch (error) {
+    console.error('Impossible de charger la sauvegarde en ligne :', error);
+    historyListOnline.innerHTML = '';
+    const msg = document.createElement('p');
+    msg.textContent = "Sauvegarde en ligne indisponible pour le moment (hors ligne, ou pas encore configurée).";
+    historyListOnline.appendChild(msg);
+  }
+}
+
+async function copierApercuHistoriqueEnLigne() {
+  if (!instantaneSelectionneEnLigne) return;
+  try {
+    await navigator.clipboard.writeText(instantaneSelectionneEnLigne.texte);
+    status.textContent = "Sauvegarde en ligne de " + formatDateHeure(new Date(instantaneSelectionneEnLigne.date)) + " copiée dans le presse-papier.";
+  } catch (err) {
+    historyPreviewOnline.select();
+    document.execCommand('copy');
+    status.textContent = "Sauvegarde en ligne de " + formatDateHeure(new Date(instantaneSelectionneEnLigne.date)) + " copiée dans le presse-papier.";
+  }
+}
+
 historyBtn.addEventListener('click', afficherModalHistorique);
 historyClose.addEventListener('click', function() {
   masquerModalHistorique();
@@ -2406,6 +2642,9 @@ historyModal.addEventListener('click', function(e) {
   }
 });
 historyCopyBtn.addEventListener('click', copierApercuHistorique);
+historyCopyBtnOnline.addEventListener('click', copierApercuHistoriqueEnLigne);
+historyTabLocal.addEventListener('click', function() { afficherOngletHistorique('local'); });
+historyTabOnline.addEventListener('click', function() { afficherOngletHistorique('en-ligne'); });
 
 chargerHistorique();
 
