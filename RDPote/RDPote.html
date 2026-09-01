@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 <!-- Par Nicolas Cochard -->
-<!-- Version Claude synchro corrigee 31aout auth Claude -->
+<!-- Version Claude synchro correc 1er sept -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3900,6 +3900,19 @@ mettreAJourBoutons();
   let crdtRemoteStateReceived = false;
   let crdtRemoteStateResolver = null;
 
+  // Vrai pendant la courte fenêtre de négociation au tout début d'initCRDT()
+  // (le temps de laisser un pair répondre avec son état réel). Pendant cette
+  // fenêtre, les mises à jour/états reçus sont bien fusionnés dans le
+  // Y.Doc (aucune perte), mais PAS immédiatement recopiés dans l'éditeur :
+  // un pair resté connecté par erreur (ex. onglet téléphone oublié ouvert)
+  // peut répondre avec un état qui n'est pas encore à jour vis-à-vis de
+  // Supabase, et l'appliquer tout de suite à l'affichage produirait un flash
+  // trompeur (contenu correct affiché, puis écrasé par la réponse de ce
+  // pair, avant de finir par se stabiliser une fois tout fusionné). On
+  // n'affiche donc le résultat qu'une fois la négociation terminée, dans
+  // initCRDT() lui-même ("Display the local CRDT immediately").
+  let crdtHandshakeEnCours = false;
+
   // Sessions des pairs ayant envoyé un "crdt-state-request" pendant notre
   // propre connexion : signe qu'eux aussi démarrent à vide, en même temps
   // que nous (cas rare de deux ouvertures quasi simultanées). Sert à la
@@ -4458,14 +4471,20 @@ mettreAJourBoutons();
           const nouveauTexteDistant =
             crdtCursorText ? crdtCursorText.toString() : '';
 
-          corrigerCurseursApresModificationDistante(
-            ancienTexteDistant,
-            nouveauTexteDistant
-          );
+          // Pendant la négociation initiale, on fusionne dans le Y.Doc
+          // (ci-dessus) mais on n'écrase pas encore l'éditeur : voir
+          // crdtHandshakeEnCours. L'affichage final sera fait par
+          // initCRDT() une fois la fenêtre de négociation écoulée.
+          if (!crdtHandshakeEnCours) {
+            corrigerCurseursApresModificationDistante(
+              ancienTexteDistant,
+              nouveauTexteDistant
+            );
 
-          crdtApplyHtmlToEditor(crdtCurrentHtml(), curseurLocalSauvegarde);
-          redessinerTousLesCurseurs();
-          setSyncStatus('Synchronisé', '#2a7a2a');
+            crdtApplyHtmlToEditor(crdtCurrentHtml(), curseurLocalSauvegarde);
+            redessinerTousLesCurseurs();
+            setSyncStatus('Synchronisé', '#2a7a2a');
+          }
         } catch (error) {
           console.error('Erreur application mise à jour CRDT :', error);
         }
@@ -4512,15 +4531,19 @@ mettreAJourBoutons();
           const nouveauTexteDistant =
             crdtCursorText ? crdtCursorText.toString() : '';
 
-          corrigerCurseursApresModificationDistante(
-            ancienTexteDistant,
-            nouveauTexteDistant
-          );
+          // Idem que pour "crdt-update" : pas d'écrasement de l'éditeur
+          // tant que la négociation initiale n'est pas terminée.
+          if (!crdtHandshakeEnCours) {
+            corrigerCurseursApresModificationDistante(
+              ancienTexteDistant,
+              nouveauTexteDistant
+            );
 
-          crdtApplyHtmlToEditor(crdtCurrentHtml(), curseurLocalSauvegarde);
-          redessinerTousLesCurseurs();
-          crdtSaveLocalState();
-          setSyncStatus('Synchronisé', '#2a7a2a');
+            crdtApplyHtmlToEditor(crdtCurrentHtml(), curseurLocalSauvegarde);
+            redessinerTousLesCurseurs();
+            crdtSaveLocalState();
+            setSyncStatus('Synchronisé', '#2a7a2a');
+          }
         } catch (error) {
           console.error('Erreur application état CRDT :', error);
         }
@@ -4665,6 +4688,7 @@ mettreAJourBoutons();
     // présent dans le Y.Doc du premier utilisateur : à la fusion CRDT,
     // les deux séries d'insertions survivent toutes les deux, d'où le
     // texte dupliqué juste en dessous de l'original.
+    crdtHandshakeEnCours = true;
     if (!options.skipRealtime) {
       try {
         await crdtSubscribe();
@@ -4707,6 +4731,12 @@ mettreAJourBoutons();
         await crdtAttendreEtatDistant(2500);
       }
     }
+
+    // La négociation initiale est terminée : tout ce qui a été reçu entre
+    // temps a été fusionné dans le Y.Doc (sans jamais toucher l'éditeur,
+    // voir crdtHandshakeEnCours plus haut). Les prochaines mises à jour
+    // reçues seront de nouveau appliquées immédiatement à l'affichage.
+    crdtHandshakeEnCours = false;
 
     // Semer depuis le HTML stable UNIQUEMENT si, après avoir laissé sa
     // chance à un éventuel pair (y compris, ci-dessus, à un pair démarrant
@@ -4767,6 +4797,7 @@ mettreAJourBoutons();
     crdtLocalChangeTimer = null;
 
     crdtReady = false;
+    crdtHandshakeEnCours = false;
 
     if (crdtChannel) {
       try {
