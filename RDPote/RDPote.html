@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 <!-- Par Nicolas Cochard -->
-<!-- Version Claude synchro correc 1er sept, 20 secondes -->
+<!-- Version Claude synchro correc 1er sept, rafraichir -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -899,22 +899,62 @@
       line-height: 1;
     }
 
-    .logout-btn {
-      display: inline-block !important;
+    .refresh-btn {
+      display: inline-flex !important;
       visibility: visible !important;
       opacity: 1 !important;
       position: static;
       margin-left: auto;
       flex: 0 0 auto;
+      align-items: center;
+      gap: 5px;
       white-space: nowrap;
-      border: 1px solid #999;
-      background: #fff;
+      border: none;
+      background: transparent;
       color: #333;
-      border-radius: 4px;
-      padding: 5px 10px;
-      font-size: 12px;
+      padding: 5px 4px;
+      font-size: 13px;
       line-height: 1.2;
       cursor: pointer;
+    }
+
+    .refresh-btn:hover {
+      color: #003087;
+    }
+
+    .refresh-btn:disabled {
+      color: #aaa;
+      cursor: default;
+    }
+
+    .refresh-btn .refresh-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .logout-btn {
+      display: inline-flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: static;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+      color: #333;
+      border-radius: 4px;
+      padding: 0;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .logout-btn:hover {
+      color: #a33;
     }
 
 
@@ -974,7 +1014,8 @@
       </div>
       <div id="connectedUsers" title="Utilisateurs connectés"></div>
     </div>
-    <button id="logoutBtn" class="logout-btn" type="button">Se déconnecter</button>
+    <button id="refreshBtn" class="refresh-btn" type="button" title="Vérifier s'il existe une version plus récente du document"><span class="refresh-icon">⟳</span> Rafraîchir</button>
+    <button id="logoutBtn" class="logout-btn" type="button" title="Se déconnecter" aria-label="Se déconnecter">⏻</button>
   </div>
 
   <h1>Édition de la revue de presse</h1>
@@ -3137,6 +3178,7 @@ mettreAJourBoutons();
   const remoteUpdatePreview = document.getElementById('remoteUpdatePreview');
   const remoteUpdateKeepBtn = document.getElementById('remoteUpdateKeepBtn');
   const remoteUpdateApplyBtn = document.getElementById('remoteUpdateApplyBtn');
+  const refreshBtn = document.getElementById('refreshBtn');
 
   const APP_URL = 'https://nicococh.github.io/RDPote/RDPote.html';
 
@@ -3406,6 +3448,27 @@ mettreAJourBoutons();
 
       const contenuAffiche = getEditor() ? getEditor().innerHTML : '';
       const contenuDiffere = data.contenu_html !== contenuAffiche;
+
+      // Contrôle manuel demandé par le bouton « Rafraîchir ».
+      // Contrairement à la surveillance automatique, ce contrôle compare
+      // explicitement la version Supabase à ce qui est actuellement affiché,
+      // même lorsque le canal CRDT est déjà actif.
+      if (options.manual) {
+        if (remoteTime > knownTime && contenuDiffere && data.contenu_html) {
+          afficherRemoteUpdateModal(data);
+          setSyncStatus('Une version plus récente est disponible', '#003087');
+        } else if (remoteTime > knownTime && !contenuDiffere) {
+          if (window.RDPoteRemoteDocument) {
+            window.RDPoteRemoteDocument.updated_at = data.updated_at;
+            window.RDPoteRemoteDocument.contenu_html = data.contenu_html || '';
+            sauvegarderMetaRemoteLocale(window.RDPoteRemoteDocument);
+          }
+          setSyncStatus('Le document est déjà à jour', '#2a7a2a');
+        } else {
+          setSyncStatus('Aucune version plus récente trouvée', '#2a7a2a');
+        }
+        return;
+      }
 
       if (!supabaseHasBeenChecked) {
         supabaseHasBeenChecked = true;
@@ -5403,6 +5466,27 @@ mettreAJourBoutons();
     if (editor) editor.blur();
   }
 
+  function initialiserBoutonRafraichir() {
+    if (refreshBtn && !refreshBtn.dataset.bound) {
+      refreshBtn.dataset.bound = '1';
+      refreshBtn.addEventListener('click', async function () {
+        if (!window.RDPoteSupabaseUser) return;
+
+        refreshBtn.disabled = true;
+        setSyncStatus('Vérification de la version en ligne…', '#888');
+
+        try {
+          await verifierConnexionSupabase({ force: true, manual: true });
+        } catch (error) {
+          console.error('Rafraîchissement Supabase :', error);
+          setSyncStatus('Impossible de vérifier la version en ligne', '#a33');
+        } finally {
+          refreshBtn.disabled = false;
+        }
+      });
+    }
+  }
+
   function initialiserBoutonDeconnexion() {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn && !logoutBtn.dataset.bound) {
@@ -5412,8 +5496,12 @@ mettreAJourBoutons();
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initialiserBoutonDeconnexion);
+    document.addEventListener('DOMContentLoaded', function () {
+      initialiserBoutonRafraichir();
+      initialiserBoutonDeconnexion();
+    });
   } else {
+    initialiserBoutonRafraichir();
     initialiserBoutonDeconnexion();
   }
 
