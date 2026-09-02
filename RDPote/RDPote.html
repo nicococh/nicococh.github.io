@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 <!-- Par Nicolas Cochard -->
-<!-- Version Claude synchro mobile -->
+<!-- Version Claude synchro corrigee 2 sep -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1750,18 +1750,23 @@ function planifierSauvegarde() {
 }
 
 // Restauration au chargement de la page
+//
+// Important : ce mécanisme est antérieur à Supabase. Il ne doit servir que
+// de filet de secours (panne réseau, session hors ligne...), jamais prendre
+// le pas sur une version plus récente chargée depuis Supabase. On ne
+// l'applique donc plus immédiatement ici : on le met de côté, et c'est
+// initSupabase() qui décide de l'appliquer (ou pas), une fois qu'on sait
+// si une version en ligne a pu être chargée. Voir
+// appliquerSauvegardeLocaleSiAucuneVersionEnLigne() plus bas.
+window.RDPoteAutosaveLocaleEnAttente = null;
+
 window.addEventListener('DOMContentLoaded', function() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const data = JSON.parse(saved);
-      if (data.texte && data.texte !== editor.value) {
-        editor.innerHTML = data.html || echapperTextePourHtml(data.texte);
-        status.textContent = "Texte restauré depuis la sauvegarde automatique (" + formatHeure(new Date(data.date)) + ").";
-        // Nouveau point de départ : on repart avec des piles vides
-        undoStack = [];
-        redoStack = [];
-        mettreAJourBoutons();
+      if (data.texte) {
+        window.RDPoteAutosaveLocaleEnAttente = data;
       }
       savestatus.textContent = "Dernière sauvegarde : " + formatHeure(new Date(data.date));
     }
@@ -1771,6 +1776,28 @@ window.addEventListener('DOMContentLoaded', function() {
 
   appliquerCouleursRubriques();
 });
+
+// À appeler uniquement quand on sait qu'aucune version Supabase n'a pu être
+// chargée (hors ligne, erreur réseau...). Si une version en ligne existe
+// déjà (window.RDPoteRemoteDocument défini), on ne touche à rien : la
+// sauvegarde locale ne doit jamais écraser une version en ligne, même plus
+// ancienne qu'elle en apparence (la comparaison des dates entre les deux
+// systèmes n'est de toute façon pas fiable, ils ne partagent pas la même
+// notion de version).
+function appliquerSauvegardeLocaleSiAucuneVersionEnLigne() {
+  const data = window.RDPoteAutosaveLocaleEnAttente;
+  if (!data || !data.texte) return;
+  if (window.RDPoteRemoteDocument) return;
+
+  if (data.texte !== editor.value) {
+    editor.innerHTML = data.html || echapperTextePourHtml(data.texte);
+    status.textContent = "Texte restauré depuis la sauvegarde automatique (" + formatHeure(new Date(data.date)) + ").";
+    // Nouveau point de départ : on repart avec des piles vides
+    undoStack = [];
+    redoStack = [];
+    mettreAJourBoutons();
+  }
+}
 
 editor.addEventListener('input', planifierSauvegarde);
 
@@ -5452,6 +5479,13 @@ mettreAJourBoutons();
       const metaLocale = chargerMetaRemoteLocale();
       if (metaLocale && (navigator.onLine === false || !supabaseConnected)) {
         try {
+          // Aucune version Supabase n'a pu être récupérée : c'est le seul
+          // cas où la vieille sauvegarde locale (antérieure à Supabase) a
+          // le droit de fournir le contenu de départ. Fait AVANT de poser
+          // window.RDPoteRemoteDocument ci-dessous, sans quoi le garde-fou
+          // de cette fonction la bloquerait systématiquement.
+          appliquerSauvegardeLocaleSiAucuneVersionEnLigne();
+
           window.RDPoteRemoteDocument = {
             id: metaLocale.id,
             updated_at: metaLocale.updated_at,
