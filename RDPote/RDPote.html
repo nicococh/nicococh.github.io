@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 <!-- Par Nicolas Cochard -->
-<!-- Version Claude synchro corrigee 2 sep -->
+<!-- Version Claude synchro corrigee 2 sep dernier essai -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3461,19 +3461,28 @@ mettreAJourBoutons();
       // Une reconnexion est l'occasion de vérifier si le serveur a avancé
       // pendant notre absence. On ne remplace jamais le document sans accord.
       if (crdtReady) {
-        // Le canal CRDT est actif : le document est déjà synchronisé en
-        // temps réel pendant que la fenêtre reste ouverte. La table
-        // "documents" n'est qu'un instantané qui peut être momentanément en
-        // retard (sauvegarde différée de 900 ms, ou modification distante en
-        // cours), donc la comparer à ce qui est affiché ici déclencherait
-        // régulièrement de fausses alertes « version plus récente
-        // disponible ». On se contente de rafraîchir les métadonnées
-        // connues, sans alerter l'utilisateur.
-        if (remoteTime > knownTime && window.RDPoteRemoteDocument) {
+        // Le canal CRDT est actif : en temps normal, le document est déjà
+        // synchronisé en direct pendant que la fenêtre reste ouverte, donc
+        // comparer la table "documents" à ce qui est affiché ici
+        // déclencherait régulièrement de fausses alertes « version plus
+        // récente disponible ». On se contente de rafraîchir les métadonnées
+        // connues, sans alerter l'utilisateur — mais UNIQUEMENT si le
+        // contenu affiché correspond réellement à ce que Supabase renvoie.
+        //
+        // Important : si la diffusion CRDT en direct a du retard ou a raté
+        // une mise à jour (réseau instable, canal temporairement
+        // désynchronisé...), le contenu affiché ici peut être en retard sur
+        // Supabase alors même que crdtReady vaut vrai. Avancer quand même la
+        // date locale connue dans ce cas ferait croire, au prochain
+        // chargement de cette page, que le cache CRDT local (IndexedDB) est
+        // à jour alors qu'il ne l'est pas — et il serait alors appliqué à
+        // tort, écrasant une version plus récente. On attend donc que le
+        // contenu affiché rattrape réellement Supabase avant d'avancer cette
+        // date ; en attendant, on retentera au prochain sondage.
+        if (remoteTime > knownTime && window.RDPoteRemoteDocument &&
+            !contenuDiffere) {
           window.RDPoteRemoteDocument.updated_at = data.updated_at;
-          if (!contenuDiffere) {
-            window.RDPoteRemoteDocument.contenu_html = data.contenu_html || '';
-          }
+          window.RDPoteRemoteDocument.contenu_html = data.contenu_html || '';
           sauvegarderMetaRemoteLocale(window.RDPoteRemoteDocument);
         }
       } else if (remoteTime > knownTime && contenuDiffere &&
