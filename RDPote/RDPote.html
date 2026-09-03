@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude synchro corrigee sans restau sav locale -->
+<!-- Version Claude synchro corrigee sans restau sav locale 20 sec -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2318,14 +2318,14 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// --- Historique des sauvegardes (un instantané par minute, les 100 dernières) ---
+// --- Historique des sauvegardes (un instantané par 20 secondes, les 100 dernières) ---
 // Distinct de la sauvegarde "à chaque frappe" ci-dessus (qui sert à la
 // récupération après fermeture inopinée) : celui-ci garde une trace de
 // versions successives du texte, consultables et copiables, sans jamais
 // écraser le contenu actuel de l'éditeur.
 
 const HISTORY_KEY = 'editeur-texte-historique';
-const HISTORY_INTERVALLE_MS = 60 * 1000;       // un instantané par minute
+const HISTORY_INTERVALLE_MS = 20 * 1000;       // un instantané par 20 secondes
 const HISTORY_MAX_ENTREES = 100;               // au-delà, les plus anciennes sont purgées
 
 const historyModal = document.getElementById('historyModal');
