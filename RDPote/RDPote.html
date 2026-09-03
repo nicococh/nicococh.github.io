@@ -3532,10 +3532,24 @@ mettreAJourBoutons();
     verifierConnexionSupabase({ force: true });
   }
 
+  // Cette clé mémorise, pour CET utilisateur précisément, la dernière
+  // version du document que SON cache CRDT local (IndexedDB, lui aussi
+  // scindé par utilisateur via crdtUserKey()) a réellement vue. Sur un
+  // appareil partagé par plusieurs comptes (typiquement sur mobile), une
+  // clé unique et globale ferait qu'un utilisateur B lisant la marque
+  // laissée par un utilisateur A pourrait, par coïncidence d'horodatage,
+  // croire son PROPRE cache local à jour alors qu'il n'a aucun rapport
+  // avec la dernière sauvegarde de A : le cache périmé de B serait alors
+  // appliqué et écraserait la version fraîche tout juste chargée. D'où le
+  // suffixe par utilisateur ci-dessous.
+  function cleMetaRemoteLocale() {
+    return REMOTE_META_KEY + '|' + crdtUserKey();
+  }
+
   function sauvegarderMetaRemoteLocale(remote) {
     try {
       if (!remote) return;
-      localStorage.setItem(REMOTE_META_KEY, JSON.stringify({
+      localStorage.setItem(cleMetaRemoteLocale(), JSON.stringify({
         id: remote.id,
         updated_at: remote.updated_at
       }));
@@ -3546,7 +3560,7 @@ mettreAJourBoutons();
 
   function chargerMetaRemoteLocale() {
     try {
-      const brut = localStorage.getItem(REMOTE_META_KEY);
+      const brut = localStorage.getItem(cleMetaRemoteLocale());
       return brut ? JSON.parse(brut) : null;
     } catch (error) {
       return null;
@@ -4663,49 +4677,30 @@ mettreAJourBoutons();
 
     await crdtOpenIndexedDB();
 
-    // Restore only this user's local CRDT state.
-    const localState = await crdtLoadLocalState(crdtIndexedDb);
-
-    // Le cache CRDT local (IndexedDB) n'est fiable que si CE navigateur
-    // était à jour avec Supabase au moment où il l'a enregistré. S'il ne
-    // l'était pas — par exemple parce que cet onglet était fermé pendant
-    // qu'un autre utilisateur modifiait le document — ce cache contient une
-    // version périmée (typiquement : le dernier texte tapé ICI, avant la
-    // fermeture de l'onglet). L'appliquer écraserait alors silencieusement
-    // la version fraîche déjà affichée par loadRemoteDocument() par cette
-    // version périmée, sans qu'aucun pair ne soit là pour corriger le tir.
+    // skipLocalRestore est passé par initSupabase() dans le cas normal
+    // (utilisateur connecté, Supabase joignable) : loadRemoteDocument()
+    // vient déjà de charger et d'afficher la toute dernière version en
+    // ligne, déposée par n'importe quel utilisateur, et c'est cette
+    // version qui doit servir de référence — jamais un cache local plus
+    // ancien. On ne lit donc même pas le cache CRDT local dans ce cas.
     //
-    // On détecte ce cas en comparant le "updated_at" du document que ce
-    // navigateur connaissait avant ce chargement (metaLocaleAvantChargement,
-    // capturé dans initSupabase() avant l'appel à loadRemoteDocument) à
-    // celui qu'on vient de recevoir de Supabase : s'ils diffèrent, le
-    // document a changé ailleurs pendant l'absence de ce navigateur, et le
-    // cache local est jugé périmé.
-    const remoteActuel = window.RDPoteRemoteDocument;
-    const metaAvant = options.metaLocaleAvantChargement;
-    const cacheLocalPerime = !!(
-      localState && metaAvant && remoteActuel &&
-      String(metaAvant.id) === String(remoteActuel.id) &&
-      metaAvant.updated_at !== remoteActuel.updated_at
-    );
-
-    if (localState && !cacheLocalPerime) {
-      try {
-        Y.applyUpdate(
-          crdtDoc,
-          crdtBase64ToBytes(localState),
-          'local-persistence'
-        );
-      } catch (error) {
-        console.warn('État CRDT local illisible, ignoré.', error);
+    // Ce cache local (IndexedDB) n'est restauré que dans le cas où
+    // initSupabase() n'a pas pu joindre Supabase du tout (voir son bloc
+    // catch, appel avec skipRealtime mais SANS skipLocalRestore) : c'est
+    // alors la seule source de contenu disponible.
+    if (!options.skipLocalRestore) {
+      const localState = await crdtLoadLocalState(crdtIndexedDb);
+      if (localState) {
+        try {
+          Y.applyUpdate(
+            crdtDoc,
+            crdtBase64ToBytes(localState),
+            'local-persistence'
+          );
+        } catch (error) {
+          console.warn('État CRDT local illisible, ignoré.', error);
+        }
       }
-    } else if (cacheLocalPerime) {
-      console.warn(
-        'Cache CRDT local périmé (document modifié ailleurs pendant ' +
-        'l’absence de ce navigateur) : ignoré au démarrage, repli sur la ' +
-        'version fraîche de Supabase (ou sur un pair connecté, le cas ' +
-        'échéant).'
-      );
     }
 
     crdtAttachDocObserver();
@@ -5468,15 +5463,15 @@ mettreAJourBoutons();
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
 
-      // Capturer, AVANT d'écraser cette information avec la version
-      // fraîchement chargée, la dernière version du document que CE
-      // navigateur avait vue lors de sa dernière session. Sert à détecter,
-      // dans initCRDT(), si le cache CRDT local (IndexedDB) est périmé —
-      // voir le commentaire à ce sujet dans initCRDT().
-      const metaLocaleAvantChargement = chargerMetaRemoteLocale();
-
+      // On vient de récupérer la dernière version en ligne (déposée par
+      // n'importe quel utilisateur) via loadRemoteDocument() : c'est
+      // désormais TOUJOURS elle qui sert de point de départ. Le cache CRDT
+      // local (IndexedDB) de cet appareil n'est donc plus restauré au
+      // démarrage — voir skipLocalRestore dans initCRDT() — pour ne
+      // jamais risquer de l'écraser silencieusement par une sauvegarde
+      // locale plus ancienne.
       await loadRemoteDocument();
-      await initCRDT({ metaLocaleAvantChargement: metaLocaleAvantChargement });
+      await initCRDT({ skipLocalRestore: true });
       subscribeToPresence();
       demarrerSurveillanceSupabase();
     } catch (error) {
