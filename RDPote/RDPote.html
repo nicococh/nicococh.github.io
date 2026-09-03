@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude synchro corrigee sans restau sav locale 20 sec -->
+<!-- Version Claude onglets -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2318,14 +2318,14 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// --- Historique des sauvegardes (un instantané par 20 secondes, les 100 dernières) ---
+// --- Historique des sauvegardes (un instantané par minute, les 100 dernières) ---
 // Distinct de la sauvegarde "à chaque frappe" ci-dessus (qui sert à la
 // récupération après fermeture inopinée) : celui-ci garde une trace de
 // versions successives du texte, consultables et copiables, sans jamais
 // écraser le contenu actuel de l'éditeur.
 
 const HISTORY_KEY = 'editeur-texte-historique';
-const HISTORY_INTERVALLE_MS = 20 * 1000;       // un instantané par 20 secondes
+const HISTORY_INTERVALLE_MS = 60 * 1000;       // un instantané par minute
 const HISTORY_MAX_ENTREES = 100;               // au-delà, les plus anciennes sont purgées
 
 const historyModal = document.getElementById('historyModal');
@@ -3509,6 +3509,28 @@ mettreAJourBoutons();
     });
 
     window.addEventListener('online', function() {
+      verifierConnexionSupabase({ force: true });
+    });
+
+    // Sur mobile en particulier, un onglet laissé ouvert en arrière-plan
+    // voit ses timers suspendus par le système d'exploitation : le sondage
+    // périodique ci-dessus (setInterval) ne se redéclenche pas forcément
+    // à temps — voire pas du tout — dès que l'onglet redevient visible.
+    // Sans ceci, l'utilisateur peut se retrouver à éditer une version
+    // périmée sans que RDPote ne le sache. On force donc explicitement une
+    // vérification (et le chargement de la dernière version en ligne, le
+    // cas échéant) dès que l'onglet reprend le premier plan.
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        verifierConnexionSupabase({ force: true });
+      }
+    });
+
+    // pageshow couvre en plus le cas, fréquent sur Safari iOS, où la page
+    // est restaurée depuis le cache "retour/suivant" du navigateur (bfcache)
+    // plutôt que rechargée : visibilitychange seul n'est pas toujours
+    // déclenché dans ce cas.
+    window.addEventListener('pageshow', function() {
       verifierConnexionSupabase({ force: true });
     });
 
