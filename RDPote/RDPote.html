@@ -348,7 +348,7 @@
     border: none;
     background: transparent;
     color: #a33;
-    font-size: 25px;
+    font-size: 20px;
     line-height: 1;
     cursor: pointer;
     padding: 4px 7px;
@@ -1033,7 +1033,7 @@
 <div id="supabaseConnectionOverlay"></div>
 <div id="supabaseConnectionBanner">
   <button id="supabaseConnectionBannerClose" type="button" title="Fermer">✕</button>
-  ⚠️ Attention, tu es hors ligne. Si tu travailles en simultané, préviens ta ou ton collègue pour que l'un de vous deux arrête de saisir du texte dans RDPote.
+  ⚠️ Attention, tu es déconnecté. Si tu travaillais en simultané avec un collègue, copie-colle ton texte et saisis dans un autre logiciel pour ne rien perdre!
 </div>
 <div id="savebar">
   <span id="savestatus"></span>
@@ -2318,15 +2318,15 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// --- Historique des sauvegardes (un instantané par minute, les 100 dernières) ---
+// --- Historique des sauvegardes (un instantané toutes les 10 sec, les 200 dernières) ---
 // Distinct de la sauvegarde "à chaque frappe" ci-dessus (qui sert à la
 // récupération après fermeture inopinée) : celui-ci garde une trace de
 // versions successives du texte, consultables et copiables, sans jamais
 // écraser le contenu actuel de l'éditeur.
 
 const HISTORY_KEY = 'editeur-texte-historique';
-const HISTORY_INTERVALLE_MS = 60 * 1000;       // un instantané par minute
-const HISTORY_MAX_ENTREES = 100;               // au-delà, les plus anciennes sont purgées
+const HISTORY_INTERVALLE_MS = 10 * 1000;       // un instantané par minute
+const HISTORY_MAX_ENTREES = 200;               // au-delà, les plus anciennes sont purgées
 
 const historyModal = document.getElementById('historyModal');
 const historyBtn = document.getElementById('historyBtn');
