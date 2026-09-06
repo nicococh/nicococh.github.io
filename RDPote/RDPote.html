@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude onglets OK sauv 10 sec -->
+<!-- Version Claude onglets OK hors ligne -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3164,6 +3164,69 @@ mettreAJourBoutons();
   const SUPABASE_CONNECTION_INTERVAL = 3000;
   const REMOTE_META_KEY = 'rdpote-supabase-remote-meta';
 
+  // Mémorise juste l'id du dernier utilisateur connecté sur cet appareil
+  // (rien de sensible). Sert uniquement de repli quand getSession() échoue
+  // ou traîne trop longtemps au démarrage (typiquement : page rafraîchie
+  // hors ligne, avec un jeton de session expiré que Supabase essaie de
+  // rafraîchir en vain) : ça permet quand même de rattacher le mode hors
+  // ligne d'urgence au bon utilisateur plutôt qu'à un compte générique.
+  const LAST_USER_ID_KEY = 'rdpote-dernier-utilisateur-id';
+
+  // Empêche un appel de rester bloqué indéfiniment (observé avec
+  // getSession() hors ligne, quand Supabase tente en interne un
+  // rafraîchissement réseau du jeton qui ne se résout jamais).
+  function avecDelaiMax(promesse, delaiMs, messageErreur) {
+    return new Promise(function(resolve, reject) {
+      let reglee = false;
+      const minuteur = setTimeout(function() {
+        if (reglee) return;
+        reglee = true;
+        reject(new Error(messageErreur || 'Délai dépassé.'));
+      }, delaiMs);
+
+      promesse.then(
+        function(valeur) {
+          if (reglee) return;
+          reglee = true;
+          clearTimeout(minuteur);
+          resolve(valeur);
+        },
+        function(erreur) {
+          if (reglee) return;
+          reglee = true;
+          clearTimeout(minuteur);
+          reject(erreur);
+        }
+      );
+    });
+  }
+
+  // Démarre RDPote en mode local dégradé, sans connexion Supabase
+  // confirmée : aucun contenu n'est restauré automatiquement (voir
+  // initCRDT()), l'éditeur démarre vide et reste utilisable. Utilisé aussi
+  // bien quand Supabase répond mais échoue en cours de route, que quand on
+  // n'a même pas pu vérifier la session (hors ligne dès le chargement).
+  async function demarrerEnModeHorsLigne() {
+    if (!window.RDPoteSupabaseUser) {
+      let dernierId = null;
+      try {
+        dernierId = localStorage.getItem(LAST_USER_ID_KEY);
+      } catch (e) {
+        dernierId = null;
+      }
+      window.RDPoteSupabaseUser = dernierId ? { id: dernierId } : null;
+    }
+
+    const metaLocale = chargerMetaRemoteLocale();
+    window.RDPoteRemoteDocument = metaLocale
+      ? { id: metaLocale.id, updated_at: metaLocale.updated_at, contenu_html: '' }
+      : null;
+
+    setSupabaseConnectionState(false);
+    await initCRDT({ skipRealtime: true });
+    demarrerSurveillanceSupabase();
+  }
+
   function getEditor() {
     return document.querySelector('[contenteditable="true"]');
   }
@@ -5430,9 +5493,50 @@ mettreAJourBoutons();
   }
 
   async function initSupabase() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
+    let session = null;
+    let sessionError = null;
+
+    try {
+      const result = await avecDelaiMax(
+        supabaseClient.auth.getSession(),
+        8000,
+        'Délai dépassé pour récupérer la session Supabase.'
+      );
+      session = (result && result.data && result.data.session) || null;
+    } catch (error) {
+      sessionError = error;
+      console.warn(
+        'Impossible de vérifier la session Supabase (hors ligne ?) :',
+        error
+      );
+    }
+
+    if (session) {
+      try {
+        localStorage.setItem(LAST_USER_ID_KEY, session.user.id);
+      } catch (e) {
+        // pas grave, c'est juste un confort pour le repli hors ligne
+      }
+    }
 
     if (!session) {
+      // Deux cas bien différents :
+      // - sessionError est vide : Supabase a clairement répondu "pas de
+      //   session" (déconnexion réelle, ou jamais connecté) -> écran de
+      //   connexion normal.
+      // - sessionError est renseigné : on n'a tout simplement pas pu
+      //   vérifier (hors ligne, timeout...). Plutôt que de bloquer
+      //   l'utilisateur sur l'écran de connexion sans lui laisser la
+      //   moindre possibilité de saisir du texte, on démarre quand même
+      //   l'éditeur en mode local dégradé.
+      if (sessionError) {
+        try {
+          await demarrerEnModeHorsLigne();
+          return;
+        } catch (offlineError) {
+          console.error('Démarrage hors ligne impossible :', offlineError);
+        }
+      }
       showLogin('');
       return;
     }
@@ -5468,14 +5572,7 @@ mettreAJourBoutons();
       const metaLocale = chargerMetaRemoteLocale();
       if (metaLocale && (navigator.onLine === false || !supabaseConnected)) {
         try {
-          window.RDPoteRemoteDocument = {
-            id: metaLocale.id,
-            updated_at: metaLocale.updated_at,
-            contenu_html: ''
-          };
-          setSupabaseConnectionState(false);
-          await initCRDT({ skipRealtime: true });
-          demarrerSurveillanceSupabase();
+          await demarrerEnModeHorsLigne();
           return;
         } catch (offlineError) {
           console.error('Démarrage hors ligne impossible :', offlineError);
@@ -5489,6 +5586,7 @@ mettreAJourBoutons();
       showLogin('Connexion établie, mais RDPote n’a pas pu démarrer : ' + detail);
     }
   }
+
 
   supabaseClient.auth.onAuthStateChange(function (event, session) {
     if (event === 'PASSWORD_RECOVERY') {
