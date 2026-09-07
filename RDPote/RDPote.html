@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude correc copcol -->
+<!-- Version Claude correc Couleurs correcTypo -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1923,6 +1923,70 @@ function corrigerTypo() {
   terminerGroupe();
 
   editor.value = texte;
+
+  // --- Couleurs spécifiques à "Corriger la typo" ---
+  // Tout le texte est d'abord remis en noir.
+  editor.style.color = '#000000';
+
+  const lignesTypo = texteEditeur().split('\n');
+  const lignesACouleurTypo = [];
+  const BLEU_MARINE_TYPO = '#003087';
+  const BLEU_TURQUOISE_TYPO = '#0E7F95';
+
+  for (let i = 0; i < lignesTypo.length; i++) {
+    const texteLigneTypo = lignesTypo[i].trim();
+    let couleurTypo = null;
+
+    if (texteLigneTypo.startsWith('La santé dans la presse')) {
+      couleurTypo = BLEU_MARINE_TYPO;
+    } else if (
+      texteLigneTypo === 'POLITIQUE DE SANTÉ' ||
+      texteLigneTypo === 'ÉTABLISSEMENTS - SOINS DE VILLE' ||
+      texteLigneTypo === 'ENTREPRISES' ||
+      texteLigneTypo === 'SANTÉ - MÉDECINE' ||
+      texteLigneTypo === 'RECHERCHE' ||
+      texteLigneTypo === 'ENVIRONNEMENT' ||
+      texteLigneTypo === 'ET AUSSI...' ||
+      texteLigneTypo === 'ET AUSSI…'
+    ) {
+      couleurTypo = BLEU_TURQUOISE_TYPO;
+    }
+
+    if (couleurTypo) {
+      const debutTypo = lignesTypo.slice(0, i).reduce(function(total, ligne) {
+        return total + ligne.length + 1;
+      }, 0);
+      lignesACouleurTypo.push({
+        debut: debutTypo,
+        fin: debutTypo + lignesTypo[i].length,
+        couleur: couleurTypo
+      });
+    }
+  }
+
+  // On traite de bas en haut pour conserver les positions textuelles.
+  for (let i = lignesACouleurTypo.length - 1; i >= 0; i--) {
+    const itemTypo = lignesACouleurTypo[i];
+    const debutTypo = trouverPositionTexte(itemTypo.debut);
+    const finTypo = trouverPositionTexte(itemTypo.fin);
+    if (!debutTypo || !finTypo) continue;
+
+    const rangeTypo = document.createRange();
+    rangeTypo.setStart(debutTypo.node, debutTypo.offset);
+    rangeTypo.setEnd(finTypo.node, finTypo.offset);
+
+    const spanTypo = document.createElement('span');
+    spanTypo.style.color = itemTypo.couleur;
+
+    try {
+      rangeTypo.surroundContents(spanTypo);
+    } catch (err) {
+      const fragmentTypo = rangeTypo.extractContents();
+      spanTypo.appendChild(fragmentTypo);
+      rangeTypo.insertNode(spanTypo);
+    }
+  }
+
   // On essaie de garder la position du curseur à peu près cohérente,
   // sans dépasser la nouvelle longueur du texte.
   const nouvellePosition = Math.min(end, texte.length);
