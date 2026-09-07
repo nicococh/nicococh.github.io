@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude onglets OK hors ligne -->
+<!-- Version Claude correc copcol -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1373,7 +1373,7 @@ editor.addEventListener('paste', function (event) {
 function echapperTextePourHtml(texte) {
   const div = document.createElement('div');
   div.textContent = texte;
-  return div.innerHTML.replace(/\\n/g, '<br>');
+  return div.innerHTML.replace(/\n/g, '<br>');
 }
 
 function positionTexteDepuisNoeud(noeud, offset) {
