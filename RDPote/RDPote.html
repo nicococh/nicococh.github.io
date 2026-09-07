@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude correc Couleurs correcTypo -->
+<!-- Version Claude correc coller -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1284,76 +1284,27 @@ editor.addEventListener('paste', function (event) {
   const clipboard = event.clipboardData || window.clipboardData;
   if (!clipboard) return;
 
-  const htmlColle = clipboard.getData('text/html');
-  const texteBrut = clipboard.getData('text/plain');
+  // Collage en texte brut, comme avec Ctrl+Maj+V.
+  // On supprime uniquement les sauts de ligne placés avant le vrai début du texte.
+  const texteColle = clipboard.getData('text/plain').replace(/^[\r\n]+/, '');
+
+  if (!texteColle) return;
 
   editor.focus();
 
-  if (htmlColle) {
-    const temp = document.createElement('div');
-    temp.innerHTML = htmlColle;
+  const selection = window.getSelection();
 
-    // On conserve la structure HTML utile (notamment <a>, <strong>, <em>),
-    // mais on retire les indications de police et de taille importées.
-    temp.querySelectorAll('*').forEach(function (element) {
-      element.removeAttribute('face');
-      element.removeAttribute('size');
-      element.removeAttribute('color');
+  if (selection && selection.rangeCount && selection.getRangeAt(0)) {
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
 
-      if (element.hasAttribute('style')) {
-        const style = element.getAttribute('style');
+    const noeud = document.createTextNode(texteColle);
+    range.insertNode(noeud);
+    range.setStartAfter(noeud);
+    range.collapse(true);
 
-        const nouveauStyle = style
-          .replace(/(?:^|;)\s*font-family\s*:[^;]*/gi, '')
-          .replace(/(?:^|;)\s*font-size\s*:[^;]*/gi, '')
-          .replace(/(?:^|;)\s*font\s*:[^;]*/gi, '')
-          .replace(/(?:^|;)\s*color\s*:[^;]*/gi, '')
-          .replace(/;;+/g, ';')
-          .replace(/^\s*;|;\s*$/g, '')
-          .trim();
-
-        if (nouveauStyle) {
-          element.setAttribute('style', nouveauStyle);
-        } else {
-          element.removeAttribute('style');
-        }
-      }
-    });
-
-    const selection = window.getSelection();
-
-    if (selection && selection.rangeCount && selection.getRangeAt(0)) {
-      const range = selection.getRangeAt(0);
-      range.deleteContents();
-
-      const fragment = document.createDocumentFragment();
-      while (temp.firstChild) {
-        fragment.appendChild(temp.firstChild);
-      }
-
-      range.insertNode(fragment);
-      range.collapse(false);
-
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-  } else if (texteBrut) {
-    // Certains logiciels ne fournissent pas de text/html.
-    // Dans ce cas, on insère le texte brut.
-    const selection = window.getSelection();
-
-    if (selection && selection.rangeCount && selection.getRangeAt(0)) {
-      const range = selection.getRangeAt(0);
-      range.deleteContents();
-
-      const noeud = document.createTextNode(texteBrut);
-      range.insertNode(noeud);
-      range.setStartAfter(noeud);
-      range.collapse(true);
-
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   /*
@@ -1368,7 +1319,6 @@ editor.addEventListener('paste', function (event) {
   mettreAJourEtatFormat();
   masquerBulle();
 });
-
 
 function echapperTextePourHtml(texte) {
   const div = document.createElement('div');
