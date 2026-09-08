@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude correc coller -->
+<!-- Version Claude correc typo sauts lignes -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1934,6 +1934,27 @@ function corrigerTypo() {
       const fragmentTypo = rangeTypo.extractContents();
       spanTypo.appendChild(fragmentTypo);
       rangeTypo.insertNode(spanTypo);
+    }
+  }
+
+  // --- Nettoyage final des sauts de ligne indésirables ---
+  // La mise en couleur peut créer des <br> consécutifs dans le DOM.
+  // On en supprime un lorsqu'il est précédé d'un autre <br>, tout en
+  // conservant les spans de couleur et le reste de la mise en forme.
+  const brsTypo = Array.from(editor.querySelectorAll('br'));
+  for (let i = brsTypo.length - 1; i > 0; i--) {
+    const brActuelTypo = brsTypo[i];
+    let noeudPrecedentTypo = brActuelTypo.previousSibling;
+
+    while (noeudPrecedentTypo &&
+           noeudPrecedentTypo.nodeType === Node.TEXT_NODE &&
+           noeudPrecedentTypo.nodeValue.trim() === '') {
+      noeudPrecedentTypo = noeudPrecedentTypo.previousSibling;
+    }
+
+    if (noeudPrecedentTypo && noeudPrecedentTypo.nodeType === Node.ELEMENT_NODE &&
+        noeudPrecedentTypo.tagName === 'BR') {
+      brActuelTypo.remove();
     }
   }
 
