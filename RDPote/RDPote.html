@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version stable 09/09 -->
+<!-- Version Claude correc coller après ret chariot Entrée -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2062,7 +2062,6 @@ ET AUSSI...
 // à l'intérieur du paragraphe.
 function htmlPourCopier(racine) {
   const wrapper = document.createElement('div');
-  const enfants = Array.from(racine.childNodes);
 
   function estBloc(el) {
     return el && el.nodeType === Node.ELEMENT_NODE &&
@@ -2073,47 +2072,47 @@ function htmlPourCopier(racine) {
     if (node.nodeType === Node.TEXT_NODE) {
       return !node.textContent.replace(/\s+/g, '').length;
     }
-
     if (node.nodeType !== Node.ELEMENT_NODE) return true;
-
-    const texte = node.textContent.replace(/\s+/g, '');
-    const contientBR = node.querySelector('br');
-
-    return !texte.length && !contientBR;
+    return !node.textContent.replace(/\s+/g, '').length && !node.querySelector('br');
   }
 
-  enfants.forEach(function(node) {
-    // Les nœuds texte ne contenant que des espaces ou retours à la ligne
-    // ne doivent pas devenir des paragraphes vides.
-    if (!estBloc(node) && estVide(node)) return;
+  function ajouterP(contenu) {
+    const p = document.createElement('p');
+    contenu.forEach(function(n) { p.appendChild(n.cloneNode(true)); });
+    while (p.lastElementChild && p.lastElementChild.tagName === 'BR') p.lastElementChild.remove();
+    if (!estVide(p)) wrapper.appendChild(p);
+  }
 
-    const paragraphe = document.createElement('p');
-
+  // On travaille sur les blocs réels du contenteditable. Un bloc créé
+  // par Entrée devient toujours un <p>, sans ajouter de <br> entre les blocs.
+  Array.from(racine.childNodes).forEach(function(node) {
     if (estBloc(node)) {
-      const clone = node.cloneNode(true);
-
-      // Un bloc vide ne doit pas créer un <p></p> parasite dans le CMS.
-      if (estVide(clone)) return;
-
-      // On conserve le contenu du bloc, mais on l'envoie dans un vrai <p>.
-      while (clone.firstChild) {
-        paragraphe.appendChild(clone.firstChild);
+      const sousBlocs = Array.from(node.children).filter(estBloc);
+      if (sousBlocs.length) {
+        let contenu = [];
+        Array.from(node.childNodes).forEach(function(enfant) {
+          if (estBloc(enfant)) {
+            if (contenu.length) { ajouterP(contenu); contenu = []; }
+            ajouterP(Array.from(enfant.childNodes));
+          } else if (enfant.nodeType === Node.ELEMENT_NODE && enfant.tagName === 'BR') {
+            // BR structurel : il ne doit pas devenir un <br> dans le CMS.
+          } else if (!estVide(enfant)) {
+            contenu.push(enfant);
+          }
+        });
+        if (contenu.length) ajouterP(contenu);
+      } else {
+        ajouterP(Array.from(node.childNodes));
       }
-    } else {
-      paragraphe.appendChild(node.cloneNode(true));
+    } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+      // Ignore les BR structurels générés par contenteditable.
+    } else if (!estVide(node)) {
+      ajouterP([node]);
     }
-
-    // Évite également les <p></p> si le contenu ne contient finalement rien.
-    if (!paragraphe.textContent.replace(/\s+/g, '').length && !paragraphe.querySelector('br')) {
-      return;
-    }
-
-    wrapper.appendChild(paragraphe);
   });
 
   return wrapper.innerHTML;
 }
-
 // Copie classique Ctrl+C : on fournit nous-mêmes les deux formats du
 // presse-papier. Cela évite que Chrome/Edge transmette les <div>/<p>
 // internes de contenteditable tels quels à Outlook ou au CMS.
