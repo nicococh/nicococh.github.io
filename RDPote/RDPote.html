@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude correc typo sauts lignes -->
+<!-- Version Claude correc retours chariot -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2077,30 +2077,95 @@ ET AUSSI...
   sauvegarder();
 }
 
-// Prépare le HTML pour les logiciels qui interprètent mal les
-// changements de blocs <div>/<p> lors d'un collage enrichi.
-// On conserve les éléments inline (gras, italique, liens, couleurs...)
-// mais on représente chaque séparation de paragraphe par un <br>.
+// Prépare le HTML pour le collage dans le CMS : chaque paragraphe de
+// l'éditeur (séparé par un <br> ou par un changement de bloc <div>/<p>/...)
+// devient un vrai <p>...</p>. On conserve les éléments inline (gras,
+// italique, liens, couleurs...), y compris lorsqu'ils traversent un saut
+// de ligne (ils sont alors "refermés" puis "rouverts" dans le paragraphe
+// suivant, comme l'exige le HTML).
 function htmlPourCopier(racine) {
-  const wrapper = document.createElement('div');
-  const enfants = Array.from(racine.childNodes);
+  const BLOCS = ['DIV','P','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE'];
 
-  function estBloc(el) {
-    return el && el.nodeType === Node.ELEMENT_NODE &&
-      ['DIV','P','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE'].includes(el.tagName);
+  const paragraphes = [];
+  let courant = document.createDocumentFragment();
+  // pileModeles : "modèles" (tag + attributs, sans contenu) des enveloppes
+  // inline actuellement ouvertes, pour pouvoir les rouvrir dans le
+  // paragraphe suivant après une coupure.
+  // pileOuverte : les clones RÉELLEMENT ouverts dans le paragraphe en
+  // cours (recréés à chaque nouveauParagraphe), c'est là qu'on insère.
+  let pileModeles = [];
+  let pileOuverte = [];
+
+  function pointInsertion() {
+    return pileOuverte.length ? pileOuverte[pileOuverte.length - 1] : courant;
   }
 
-  enfants.forEach(function(node, index) {
-    const clone = node.cloneNode(true);
-
-    if (estBloc(node)) {
-      while (clone.firstChild) wrapper.appendChild(clone.firstChild);
-      if (index < enfants.length - 1) {
-        wrapper.appendChild(document.createElement('br'));
-      }
-    } else {
-      wrapper.appendChild(clone);
+  function nouveauParagraphe() {
+    paragraphes.push(courant);
+    courant = document.createDocumentFragment();
+    pileOuverte = [];
+    for (const modele of pileModeles) {
+      const clone = modele.cloneNode(false);
+      pointInsertion().appendChild(clone);
+      pileOuverte.push(clone);
     }
+  }
+
+  function visiter(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      pointInsertion().appendChild(node.cloneNode(true));
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+    if (node.tagName === 'BR') {
+      nouveauParagraphe();
+      return;
+    }
+
+    if (BLOCS.includes(node.tagName)) {
+      // Un bloc démarre toujours une nouvelle ligne, sauf s'il est le tout
+      // premier contenu rencontré.
+      if (courant.hasChildNodes() || pileOuverte.length) {
+        nouveauParagraphe();
+      }
+      for (const enfant of Array.from(node.childNodes)) visiter(enfant);
+      nouveauParagraphe();
+      return;
+    }
+
+    // Élément inline (gras, italique, lien, span de couleur...) : on le
+    // clone (sans ses enfants), on empile son modèle pour pouvoir le
+    // rouvrir après une éventuelle coupure de paragraphe, puis on visite
+    // ses enfants dedans.
+    const clone = node.cloneNode(false);
+    pointInsertion().appendChild(clone);
+    pileModeles.push(node.cloneNode(false));
+    pileOuverte.push(clone);
+
+    for (const enfant of Array.from(node.childNodes)) visiter(enfant);
+
+    pileModeles.pop();
+    pileOuverte.pop();
+  }
+
+  for (const enfant of Array.from(racine.childNodes)) visiter(enfant);
+  paragraphes.push(courant);
+
+  const wrapper = document.createElement('div');
+  paragraphes.forEach(function(frag, index) {
+    const estVide = !frag.hasChildNodes();
+    // On ignore les paragraphes vides résiduels en tout début/toute fin,
+    // mais on conserve les lignes vides internes (double retour à la ligne)
+    // sous forme de <p><br></p>, pour ne pas perdre la mise en page.
+    if (estVide && (index === 0 || index === paragraphes.length - 1)) return;
+    const p = document.createElement('p');
+    if (estVide) {
+      p.appendChild(document.createElement('br'));
+    } else {
+      p.appendChild(frag);
+    }
+    wrapper.appendChild(p);
   });
 
   return wrapper.innerHTML;
