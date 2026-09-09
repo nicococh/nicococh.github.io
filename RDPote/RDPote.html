@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version STABLE -->
+<!-- Version Claude correc coller -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2056,10 +2056,10 @@ ET AUSSI...
   sauvegarder();
 }
 
-// Prépare le HTML pour les logiciels qui interprètent mal les
-// changements de blocs <div>/<p> lors d'un collage enrichi.
-// On conserve les éléments inline (gras, italique, liens, couleurs...)
-// mais on représente chaque séparation de paragraphe par un <br>.
+// Prépare le HTML pour le collage dans le CMS.
+// Chaque paragraphe est explicitement envoyé sous la forme <p>...</p>.
+// On conserve les éléments inline (gras, italiques, liens, couleurs...)
+// à l'intérieur du paragraphe.
 function htmlPourCopier(racine) {
   const wrapper = document.createElement('div');
   const enfants = Array.from(racine.childNodes);
@@ -2069,17 +2069,23 @@ function htmlPourCopier(racine) {
       ['DIV','P','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE'].includes(el.tagName);
   }
 
-  enfants.forEach(function(node, index) {
-    const clone = node.cloneNode(true);
+  enfants.forEach(function(node) {
+    const paragraphe = document.createElement('p');
 
     if (estBloc(node)) {
-      while (clone.firstChild) wrapper.appendChild(clone.firstChild);
-      if (index < enfants.length - 1) {
-        wrapper.appendChild(document.createElement('br'));
+      const clone = node.cloneNode(true);
+
+      // On ne conserve pas le conteneur <div>, <p>, <li>, <h1>...
+      // mais uniquement son contenu, placé dans un vrai <p>.
+      while (clone.firstChild) {
+        paragraphe.appendChild(clone.firstChild);
       }
     } else {
-      wrapper.appendChild(clone);
+      // Texte ou élément inline directement présent dans le fragment.
+      paragraphe.appendChild(node.cloneNode(true));
     }
+
+    wrapper.appendChild(paragraphe);
   });
 
   return wrapper.innerHTML;
