@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version Claude correc coller -->
+<!-- Version Claude espoir correc coller -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2069,20 +2069,43 @@ function htmlPourCopier(racine) {
       ['DIV','P','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE'].includes(el.tagName);
   }
 
+  function estVide(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return !node.textContent.replace(/\s+/g, '').length;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return true;
+
+    const texte = node.textContent.replace(/\s+/g, '');
+    const contientBR = node.querySelector('br');
+
+    return !texte.length && !contientBR;
+  }
+
   enfants.forEach(function(node) {
+    // Les nœuds texte ne contenant que des espaces ou retours à la ligne
+    // ne doivent pas devenir des paragraphes vides.
+    if (!estBloc(node) && estVide(node)) return;
+
     const paragraphe = document.createElement('p');
 
     if (estBloc(node)) {
       const clone = node.cloneNode(true);
 
-      // On ne conserve pas le conteneur <div>, <p>, <li>, <h1>...
-      // mais uniquement son contenu, placé dans un vrai <p>.
+      // Un bloc vide ne doit pas créer un <p></p> parasite dans le CMS.
+      if (estVide(clone)) return;
+
+      // On conserve le contenu du bloc, mais on l'envoie dans un vrai <p>.
       while (clone.firstChild) {
         paragraphe.appendChild(clone.firstChild);
       }
     } else {
-      // Texte ou élément inline directement présent dans le fragment.
       paragraphe.appendChild(node.cloneNode(true));
+    }
+
+    // Évite également les <p></p> si le contenu ne contient finalement rien.
+    if (!paragraphe.textContent.replace(/\s+/g, '').length && !paragraphe.querySelector('br')) {
+      return;
     }
 
     wrapper.appendChild(paragraphe);
