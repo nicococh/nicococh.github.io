@@ -4,6 +4,8 @@
 // aucune autre modification n'est nécessaire, la recherche et l'affichage
 // s'adaptent automatiquement à son contenu.
 const DICTIONNAIRE_EXPRESSIONS = [
+"Les Échos, cahier entreprises et collectivités spécial Île-de-France",
+"Les Échos, cahier entreprises et collectivités spécial Rhône",
 "la ministre de la santé, des familles, de l'autonomie et des personnes handicapées, Stéphanie Rist,",
 "la ministre déléguée chargée de l'autonomie et des personnes handicapées, Charlotte Parmentier-Lecocq,",
 "le ministre de l'enseignement supérieur, de la recherche et de l'espace, Philippe Baptiste,",
