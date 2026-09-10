@@ -152,52 +152,7 @@
             </div>
           </div>
 
-          <!-- Paste Tab -->
-          <div id="tab-paste" class="tab-pane">
-            <div class="card paste-card">
-              <div class="paste-instructions">
-                <h3>Copier/Coller depuis Google Sheets / Excel</h3>
-                <p>Copiez votre tableau depuis Google Sheets (sélectionnez la ligne d'en-tête et toutes les lignes de propositions, faites <kbd>Ctrl+C</kbd>) puis collez-le directement dans la zone ci-dessous.</p>
-                <div class="alert alert-info">
-                  <i data-lucide="info"></i>
-                  <span>Le parseur associera automatiquement les colonnes aux 9 catégories santé standard, en ignorant les cellules vides. Les sauts de ligne à l'intérieur des cellules sont parfaitement gérés.</span>
-                </div>
-              </div>
-
-              <div class="paste-area-wrapper">
-                <textarea id="textarea-sheets-paste" placeholder="Collez votre tableau Google Sheets ici... (ex: faites Ctrl+V ou Clic-Droit > Coller)"></textarea>
-              </div>
-
-              <div class="paste-actions">
-                <button id="btn-parse-paste" class="btn btn-success">
-                  <i data-lucide="check"></i> Analyser et Fusionner
-                </button>
-                <button id="btn-clear-paste" class="btn btn-outline">
-                  Vider la zone
-                </button>
-              </div>
-
-              <!-- Preview of pasted data -->
-              <div id="paste-preview-section" class="paste-preview-section" style="display: none;">
-                <h4>Aperçu de l'analyse</h4>
-                <div class="preview-stats">
-                  <span id="stat-columns">9 colonnes identifiées</span>
-                  <span id="stat-rows">0 lignes importées</span>
-                  <span id="stat-total-items">0 propositions détectées</span>
-                </div>
-                <div class="table-scroll-container">
-                  <table id="table-paste-preview">
-                    <thead>
-                      <!-- Populated dynamically -->
-                    </thead>
-                    <tbody>
-                      <!-- Populated dynamically -->
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+         
 
           <!-- Program Details Tab -->
           <div id="tab-program" class="tab-pane">
