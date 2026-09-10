@@ -309,6 +309,8 @@ const DICTIONNAIRE_EXPRESSIONS = [
   "la prime de fonctions et de résultats (PFR)",
   "la prestation de compensation du handicap (PCH)",
   "Provence-Alpes-Côte d'Azur (Paca)",
+  "le projet de loi de finances (PLF)",
+  "le projet de loi de financement de la sécurité sociale (PLFSS)",
   "praticiens territoriaux de médecine générale (PTMG)",
   "parcours de santé des personnes âgées en risque de perte d'autonomie (Paerpa)",
   "le Pathos moyen pondéré (PMP)",
