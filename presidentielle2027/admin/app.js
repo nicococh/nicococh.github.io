@@ -1,10 +1,10 @@
-// Supabase Project Credentials (to be filled by the user) 
+// Supabase Project Credentials (to be filled by the user)
 const supabaseUrl = 'https://vutrblnazmxazjgselks.supabase.co'; // Replace with your real Supabase project URL
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1dHJibG5hem14YXpqZ3NlbGtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE3MTMsImV4cCI6MjA5Nzg3NzcxM30.BvhswkR0YCNQEl4H-gPVGUW28nkveU9mxU5Oj3YXYVQ'; // Replace with your real Supabase Anon Key (public anon key)
 
-// MOT DE PASSE A MASQUER!!! Hardcoded Admin Credentials for auto-login (safe under RLS policy)
+// Hardcoded Admin Credentials for auto-login (safe under RLS policy)
 const adminEmail = 'nicococh@gmail.com'; // Replace with your admin user email
-const adminPassword = 'PresidPwd'; // Replace with your admin user password
+const adminPassword = 'rEZ$v8H/y#kppWt'; // Replace with your admin user password
 
 let supabaseClient = null;
 if (supabaseUrl && supabaseKey && supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseKey !== 'YOUR_ANON_KEY') {
