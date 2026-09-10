@@ -20,8 +20,8 @@
       <div class="brand-group">
         <img src="elysee.png" alt="Palais de l'Élysée" class="header-logo">
         <div class="brand-text-group">
-          <h1>Élysée Santé 2027 (***site en test***)</h1>
-          <p>Le comparateur des programmes des candidats d'APMnews</p>
+          <h1>Présidentielle 2027</h1>
+          <p>Le comparateur des programmes de santé par APMnews</p>
         </div>
       </div>
       
@@ -36,11 +36,7 @@
             <i data-lucide="columns-2"></i> Comparer
           </button>
         </div>
-        <button id="btn-fullscreen" class="mode-btn" type="button" title="Plein écran">
-          <i data-lucide="maximize" id="fullscreen-icon-expand"></i>
-          <i data-lucide="minimize" id="fullscreen-icon-collapse" style="display:none;"></i>
-          <span id="fullscreen-btn-label">Plein écran</span>
-        </button>
+        <img src="logo_apmnews_h70.png" alt="APMnews" class="header-logo-right">
       </div>
     </div>
   </header>
@@ -106,56 +102,5 @@
   <!-- Supabase CDN Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
-  <script>
-    // Bouton Plein écran (n'affecte que ce bouton, aucun autre comportement)
-    (function () {
-      var btn = document.getElementById('btn-fullscreen');
-      var iconExpand = document.getElementById('fullscreen-icon-expand');
-      var iconCollapse = document.getElementById('fullscreen-icon-collapse');
-      var label = document.getElementById('fullscreen-btn-label');
-
-      function isFullscreen() {
-        return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
-      }
-
-      function updateButtonState() {
-        if (isFullscreen()) {
-          iconExpand.style.display = 'none';
-          iconCollapse.style.display = '';
-          label.textContent = 'Quitter le plein écran';
-          btn.classList.add('active');
-        } else {
-          iconExpand.style.display = '';
-          iconCollapse.style.display = 'none';
-          label.textContent = 'Plein écran';
-          btn.classList.remove('active');
-        }
-      }
-
-      function enterFullscreen() {
-        var el = document.documentElement;
-        if (el.requestFullscreen) el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        else if (el.msRequestFullscreen) el.msRequestFullscreen();
-      }
-
-      function exitFullscreen() {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        else if (document.msExitFullscreen) document.msExitFullscreen();
-      }
-
-      btn.addEventListener('click', function () {
-        if (isFullscreen()) exitFullscreen();
-        else enterFullscreen();
-      });
-
-      document.addEventListener('fullscreenchange', updateButtonState);
-      document.addEventListener('webkitfullscreenchange', updateButtonState);
-      document.addEventListener('msfullscreenchange', updateButtonState);
-      // La touche Échap déclenche nativement la sortie du plein écran ;
-      // on met simplement à jour l'état du bouton via les événements ci-dessus.
-    })();
-  </script>
 </body>
 </html>
