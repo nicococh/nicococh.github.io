@@ -1602,17 +1602,19 @@ function demanderRedessinInvisibles() {
   });
 }
 
-function ajouterMarqueurInvisible(texte, rect, rectEditeur) {
-  if (!rect || rect.width === 0 && rect.height === 0) return;
+function ajouterMarqueurInvisible(texte, rect, rectEditeur, centrer) {
+  if (!rect || (rect.width === 0 && rect.height === 0)) return;
   const marqueur = document.createElement('span');
   marqueur.className = 'invisible-marker';
   marqueur.textContent = texte;
-  // L'overlay est fixe dans #editorWrap, tandis que #editor est la zone
-  // qui défile. On ne rajoute donc PAS scrollLeft/scrollTop : les rects
-  // retournés par le navigateur intègrent déjà le déplacement dû au scroll.
-  // Ainsi, les repères restent attachés au texte lorsqu'on fait défiler.
-  marqueur.style.left = (rect.left - rectEditeur.left) + 'px';
+  // Les coordonnées du Range tiennent déjà compte du défilement de l'éditeur.
+  // L'overlay est superposé à #editorWrap : on reste donc dans le même repère
+  // que le texte, sans ajouter scrollTop/scrollLeft.
+  let left = rect.left - rectEditeur.left;
+  if (centrer) left += rect.width / 2;
+  marqueur.style.left = left + 'px';
   marqueur.style.top = (rect.top - rectEditeur.top + Math.max(0, rect.height - 14)) + 'px';
+  if (centrer) marqueur.style.transform = 'translate(-50%, -1px)';
   invisiblesOverlay.appendChild(marqueur);
 }
 
@@ -1628,10 +1630,16 @@ function redessinerInvisibles() {
   while ((noeud = walker.nextNode())) {
     const texte = noeud.nodeValue || '';
     for (let i = 0; i < texte.length; i++) {
-      if (texte.charAt(i) !== '\u00a0') continue;
+      const caractere = texte.charAt(i);
+      if (caractere !== ' ' && caractere !== '\u00a0') continue;
       range.setStart(noeud, i);
       range.setEnd(noeud, i + 1);
-      ajouterMarqueurInvisible('▯', range.getBoundingClientRect(), rectEditeur);
+      ajouterMarqueurInvisible(
+        caractere === '\u00a0' ? '▯' : '·',
+        range.getBoundingClientRect(),
+        rectEditeur,
+        caractere === ' '
+      );
     }
   }
 
