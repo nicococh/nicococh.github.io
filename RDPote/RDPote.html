@@ -288,6 +288,85 @@
     color: #a33;
   }
 
+  #voirHtmlLinkWrap {
+    margin-top: 8px;
+    text-align: left;
+  }
+
+  #voirHtmlLink {
+    color: #003087;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  #htmlModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100001;
+  }
+
+  #htmlBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 900px;
+    height: 80vh;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #htmlBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    color: #003087;
+  }
+
+  #htmlClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+
+  #htmlClose:hover {
+    color: #a33;
+  }
+
+  #htmlPreview {
+    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+    resize: none;
+    padding: 10px;
+    font-size: 14px;
+    font-family: Consolas, "Courier New", monospace;
+    line-height: 1.5;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fafafa;
+    color: #333;
+    white-space: pre;
+    overflow: auto;
+  }
+
   #savebar {
     display: flex;
     justify-content: space-between;
@@ -1052,6 +1131,10 @@
   <div id="snippetBubble" class="snippet-bubble" style="display: none;"></div>
 </div>
 
+<div id="voirHtmlLinkWrap">
+  <button id="voirHtmlLink" type="button">Voir HTML</button>
+</div>
+
 <div id="status"></div>
 <div id="syncstatus" style="margin-top:4px; font-size:12px; color:#888; min-height:16px;"></div>
 <div id="supabaseConnectionOverlay"></div>
@@ -1119,6 +1202,14 @@
       <button id="remoteUpdateKeepBtn" type="button">Conserver ma version</button>
       <button id="remoteUpdateApplyBtn" type="button">Mettre à jour</button>
     </div>
+  </div>
+</div>
+
+<div id="htmlModal">
+  <div id="htmlBox">
+    <button id="htmlClose" type="button" title="Fermer">✕</button>
+    <h2>HTML du texte édité</h2>
+    <textarea id="htmlPreview" readonly></textarea>
   </div>
 </div>
 
@@ -1558,6 +1649,27 @@ function selectionActive() {
   const sel = window.getSelection();
   return sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode);
 }
+const voirHtmlLink = document.getElementById('voirHtmlLink');
+const htmlModal = document.getElementById('htmlModal');
+const htmlClose = document.getElementById('htmlClose');
+const htmlPreview = document.getElementById('htmlPreview');
+
+function ouvrirVoirHtml() {
+  // outerHTML n'est pas utilisé : on veut uniquement le contenu HTML de l'éditeur.
+  htmlPreview.value = editor.innerHTML;
+  htmlModal.style.display = 'flex';
+}
+
+function fermerVoirHtml() {
+  htmlModal.style.display = 'none';
+}
+
+voirHtmlLink.addEventListener('click', ouvrirVoirHtml);
+htmlClose.addEventListener('click', fermerVoirHtml);
+htmlModal.addEventListener('click', function(event) {
+  if (event.target === htmlModal) fermerVoirHtml();
+});
+
 const helpBtn = document.getElementById('helpBtn');
 const helpModal = document.getElementById('helpModal');
 const helpClose = document.getElementById('helpClose');
