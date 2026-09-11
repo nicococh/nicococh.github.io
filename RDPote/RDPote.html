@@ -2294,8 +2294,19 @@ ET AUSSI...
   empilerUndo(etatActuel());
   terminerGroupe();
 
-  editor.value = plan + editor.value;
-  editor.setSelectionRange(plan.length, plan.length);
+  // Les lignes insérées doivent être de vrais blocs HTML <div>...</div>
+  // et non une succession de <br>, afin que le CMS les interprète
+  // correctement à l'exportation.
+  const planHtml = plan
+    .split('\n')
+    .filter(function(ligne) { return ligne !== ''; })
+    .map(function(ligne) {
+      return '<div>' + ligne + '</div>';
+    })
+    .join('');
+
+  editor.innerHTML = planHtml + editor.innerHTML;
+  editor.setSelectionRange(plan.replace(/\n$/, '').length, plan.replace(/\n$/, '').length);
 
   appliquerCouleursRubriques();
 
