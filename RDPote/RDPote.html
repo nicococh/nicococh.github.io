@@ -207,6 +207,28 @@
     background: #dbe5f7;
     border-color: #003087;
   }
+
+  /* Repères visuels des caractères invisibles : ils sont dessinés dans
+     une couche séparée et ne modifient jamais le HTML du document. */
+  #invisiblesOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .invisible-marker {
+    position: absolute;
+    color: #999;
+    font-family: Arial, sans-serif;
+    font-size: 0.78em;
+    font-weight: 700;
+    line-height: 1;
+    white-space: pre;
+    pointer-events: none;
+    transform: translateY(-1px);
+  }
   #undoBtn {
     margin-left: auto;
   }
@@ -985,6 +1007,7 @@
   <button id="italicBtn" type="button" title="Italique. Ctrl+I"><em>I</em></button>
   <button id="majBtn" type="button" title="Mettre la sélection en majuscules">AA</button>
   <button id="minBtn" type="button" title="Mettre la sélection en minuscules">aa</button>
+  <button id="invisiblesBtn" type="button" title="Afficher les caractères invisibles. Ctrl+Maj+I">¶</button>
   
   <div id="colorMenuWrap">
     <button id="colorBtn" type="button" title="Couleur du texte">🎨</button>
@@ -1025,6 +1048,7 @@
 <div id="editorWrap">
   <div id="editor" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="true"></div>
   <div id="remoteCursors" aria-hidden="true"></div>
+  <div id="invisiblesOverlay" aria-hidden="true"></div>
   <div id="snippetBubble" class="snippet-bubble" style="display: none;"></div>
 </div>
 
@@ -1559,9 +1583,110 @@ const copyBtn = document.getElementById('copyBtn');
 const planBtn = document.getElementById('planBtn');
 const majBtn = document.getElementById('majBtn');
 const minBtn = document.getElementById('minBtn');
+const invisiblesBtn = document.getElementById('invisiblesBtn');
+const invisiblesOverlay = document.getElementById('invisiblesOverlay');
 const typoBtn = document.getElementById('typoBtn');
 const supprBtn = document.getElementById('supprBtn');
 const snippetBubble = document.getElementById('snippetBubble');
+
+// --- Affichage des caractères invisibles ---
+let afficherInvisibles = false;
+let invisiblesFrame = null;
+
+function demanderRedessinInvisibles() {
+  if (!afficherInvisibles) return;
+  if (invisiblesFrame !== null) return;
+  invisiblesFrame = requestAnimationFrame(function() {
+    invisiblesFrame = null;
+    redessinerInvisibles();
+  });
+}
+
+function ajouterMarqueurInvisible(texte, rect, rectEditeur) {
+  if (!rect || rect.width === 0 && rect.height === 0) return;
+  const marqueur = document.createElement('span');
+  marqueur.className = 'invisible-marker';
+  marqueur.textContent = texte;
+  marqueur.style.left = (rect.left - rectEditeur.left + editor.scrollLeft) + 'px';
+  marqueur.style.top = (rect.top - rectEditeur.top + editor.scrollTop + Math.max(0, rect.height - 14)) + 'px';
+  invisiblesOverlay.appendChild(marqueur);
+}
+
+function redessinerInvisibles() {
+  invisiblesOverlay.replaceChildren();
+  if (!afficherInvisibles) return;
+
+  const rectEditeur = editor.getBoundingClientRect();
+  const range = document.createRange();
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let noeud;
+
+  while ((noeud = walker.nextNode())) {
+    const texte = noeud.nodeValue || '';
+    for (let i = 0; i < texte.length; i++) {
+      if (texte.charAt(i) !== '\u00a0') continue;
+      range.setStart(noeud, i);
+      range.setEnd(noeud, i + 1);
+      ajouterMarqueurInvisible('▯', range.getBoundingClientRect(), rectEditeur);
+    }
+  }
+
+  editor.querySelectorAll('br').forEach(function(br) {
+    range.selectNode(br);
+    ajouterMarqueurInvisible('↵', range.getBoundingClientRect(), rectEditeur);
+  });
+
+  editor.querySelectorAll('p').forEach(function(paragraphe) {
+    range.selectNodeContents(paragraphe);
+    range.collapse(false);
+    let rect = range.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      const rectParagraphe = paragraphe.getBoundingClientRect();
+      if (rectParagraphe.width || rectParagraphe.height) {
+        rect = {
+          left: rectParagraphe.right,
+          right: rectParagraphe.right,
+          top: rectParagraphe.top,
+          bottom: rectParagraphe.bottom,
+          width: 0,
+          height: rectParagraphe.height
+        };
+      }
+    }
+    ajouterMarqueurInvisible('¶', rect, rectEditeur);
+  });
+}
+
+function basculerInvisibles() {
+  afficherInvisibles = !afficherInvisibles;
+  invisiblesBtn.classList.toggle('active', afficherInvisibles);
+  invisiblesBtn.setAttribute('aria-pressed', afficherInvisibles ? 'true' : 'false');
+  invisiblesBtn.title = afficherInvisibles
+    ? 'Masquer les caractères invisibles. Ctrl+Maj+I'
+    : 'Afficher les caractères invisibles. Ctrl+Maj+I';
+  redessinerInvisibles();
+  editor.focus();
+}
+
+invisiblesBtn.setAttribute('aria-pressed', 'false');
+invisiblesBtn.addEventListener('mousedown', function(e) {
+  e.preventDefault();
+  basculerInvisibles();
+});
+
+editor.addEventListener('input', demanderRedessinInvisibles);
+editor.addEventListener('scroll', demanderRedessinInvisibles);
+window.addEventListener('resize', demanderRedessinInvisibles);
+
+// Les modifications distantes et les opérations comme Annuler/Rétablir peuvent
+// changer le DOM sans passer par input. On ne surveille le DOM que lorsque
+// l'affichage est activé.
+const observateurInvisibles = new MutationObserver(demanderRedessinInvisibles);
+observateurInvisibles.observe(editor, {
+  childList: true,
+  subtree: true,
+  characterData: true
+});
 
 const STORAGE_KEY = 'editeur-texte-autosave';
 
@@ -3077,6 +3202,14 @@ editor.addEventListener('keydown', function(e) {
 
   if (isEscape && activeSnippet) {
     masquerBulle();
+    return;
+  }
+
+  const isCtrlShiftI = (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.key === 'i' || e.key === 'I');
+
+  if (isCtrlShiftI) {
+    e.preventDefault();
+    basculerInvisibles();
     return;
   }
 
