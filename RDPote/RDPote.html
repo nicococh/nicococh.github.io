@@ -1761,15 +1761,49 @@ function redessinerInvisibles() {
   });
 
   editor.querySelectorAll('div').forEach(function(paragraphe) {
-    range.selectNodeContents(paragraphe);
-    range.collapse(false);
-    let rect = range.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) {
+    // On cherche la fin réelle du texte de la div, y compris lorsqu'il est
+    // contenu dans un <span>. Il ne faut surtout pas utiliser le bord droit
+    // de la div : celui-ci correspond à toute la largeur de la zone d'édition.
+    const walkerPara = document.createTreeWalker(paragraphe, NodeFilter.SHOW_TEXT);
+    let dernierTexte = null;
+    let textePara;
+
+    while ((textePara = walkerPara.nextNode())) {
+      if ((textePara.nodeValue || '').length) dernierTexte = textePara;
+    }
+
+    let rect = null;
+
+    if (dernierTexte) {
+      // Position du curseur juste après le dernier caractère réellement saisi.
+      range.setStart(dernierTexte, dernierTexte.nodeValue.length);
+      range.collapse(true);
+      rect = range.getBoundingClientRect();
+
+      // Certains navigateurs renvoient un rectangle nul pour cette position.
+      // Dans ce cas, on prend le bord droit du dernier caractère.
+      if (rect.width === 0 && rect.height === 0 && dernierTexte.nodeValue.length > 0) {
+        range.setStart(dernierTexte, dernierTexte.nodeValue.length - 1);
+        range.setEnd(dernierTexte, dernierTexte.nodeValue.length);
+        const rectDernierCaractere = range.getBoundingClientRect();
+        if (rectDernierCaractere.width || rectDernierCaractere.height) {
+          rect = {
+            left: rectDernierCaractere.right,
+            right: rectDernierCaractere.right,
+            top: rectDernierCaractere.top,
+            bottom: rectDernierCaractere.bottom,
+            width: 0,
+            height: rectDernierCaractere.height
+          };
+        }
+      }
+    } else {
+      // Div vide : on place le marqueur au début de la ligne.
       const rectParagraphe = paragraphe.getBoundingClientRect();
       if (rectParagraphe.width || rectParagraphe.height) {
         rect = {
-          left: rectParagraphe.right,
-          right: rectParagraphe.right,
+          left: rectParagraphe.left,
+          right: rectParagraphe.left,
           top: rectParagraphe.top,
           bottom: rectParagraphe.bottom,
           width: 0,
@@ -1777,6 +1811,7 @@ function redessinerInvisibles() {
         };
       }
     }
+
     ajouterMarqueurInvisible('¶', rect, rectEditeur);
   });
 }
