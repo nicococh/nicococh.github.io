@@ -1760,7 +1760,7 @@ function redessinerInvisibles() {
     ajouterMarqueurInvisible('↵', range.getBoundingClientRect(), rectEditeur);
   });
 
-  editor.querySelectorAll('p').forEach(function(paragraphe) {
+  editor.querySelectorAll('div').forEach(function(paragraphe) {
     range.selectNodeContents(paragraphe);
     range.collapse(false);
     let rect = range.getBoundingClientRect();
