@@ -1607,8 +1607,12 @@ function ajouterMarqueurInvisible(texte, rect, rectEditeur) {
   const marqueur = document.createElement('span');
   marqueur.className = 'invisible-marker';
   marqueur.textContent = texte;
-  marqueur.style.left = (rect.left - rectEditeur.left + editor.scrollLeft) + 'px';
-  marqueur.style.top = (rect.top - rectEditeur.top + editor.scrollTop + Math.max(0, rect.height - 14)) + 'px';
+  // L'overlay est fixe dans #editorWrap, tandis que #editor est la zone
+  // qui défile. On ne rajoute donc PAS scrollLeft/scrollTop : les rects
+  // retournés par le navigateur intègrent déjà le déplacement dû au scroll.
+  // Ainsi, les repères restent attachés au texte lorsqu'on fait défiler.
+  marqueur.style.left = (rect.left - rectEditeur.left) + 'px';
+  marqueur.style.top = (rect.top - rectEditeur.top + Math.max(0, rect.height - 14)) + 'px';
   invisiblesOverlay.appendChild(marqueur);
 }
 
