@@ -2343,6 +2343,9 @@ function appliquerCouleursRubriques() {
 }
 
 function insererPlan() {
+  const confirmation = confirm("ATTENTION, veux-tu supprimer tout le contenu et le remplacer par les rubriques vides? Tu pourras toujours annuler ensuite avec le bouton Historique.");
+  if (!confirmation) return;
+
   const plan = `La santé dans la presse xxx
 PARIS, xx xxx 2026 (APMnews) -
 POLITIQUE DE SANTÉ
@@ -2362,27 +2365,29 @@ ET AUSSI...
 /xx/xx/APMnews
 `;
 
+  // On mémorise d'abord le contenu actuel pour permettre l'annulation
+  // avec le bouton Historique.
   empilerUndo(etatActuel());
   terminerGroupe();
 
-  // Les lignes insérées doivent être de vrais blocs HTML <div>...</div>
-  // et non une succession de <br>, afin que le CMS les interprète
-  // correctement à l'exportation.
+  // Chaque ligne devient un véritable bloc <div>.
   const planHtml = plan
-    .split('\n')
+    .split('
+')
     .filter(function(ligne) { return ligne !== ''; })
     .map(function(ligne) {
       return '<div>' + ligne + '</div>';
     })
     .join('');
 
-  editor.innerHTML = planHtml + editor.innerHTML;
-  editor.setSelectionRange(plan.replace(/\n$/, '').length, plan.replace(/\n$/, '').length);
+  // On remplace entièrement le contenu existant.
+  editor.innerHTML = planHtml;
+  editor.setSelectionRange(0, 0);
 
   appliquerCouleursRubriques();
 
   masquerBulle();
-  status.textContent = "Plan inséré en tête du document.";
+  status.textContent = "Le contenu a été remplacé par les rubriques vides.";
   editor.focus();
   sauvegarder();
 }
