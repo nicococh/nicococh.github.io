@@ -2156,7 +2156,16 @@ function corrigerTypo() {
   empilerUndo(etatActuel());
   terminerGroupe();
 
-  editor.value = texte;
+  // --- Recréer la structure HTML des paragraphes ---
+  // Chaque saut de ligne devient une nouvelle <div>. Les éventuels <br>
+  // présents dans le texte sont donc remplacés par une fermeture de div
+  // suivie de l'ouverture d'une nouvelle div.
+  const paragraphesTypo = texte.split('\n');
+  editor.innerHTML = paragraphesTypo.map(function(paragrapheTypo) {
+    const divTypo = document.createElement('div');
+    divTypo.textContent = paragrapheTypo;
+    return divTypo.outerHTML;
+  }).join('');
 
   // --- Couleurs spécifiques à "Corriger la typo" ---
   // Tout le texte est d'abord remis en noir.
