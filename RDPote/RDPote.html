@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 13sep répa CorrecTypo -->
+<!-- Version Claude correc coller après ret chariot Entrée -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1756,8 +1756,35 @@ function redessinerInvisibles() {
   }
 
   editor.querySelectorAll('br').forEach(function(br) {
-    range.selectNode(br);
-    ajouterMarqueurInvisible('↵', range.getBoundingClientRect(), rectEditeur);
+    // Un <br> peut avoir un rectangle nul selon le navigateur. On place donc
+    // le marqueur à l'emplacement exact du saut de ligne, avec plusieurs
+    // solutions de secours pour conserver sa position visuelle.
+    let rectBr = br.getBoundingClientRect();
+
+    if (rectBr.width === 0 && rectBr.height === 0) {
+      range.setStartBefore(br);
+      range.collapse(true);
+      rectBr = range.getBoundingClientRect();
+    }
+
+    if (rectBr.width === 0 && rectBr.height === 0) {
+      const parentBr = br.parentElement;
+      if (parentBr) {
+        const rectParentBr = parentBr.getBoundingClientRect();
+        if (rectParentBr.width || rectParentBr.height) {
+          rectBr = {
+            left: rectParentBr.left,
+            right: rectParentBr.left,
+            top: rectParentBr.top,
+            bottom: rectParentBr.bottom,
+            width: 0,
+            height: rectParentBr.height
+          };
+        }
+      }
+    }
+
+    ajouterMarqueurInvisible('↵', rectBr, rectEditeur);
   });
 
   editor.querySelectorAll('div').forEach(function(paragraphe) {
