@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-   <!-- 14 septembre. Réglé pb scroll sélection candidat -->
   <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Élysée Santé - Comparateur de Programmes Santé</title>
@@ -888,6 +887,20 @@ body {
     bottom: 14px;
     width: 42px;
     height: 42px;
+  }
+}
+
+
+/* Mobile : trois candidats par ligne dans la barre des candidats */
+@media (max-width: 768px) {
+  .candidates-bar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .candidates-bar > * {
+    min-width: 0;
   }
 }
 
