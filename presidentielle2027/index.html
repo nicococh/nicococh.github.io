@@ -503,6 +503,13 @@ body {
 }
 
 /* Precise bullet alignments centered to the first line's height mathematically */
+.proposal-bullets a,
+.compare-proposal-item a {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .proposal-bullets li::before {
   content: "";
   position: absolute;
@@ -1083,6 +1090,25 @@ function sanitizePublicProposalHTML(html) {
 
     if (node.tagName === 'BR') {
       return document.createElement('br');
+    }
+
+    // Conserver les liens créés dans l'administration.
+    // Ils s'ouvrent dans un nouvel onglet.
+    if (node.tagName === 'A') {
+      const href = node.getAttribute('href');
+
+      if (href) {
+        const el = document.createElement('a');
+        el.setAttribute('href', href);
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+
+        Array.from(node.childNodes).forEach(child => {
+          el.appendChild(cleanNode(child));
+        });
+
+        return el;
+      }
     }
 
     const fragment = document.createDocumentFragment();
