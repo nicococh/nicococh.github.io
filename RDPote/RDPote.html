@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- 14 sep remis affichage code HTML en bas>
+<!-- Version 14 sep -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1649,7 +1649,6 @@ function selectionActive() {
   const sel = window.getSelection();
   return sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode);
 }
-
 const voirHtmlLink = document.getElementById('voirHtmlLink');
 const htmlModal = document.getElementById('htmlModal');
 const htmlClose = document.getElementById('htmlClose');
@@ -1760,15 +1759,11 @@ function redessinerInvisibles() {
   });
 
   editor.querySelectorAll('div').forEach(function(paragraphe) {
-    // On place le ¶ exactement après le dernier caractère réellement saisi,
-    // même lorsque ce caractère se trouve dans un <span>.
     let dernierNoeudTexte = null;
     const walkerTexte = document.createTreeWalker(paragraphe, NodeFilter.SHOW_TEXT);
     let noeudTexte;
     while ((noeudTexte = walkerTexte.nextNode())) {
-      if ((noeudTexte.nodeValue || '').length > 0) {
-        dernierNoeudTexte = noeudTexte;
-      }
+      if ((noeudTexte.nodeValue || '').length > 0) dernierNoeudTexte = noeudTexte;
     }
 
     let rect;
@@ -1776,24 +1771,17 @@ function redessinerInvisibles() {
       range.setStart(dernierNoeudTexte, dernierNoeudTexte.nodeValue.length);
       range.collapse(true);
       rect = range.getBoundingClientRect();
-    } else {
-      range.selectNodeContents(paragraphe);
-      range.collapse(true);
-      rect = range.getBoundingClientRect();
-    }
-
-    if (rect.width === 0 && rect.height === 0) {
-      const rectParagraphe = paragraphe.getBoundingClientRect();
-      if (rectParagraphe.width || rectParagraphe.height) {
-        rect = {
-          left: rectParagraphe.left,
-          right: rectParagraphe.left,
-          top: rectParagraphe.top,
-          bottom: rectParagraphe.bottom,
-          width: 0,
-          height: rectParagraphe.height
-        };
+      if (rect.width === 0 && rect.height === 0 && dernierNoeudTexte.nodeValue.length > 0) {
+        range.setStart(dernierNoeudTexte, dernierNoeudTexte.nodeValue.length - 1);
+        range.setEnd(dernierNoeudTexte, dernierNoeudTexte.nodeValue.length);
+        const rectDernier = range.getBoundingClientRect();
+        if (rectDernier.width || rectDernier.height) {
+          rect = { left: rectDernier.right, right: rectDernier.right, top: rectDernier.top, bottom: rectDernier.bottom, width: 0, height: rectDernier.height };
+        }
       }
+    } else {
+      const rectParagraphe = paragraphe.getBoundingClientRect();
+      rect = { left: rectParagraphe.left, right: rectParagraphe.left, top: rectParagraphe.top, bottom: rectParagraphe.bottom, width: 0, height: rectParagraphe.height };
     }
     ajouterMarqueurInvisible('¶', rect, rectEditeur);
   });
@@ -2139,9 +2127,6 @@ function corrigerTypo() {
   empilerUndo(etatActuel());
   terminerGroupe();
 
-  // Les retours à la ligne issus des corrections deviennent de vrais
-  // paragraphes HTML : <div>...</div>. Aucun <br> n'est utilisé ici pour
-  // séparer les paragraphes.
   const texteHtmlTypo = texte
     .split('\n')
     .map(function(ligneTypo) { return '<div>' + ligneTypo + '</div>'; })
