@@ -904,6 +904,34 @@ body {
   }
 }
 
+
+/* Titre au-dessus des grands thèmes */
+.choose-theme-title {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.choose-theme-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .choose-theme-title {
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
+
+  .choose-theme-desktop {
+    display: none;
+  }
+
+  .choose-theme-mobile {
+    display: inline;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -968,7 +996,11 @@ body {
           <!-- Dynamically populated: Avatar, Name, Party -->
         </div>
 
-        <div id="single-program-anchors" class="single-program-anchors">
+        <h3 class="choose-theme-title">
+  <span class="choose-theme-desktop">Choisissez un grand thème</span>
+  <span class="choose-theme-mobile">Choisissez un grand thème (faites défiler ⬌)</span>
+</h3>
+<div id="single-program-anchors" class="single-program-anchors">
           <!-- Dynamically populated category quick links -->
         </div>
         
