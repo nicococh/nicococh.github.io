@@ -420,7 +420,7 @@ body {
   border-bottom: 2px solid transparent;
   padding: 0.5rem 0;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -556,7 +556,7 @@ body {
   border-bottom: 2px solid transparent;
   padding: 0.5rem 0;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -1205,7 +1205,7 @@ const standardCategories = [
   "Questions de société"
 ];
 
-const moreInfoCategory = "Pour en savoir plus";
+const moreInfoCategory = "En savoir plus";
 
 // Emojis/Icons mapping for categories
 const categoryIcons = {
@@ -1217,7 +1217,7 @@ const categoryIcons = {
   "Santé publique, médecine, recherche": "🔬",
   "Produits de santé": "💊",
   "Questions de société": "⚖️",
-  "Pour en savoir plus": "🔗"
+  "En savoir plus": "🔗"
 };
 
 // DOM Elements
@@ -1605,7 +1605,7 @@ function renderSingleCandidateView() {
     singleProgramAnchors.appendChild(pill);
   });
 
-  // "Pour en savoir plus" est un grand thème du menu Par candidat, sans compteur.
+  // "En savoir plus" est un grand thème du menu Par candidat, sans compteur.
   const moreInfo = Array.isArray(candidate.moreInfo)
     ? candidate.moreInfo.filter(p => p && p.trim() !== '')
     : [];
