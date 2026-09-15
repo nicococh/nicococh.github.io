@@ -515,6 +515,14 @@ body {
   background-color: var(--theme-color);
 }
 
+/* Italique dans les propositions */
+.proposal-bullets em,
+.proposal-bullets i,
+.compare-proposal-item em,
+.compare-proposal-item i {
+  font-style: italic;
+}
+
 /* Liens hypertexte dans les propositions */
 .proposal-bullets a,
 .compare-proposal-item a {
@@ -1111,6 +1119,53 @@ function sanitizePublicProposalHTML(html) {
       });
 
       return el;
+    }
+
+    // Conserver l'italique saisi dans l'administration
+    if (node.tagName === 'EM' || node.tagName === 'I') {
+      const el = document.createElement('em');
+
+      Array.from(node.childNodes).forEach(child => {
+        el.appendChild(cleanNode(child));
+      });
+
+      return el;
+    }
+
+    // Conserver aussi l'italique/gras éventuellement stocké dans un span,
+    // notamment pour du contenu provenant de Word.
+    if (node.tagName === 'SPAN') {
+      const fontStyle = (node.style.fontStyle || '').toLowerCase();
+      const fontWeight = (node.style.fontWeight || '').toLowerCase();
+
+      const isItalic = fontStyle === 'italic' || fontStyle === 'oblique';
+      const isBold = fontWeight === 'bold' || /^(5|6|7|8|9)00$/.test(fontWeight);
+
+      if (isItalic || isBold) {
+        const fragment = document.createDocumentFragment();
+
+        Array.from(node.childNodes).forEach(child => {
+          fragment.appendChild(cleanNode(child));
+        });
+
+        if (isBold && isItalic) {
+          const strong = document.createElement('strong');
+          const em = document.createElement('em');
+          while (fragment.firstChild) em.appendChild(fragment.firstChild);
+          strong.appendChild(em);
+          return strong;
+        }
+
+        if (isBold) {
+          const strong = document.createElement('strong');
+          while (fragment.firstChild) strong.appendChild(fragment.firstChild);
+          return strong;
+        }
+
+        const em = document.createElement('em');
+        while (fragment.firstChild) em.appendChild(fragment.firstChild);
+        return em;
+      }
     }
 
     if (node.tagName === 'BR') {
