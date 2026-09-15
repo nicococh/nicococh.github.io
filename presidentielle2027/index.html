@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <!-- Version 15 septembre répa liens-->
+  <!-- Version 14 septembre -->
   <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
-  <link rel="shortcut icon" href="IMG/MiniLogoAPM.png">
+  <link rel="shortcut icon" href="MiniLogoAPM.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Présidentielle 2027 - Le comparateur des programmes santé d'APMnews</title>
   <!-- Google Fonts -->
@@ -973,7 +973,7 @@ body {
   <header class="app-header">
     <div class="header-container">
       <div class="brand-group">
-        <img src="IMG/elysee.png" alt="Palais de l'Élysée" class="header-logo">
+        <img src="elysee.png" alt="Palais de l'Élysée" class="header-logo">
         <div class="brand-text-group">
           <h1>Présidentielle 2027&nbsp;: les programmes santé (**test**)</h1>
           <p>Avec APMnews, retrouvez et comparez les propositions des candidats</p>
@@ -1069,7 +1069,7 @@ body {
   </button>
 
   <footer class="app-footer">
-    <img src="IMG/logo_apmnews_h70.png" alt="APMnews" class="footer-logo">
+    <img src="logo_apmnews_h70.png" alt="APMnews" class="footer-logo">
     <p>&copy; APMnews 2026-2027</p>
   </footer>
 
@@ -1202,9 +1202,10 @@ const standardCategories = [
   "Protection sociale",
   "Santé publique, médecine, recherche",
   "Produits de santé",
-  "Questions de société",
-  "Pour en savoir plus"
+  "Questions de société"
 ];
+
+const moreInfoCategory = "Pour en savoir plus";
 
 // Emojis/Icons mapping for categories
 const categoryIcons = {
@@ -1288,6 +1289,18 @@ async function fetchDefaultCandidates() {
     if (candidatesRes.data && Array.isArray(candidatesRes.data.value)) {
       // Filter out any legacy config object embedded in the array
       candidates = candidatesRes.data.value.filter(item => item && item.id !== "config");
+
+      // Migrate the former "Pour en savoir plus" category to its dedicated field.
+      candidates.forEach(candidate => {
+        if (!Array.isArray(candidate.moreInfo)) {
+          candidate.moreInfo = Array.isArray(candidate.program?.[moreInfoCategory])
+            ? candidate.program[moreInfoCategory].filter(p => p && p.trim() !== '')
+            : [];
+        }
+        if (candidate.program && Object.prototype.hasOwnProperty.call(candidate.program, moreInfoCategory)) {
+          delete candidate.program[moreInfoCategory];
+        }
+      });
     } else {
       candidates = [];
     }
@@ -1384,6 +1397,7 @@ function getProposalsCount(c) {
   if (!c.program) return 0;
   let count = 0;
   for (const cat in c.program) {
+    if (cat === moreInfoCategory) continue;
     if (Array.isArray(c.program[cat])) {
       count += c.program[cat].filter(p => p && p.trim() !== '').length;
     }
@@ -1590,6 +1604,35 @@ function renderSingleCandidateView() {
     
     singleProgramAnchors.appendChild(pill);
   });
+
+  // "Pour en savoir plus" est un grand thème du menu Par candidat, sans compteur.
+  const moreInfo = Array.isArray(candidate.moreInfo)
+    ? candidate.moreInfo.filter(p => p && p.trim() !== '')
+    : [];
+  if (moreInfo.length > 0) {
+    const pill = document.createElement('button');
+    pill.className = 'anchor-pill';
+    pill.style.setProperty('--theme-color', candidate.color || '#4f46e5');
+    pill.innerHTML = `
+      <span class="pill-icon">🔗</span>
+      <span class="pill-label">${moreInfoCategory}</span>
+    `;
+    pill.addEventListener('click', () => {
+      const blockEl = document.getElementById('cat-block-pour-en-savoir-plus');
+      if (blockEl) {
+        const headerEl = document.querySelector('.app-header');
+        const anchorsEl = document.querySelector('.single-program-anchors');
+        const isHeaderSticky = window.getComputedStyle(headerEl).position === 'sticky';
+        const headerHeight = isHeaderSticky ? headerEl.offsetHeight : 0;
+        const anchorsHeight = anchorsEl ? anchorsEl.offsetHeight : 0;
+        const headerOffset = headerHeight + anchorsHeight + 15;
+        const elementPosition = blockEl.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+      }
+    });
+    singleProgramAnchors.appendChild(pill);
+  }
   
   // Program lists
   singleProgramList.innerHTML = '';
@@ -1625,6 +1668,26 @@ function renderSingleCandidateView() {
       singleProgramList.appendChild(block);
     }
   });
+
+  // Références / publications : bloc séparé, hors des propositions comptées.
+  if (moreInfo.length > 0) {
+    hasProposals = true;
+    const block = document.createElement('div');
+    block.className = 'program-category-block';
+    block.id = 'cat-block-pour-en-savoir-plus';
+    block.style.setProperty('--theme-color', candidate.color || '#4f46e5');
+    const bullets = moreInfo.map(p => `<li>${sanitizePublicProposalHTML(p)}</li>`).join('');
+    block.innerHTML = `
+      <h4 class="category-block-title">
+        <span class="category-block-icon">🔗</span>
+        ${moreInfoCategory}
+      </h4>
+      <ul class="proposal-bullets" style="--theme-color: ${candidate.color || '#4f46e5'}">
+        ${bullets}
+      </ul>
+    `;
+    singleProgramList.appendChild(block);
+  }
   
   if (!hasProposals) {
     singleProgramList.innerHTML = `
