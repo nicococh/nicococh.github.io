@@ -3129,7 +3129,7 @@ const SNIPPETS = [
   { trigger: "(Le P",   expansion: "(Le Parisien, px)" },
   { trigger: "(Le G",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
   { trigger: "lgp",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
- { trigger: "LGP",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
+  { trigger: "LGP",   expansion: "(Le Parisien, cahier Le Grand Parisien, px)" },
   { trigger: "(Les E",  expansion: "(Les Échos, px)" },
   { trigger: "lee",  expansion: "(Les Échos, cahier Entreprises et collectivités spécial **Île-de-France/Rhône**, px)" },
   { trigger: "LEE",  expansion: "(Les Échos, cahier Entreprises et collectivités spécial **Île-de-France/Rhône**, px)" },
@@ -3137,7 +3137,16 @@ const SNIPPETS = [
   { trigger: "(La C",   expansion: "(La Croix, px)" },
   { trigger: "(L'H",    expansion: "(L'Humanité, px)" },
   { trigger: "(Lib",   expansion: "(Libération, px)" },
-  { trigger: "(L'O",  expansion: "(L'Opinion, px)" }
+  { trigger: "(L'O",  expansion: "(L'Opinion, px)" },
+
+ {trigger: "LE CA",  expansion: "LE CANARD ENCHAÎNÉ" },
+ { trigger: "CHA",  expansion: "CHALLENGES" },
+ {trigger: "LE N",  expansion: "LE NOUVEL OBS" },
+ {trigger: "LE P",  expansion: "LE POINT" },
+ {trigger: "L'EX",  expansion: "L'EXPRESS" },
+ {trigger: "PAR",  expansion: "PARIS MATCH" },
+ {trigger: "MAR",  expansion: "MARIANNE" },
+ {trigger: "ALT",  expansion: "ALTERNATIVES ÉCONOMIQUES" }
 ];
 // Les déclencheurs les plus longs sont testés en premier (utile si l'un est
 // le préfixe d'un autre, ex. "L'Opi" ne doit pas être masqué par un "L'O" plus court).
