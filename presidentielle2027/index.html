@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <!-- Version 15 septembre -->
+  <!-- Version 21 septembre -->
   <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
   <link rel="shortcut icon" href="MiniLogoAPM.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -82,6 +82,15 @@ body {
   border: none;
   background: transparent;
   padding: 0;
+}
+
+/* Couleur des liens */
+.content-area a {
+  color: #1CA8B7;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 }
 
 .header-right-group {
@@ -558,13 +567,7 @@ body {
   font-style: italic;
 }
 
-/* Liens hypertexte dans les propositions */
-.proposal-bullets a,
-.compare-proposal-item a {
-  color: #2563eb;
-  text-decoration: underline;
-  cursor: pointer;
-}
+
 
 .proposal-bullets a:hover,
 .compare-proposal-item a:hover {
@@ -777,6 +780,21 @@ body {
   font-size: 1.1rem;
   margin-bottom: 0.5rem;
 }
+
+/* Renvoi dossier de dépêches */
+
+.depeches-banner {
+  margin-top: 10px;
+}
+
+.depeches-banner-text p {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+
 
 .empty-state-card p {
   font-size: 0.9rem;
@@ -1109,7 +1127,15 @@ body {
           <!-- Dynamically populated side-by-side columns of selected candidates -->
         </div>
       </div>
+
+<div class="depeches-banner"><p class="depeches-banner-text">    
+<a href="https://www.apmnews.com/dossier?objet=254" target="_blank"><img src="IconeDossier.png" alt="" class="depeches-banner-icon"></a> <b>Dans ce dossier,</b> retrouvez <a href="https://www.apmnews.com/dossier?objet=254" target="_blank">toutes nos dépêches consacrées à la présidentielle</a></p>
+  </p>
+
     </section>
+
+
+
   </main>
 
 
@@ -1119,11 +1145,7 @@ body {
     <i data-lucide="arrow-up"></i>
   </button>
 
-
-  <div class="depeches-banner">
-    <img src="IconeDossier.png" alt="" class="depeches-banner-icon">
-    <div class="depeches-banner-text">Retrouvez toutes nos dépêches consacrées à la présidentielle</div>
-  </div>
+  
 
   <footer class="app-footer">
     <img src="logo_apmnews_h70.png" alt="APMnews" class="footer-logo">
