@@ -1,6 +1,7 @@
 /* ==========================================================================
    Quiz Generator - JS Application Controller
    Manages generator state, dynamic editors, live preview, and exports.
+   Version 28/10/26
    ========================================================================== */
 
 // --- Default baseline template state ---
