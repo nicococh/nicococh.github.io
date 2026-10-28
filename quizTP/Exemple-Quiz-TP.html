@@ -928,7 +928,7 @@ const RANK_RULES = {
     }
 };
 
-const LINKEDIN_MESSAGE = "🏆 J'ai obtenu le titre \"{title}\" avec {score}/{total} au Quiz TICpharma !\n\n👉 Testez vos connaissances en numérique de santé : https://www.ticpharma.com/\n\n#eSanté #NumériqueEnSanté #HealthTech #TICpharma";
+const LINKEDIN_MESSAGE = "🏆 J'ai obtenu le titre \"{title}\" avec {score}/{total} au Quiz TICpharma !\n\n👉 Testez vos connaissances en numérique de santé : {url}\n\n#eSanté #NumériqueEnSanté #HealthTech #TICpharma";
 
 // App State
 let currentQuestionIndex = 0;
@@ -1148,16 +1148,20 @@ function shareResult() {
 }
 
 function shareOnLinkedIn() {
+    const quizUrl = getShareUrl(); // URL de la page qui contient le quiz
     const postText = LINKEDIN_MESSAGE
         .replace(/{score}/g, score)
         .replace(/{total}/g, QUIZ_QUESTIONS.length)
-        .replace(/{title}/g, rankTitleText.textContent);
-    
-    copyToClipboard(postText, "Message de partage copié ! Ouvrons LinkedIn (collez avec Ctrl+V) 📋");
-    
-    setTimeout(() => {
-        window.open("https://www.linkedin.com/sharing/share-offsite/?url=https://www.ticpharma.com/", "_blank");
-    }, 1200);
+        .replace(/{title}/g, rankTitleText.textContent)
+        .replace(/{url}/g, quizUrl);
+
+    // Ouverture immédiate (sans setTimeout) pour ne pas être bloquée par le navigateur.
+    // Le texte est prérempli dans la fenêtre de publication LinkedIn.
+    const linkedinUrl = "https://www.linkedin.com/feed/?shareActive=true&text=" + encodeURIComponent(postText);
+    window.open(linkedinUrl, "_blank", "noopener");
+
+    // Filet de sécurité : copie aussi le texte au cas où LinkedIn ne le préremplirait pas
+    copyToClipboard(postText, "Si le texte n'apparaît pas dans LinkedIn, collez-le avec Ctrl+V 📋");
 }
 
 function copyToClipboard(text, successMessage = "Résultats copiés dans le presse-papiers ! 📋") {
