@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+  <!-- Version 30/10/2026 avec fusions de cellules -->
   <meta name="robots" content="noindex" charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Générateur de Tableau HTML - TableauSwyp</title>
@@ -1002,7 +1003,12 @@
                 }
               }
 
-              formattedHTML += `    <td style="border: 1px solid #d3d3d3; text-align: left; vertical-align: top; padding: 8px;">${cellContent}</td>\n`;
+              // Cellules fusionnées : reproduire colspan / rowspan (uniquement si > 1)
+              let spanAttrs = '';
+              if (cell.colSpan > 1) spanAttrs += ` colspan="${cell.colSpan}"`;
+              if (cell.rowSpan > 1) spanAttrs += ` rowspan="${cell.rowSpan}"`;
+
+              formattedHTML += `    <td${spanAttrs} style="border: 1px solid #d3d3d3; text-align: left; vertical-align: top; padding: 8px;">${cellContent}</td>\n`;
             });
 
             formattedHTML += `  </tr>\n`;
