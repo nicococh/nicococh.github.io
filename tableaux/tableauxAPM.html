@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<!-- Version 30 oct 2026 -->
+  <!-- 30 oct 26 avec couleurs -->
   <meta name="robots" content="noindex" charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Générateur de Tableau HTML - TableauSwyp</title>
@@ -707,6 +707,21 @@
           .replace(/'/g, '&#039;');
       }
 
+      // Convertit une couleur CSS calculée en hexadécimal ; renvoie '' si transparente ou blanche
+      function toHexColor(color, keepWhite) {
+        if (!color) return '';
+        color = color.trim().toLowerCase();
+        if (color === 'transparent') return '';
+        if (!keepWhite && (color === 'white' || color === '#fff' || color === '#ffffff')) return '';
+        const m = color.match(/^rgba?\(\s*(\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)\s*(?:[,/]\s*([\d.]+%?)\s*)?\)$/);
+        if (m) {
+          if (m[4] !== undefined && parseFloat(m[4]) === 0) return '';
+          const hex = [m[1], m[2], m[3]].map(n => parseInt(n, 10).toString(16).padStart(2, '0')).join('');
+          return (hex === 'ffffff' && !keepWhite) ? '' : '#' + hex;
+        }
+        return color.startsWith('#') ? color : '';
+      }
+
       // Hide the results panel
       function hideResults() {
         resultsSection.classList.remove('show');
@@ -928,6 +943,15 @@
                 }
               }
 
+              // Couleur de texte partielle : si ce nœud diffère de son parent (hors liens)
+              if (tagName !== 'a' && !(isFirstRow && selectedColor) && node.parentElement) {
+                const nodeColor = toHexColor(computed.color, true);
+                const parentColor = toHexColor(window.getComputedStyle(node.parentElement).color, true);
+                if (nodeColor && nodeColor !== parentColor && nodeColor !== '#000000' && content.trim() !== '') {
+                  content = `<span style="color: ${nodeColor};">${content}</span>`;
+                }
+              }
+
               // Handle link tags (preserve href and target)
               if (tagName === 'a') {
                 const href = node.getAttribute('href');
@@ -1015,7 +1039,21 @@
                 align = (align === 'end') ? 'right' : (['center', 'right', 'justify'].includes(alignAttr) ? alignAttr : 'left');
               }
 
-              formattedHTML += `    <td${spanAttrs} style="border: 1px solid #d3d3d3; text-align: ${align}; vertical-align: top; padding: 8px;">${cellContent}</td>\n`;
+              // Couleur de fond : conservée, sauf sur la 1re ligne si une couleur de site est choisie
+              let bgStyle = '';
+              if (!(rowIndex === 0 && selectedColor)) {
+                const bg = toHexColor(computed.backgroundColor);
+                if (bg) bgStyle = ` background-color: ${bg};`;
+              }
+
+              // Couleur du texte : conservée (le noir par défaut est ignoré), sauf 1re ligne avec couleur de site
+              let colorStyle = '';
+              if (!(rowIndex === 0 && selectedColor)) {
+                const fg = toHexColor(computed.color, true);
+                if (fg && fg !== '#000000') colorStyle = ` color: ${fg};`;
+              }
+
+              formattedHTML += `    <td${spanAttrs} style="border: 1px solid #d3d3d3; text-align: ${align}; vertical-align: top; padding: 8px;${bgStyle}${colorStyle}">${cellContent}</td>\n`;
             });
 
             formattedHTML += `  </tr>\n`;
