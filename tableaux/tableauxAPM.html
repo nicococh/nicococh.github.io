@@ -45,11 +45,11 @@
       max-width: 1200px;
       width: 100%;
       margin: 0 auto;
-      padding: 2.5rem 1.5rem;
+      padding: 1.25rem 1.5rem;
       flex-grow: 1;
       display: flex;
       flex-direction: column;
-      gap: 2rem;
+      gap: 1.25rem;
     }
 
     header {
@@ -58,7 +58,7 @@
     }
 
     header h1 {
-      font-size: 2.75rem;
+      font-size: 2rem;
       font-weight: 800;
       letter-spacing: -0.025em;
       background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%);
@@ -69,7 +69,7 @@
 
     header p {
       color: var(--text-secondary);
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 500;
     }
 
@@ -77,14 +77,14 @@
     .main-layout {
       display: flex;
       flex-direction: column;
-      gap: 2rem;
+      gap: 1.25rem;
     }
 
     .card {
       background-color: var(--panel-bg);
       border: 1px solid var(--border-color);
       border-radius: 16px;
-      padding: 2rem;
+      padding: 1.25rem;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
       transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
@@ -97,7 +97,7 @@
     .input-section {
       display: flex;
       flex-direction: column;
-      gap: 1.75rem;
+      gap: 1.25rem;
     }
 
     /* Section Titles */
@@ -120,8 +120,8 @@
     /* Color Options Grid */
     .color-options-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
       margin-bottom: 0.5rem;
     }
 
@@ -130,12 +130,12 @@
       background: #f8fafc;
       border: 2px solid transparent;
       border-radius: 12px;
-      padding: 1rem;
+      padding: 0.75rem;
       cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.5rem;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       user-select: none;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
@@ -153,8 +153,8 @@
     }
 
     .color-preview {
-      width: 48px;
-      height: 48px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       border: 1px solid rgba(0, 0, 0, 0.08);
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
@@ -171,7 +171,7 @@
 
     .color-name {
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       color: var(--text-primary);
       margin-bottom: 0.125rem;
     }
@@ -206,7 +206,7 @@
 
     textarea.paste-area {
       width: 100%;
-      height: 180px;
+      height: 120px;
       background-color: #f8fafc;
       border: 1px solid var(--border-color);
       border-radius: 12px;
@@ -311,7 +311,7 @@
     .output-card {
       display: flex;
       flex-direction: column;
-      height: 500px;
+      height: 400px;
     }
 
     .output-header {
@@ -409,7 +409,7 @@
     /* Footer styling */
     footer {
       text-align: center;
-      padding: 2.5rem 1rem;
+      padding: 1.25rem 1rem;
       color: var(--text-muted);
       font-size: 0.85rem;
       border-top: 1px solid var(--border-color);
@@ -521,6 +521,18 @@
               <div class="color-info">
                 <div class="color-name">APMi</div>
                 <div class="color-hex">#1ca7b6</div>
+              </div>
+            </div>
+
+            <!-- APMMA Option -->
+            <div class="color-option" data-site="apmma" role="radio" aria-checked="false" tabindex="0">
+              <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <div class="color-preview" style="background-color: #82DFF4;"></div>
+              <div class="color-info">
+                <div class="color-name">APMMA</div>
+                <div class="color-hex">#82DFF4</div>
               </div>
             </div>
 
@@ -638,6 +650,7 @@
         'ticsante': 'EDDACE',
         'ticpharma': 'a8dba8',
         'apmi': '1ca7b6',
+        'apmma': '82DFF4',
         'none': ''
       };
 
