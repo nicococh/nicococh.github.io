@@ -2236,7 +2236,7 @@ function corrigerTypo() {
 
 function appliquerCouleursRubriques() {
   const BLEU_MARINE = '#003087';
-  const BLEU_TURQUOISE = '#0E7F95';
+  const BLEU_CIEL = '#4C84FB';
   const CLASSE_COULEUR_RUBRIQUE = 'rdpote-rubrique-couleur';
 
   // On retire uniquement les spans créés par cette fonction.
@@ -2265,7 +2265,7 @@ function appliquerCouleursRubriques() {
       texte === 'ENVIRONNEMENT' ||
       texte === 'ET AUSSI...'
     ) {
-      couleur = BLEU_TURQUOISE;
+      couleur = BLEU_CIEL;
     }
 
     if (couleur) {
