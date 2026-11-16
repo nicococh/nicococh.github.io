@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 16nov -->
+<!-- Version 16 nov V2 -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3832,12 +3832,28 @@ mettreAJourBoutons();
       const wasConnected = supabaseConnected;
       setSupabaseConnectionState(true);
 
+      let resyncFait = false;
+
       if (typeof crdtSubscribe === 'function' && crdtDoc && !crdtResyncEnCours &&
           (crdtForcerResync || !crdtReady || !crdtCanalEstSain())) {
         const etaitPret = crdtReady;
         const reussi = await crdtResynchroniser();
+        resyncFait = true;
         if (reussi) {
           setSyncStatus(etaitPret ? 'Resynchronisé' : 'Reconnecté à Supabase', '#2a7a2a');
+        }
+      }
+
+      // Canal des curseurs / utilisateurs connectés : même problème de perte
+      // silencieuse. (crdtResynchroniser() le recrée déjà quand il tourne.)
+      if (!resyncFait && !presenceResyncEnCours && presenceCanalAReconnecter()) {
+        presenceResyncEnCours = true;
+        try {
+          await subscribeToPresence();
+        } catch (presenceError) {
+          console.warn('RDPote : impossible de rétablir la présence :', presenceError);
+        } finally {
+          presenceResyncEnCours = false;
         }
       }
 
@@ -3900,6 +3916,25 @@ mettreAJourBoutons();
           window.RDPoteRemoteDocument.updated_at = data.updated_at;
           window.RDPoteRemoteDocument.contenu_html = data.contenu_html || '';
           sauvegarderMetaRemoteLocale(window.RDPoteRemoteDocument);
+          crdtEcartConsecutif = 0;
+        } else if (remoteTime > knownTime && contenuDiffere && data.contenu_html) {
+          // La base est plus récente que ce que l'on connaît et ce qu'on
+          // affiche en diffère : peut être transitoire (frappes locales en
+          // cours), mais si cela dure, le canal temps réel a manqué des
+          // mises à jour. On le rétablit (Yjs fusionne sans perte).
+          crdtEcartConsecutif++;
+          if (crdtEcartConsecutif >= CRDT_ECART_SEUIL &&
+              !crdtResyncEnCours &&
+              Date.now() - crdtDerniereResyncEcart > CRDT_ECART_COOLDOWN_MS) {
+            crdtEcartConsecutif = 0;
+            crdtDerniereResyncEcart = Date.now();
+            console.warn('RDPote : écart persistant avec la base, resynchronisation du canal CRDT.');
+            const reussi = await crdtResynchroniser();
+            resyncFait = true;
+            if (reussi) setSyncStatus('Resynchronisé (écart détecté)', '#2a7a2a');
+          }
+        } else {
+          crdtEcartConsecutif = 0;
         }
       } else if (remoteTime > knownTime && contenuDiffere &&
           data.updated_at !== remoteVersionPrompted) {
@@ -4384,6 +4419,13 @@ mettreAJourBoutons();
   let crdtForcerResync = false;
   let crdtDerniereVerif = Date.now();
   const CRDT_SEUIL_INACTIVITE_MS = 20000; // sondage normal = 3 s
+  // Filet de sécurité : si le document affiché reste différent d'une version
+  // plus récente de la base pendant plusieurs sondages d'affilée, c'est que
+  // des mises à jour CRDT ont été perdues sans que le canal ne signale rien.
+  let crdtEcartConsecutif = 0;
+  let crdtDerniereResyncEcart = 0;
+  const CRDT_ECART_SEUIL = 3;               // sondages consécutifs (~9 s)
+  const CRDT_ECART_COOLDOWN_MS = 60000;     // pas plus d'une resync/minute
   let crdtApplyingRemote = false;
   let crdtObserverAttached = false;
   let crdtEditorListenerAttached = false;
@@ -5470,6 +5512,18 @@ mettreAJourBoutons();
 
   const remoteCursors = new Map();
   let presenceChannel = null;
+  let presencePerduDepuis = 0;       // 0 = canal sain, sinon horodatage de la perte
+  let presenceResyncEnCours = false;
+  const PRESENCE_DELAI_GRACE_MS = 6000; // laisse supabase-js se reconnecter seul
+
+  function presenceCanalAReconnecter() {
+    if (!presenceChannel) return false;
+    const etat = presenceChannel.state;
+    const mauvais = presencePerduDepuis > 0 || etat === 'closed' || etat === 'errored';
+    if (!mauvais) return false;
+    if (!presencePerduDepuis) presencePerduDepuis = Date.now();
+    return Date.now() - presencePerduDepuis > PRESENCE_DELAI_GRACE_MS;
+  }
   let cursorSendTimer = null;
   let localCursorActive = false;
 
@@ -5855,11 +5909,14 @@ mettreAJourBoutons();
     if (!window.RDPoteSupabaseUser) return;
 
     if (presenceChannel) {
-      await supabaseClient.removeChannel(presenceChannel);
-      presenceChannel = null;
+      const ancienCanal = presenceChannel;
+      presenceChannel = null; // avant l'await : ignore le CLOSED de l'ancien canal
+      await supabaseClient.removeChannel(ancienCanal);
     }
 
-    presenceChannel = supabaseClient
+    presencePerduDepuis = 0;
+    let canalPresence = null;
+    canalPresence = presenceChannel = supabaseClient
       .channel(CURSOR_CHANNEL_NAME, {
         config: {
           presence: { key: LOCAL_SESSION_ID },
@@ -5914,7 +5971,18 @@ mettreAJourBoutons();
         dessinerCurseurDistant(payload.sessionId);
       })
       .subscribe(async function(state) {
+        if (canalPresence !== presenceChannel) return; // ancien canal retiré
+
+        if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') {
+          if (!presencePerduDepuis) {
+            presencePerduDepuis = Date.now();
+            console.warn('RDPote : canal de présence perdu (' + state + ').');
+          }
+          return;
+        }
+
         if (state === 'SUBSCRIBED') {
+          presencePerduDepuis = 0;
           await presenceChannel.track({
             sessionId: LOCAL_SESSION_ID,
             username: window.RDPoteSupabaseUser.username ||
@@ -6159,6 +6227,17 @@ mettreAJourBoutons();
       stopPresence();
       showResetPasswordScreen();
       return;
+    }
+
+    // Garde le jeton Realtime à jour (les canaux privés CRDT en dépendent).
+    if (session && session.access_token &&
+        (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')) {
+      try {
+        Promise.resolve(supabaseClient.realtime.setAuth(session.access_token))
+          .catch(function(e) { console.warn('RDPote : setAuth Realtime :', e); });
+      } catch (e) {
+        console.warn('RDPote : setAuth Realtime :', e);
+      }
     }
 
     if (!session && NEW_PASSWORD.style.display !== 'flex') {
