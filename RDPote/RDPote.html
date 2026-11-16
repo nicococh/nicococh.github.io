@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 4nov bis -->
+<!-- Version 16nov -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3808,6 +3808,16 @@ mettreAJourBoutons();
 
     supabaseConnectionCheckInProgress = true;
 
+    // Les timers d'un onglet/fenêtre en veille sont suspendus ou ralentis :
+    // un trou dans les sondages (normalement toutes les 3 s) signifie que la
+    // connexion Realtime a très probablement été coupée entre-temps.
+    const maintenantVerif = Date.now();
+    if (crdtReady && document.visibilityState === 'visible' &&
+        maintenantVerif - crdtDerniereVerif > CRDT_SEUIL_INACTIVITE_MS) {
+      crdtForcerResync = true;
+    }
+    crdtDerniereVerif = maintenantVerif;
+
     try {
       if (!navigator.onLine && !options.force) {
         const wasConnected = supabaseConnected;
@@ -3822,13 +3832,12 @@ mettreAJourBoutons();
       const wasConnected = supabaseConnected;
       setSupabaseConnectionState(true);
 
-      if (typeof crdtSubscribe === 'function' && crdtDoc && !crdtReady) {
-        try {
-          await crdtSubscribe();
-          subscribeToPresence();
-          setSyncStatus('Reconnecté à Supabase', '#2a7a2a');
-        } catch (crdtError) {
-          console.warn('RDPote : impossible de reconnecter le CRDT :', crdtError);
+      if (typeof crdtSubscribe === 'function' && crdtDoc && !crdtResyncEnCours &&
+          (crdtForcerResync || !crdtReady || !crdtCanalEstSain())) {
+        const etaitPret = crdtReady;
+        const reussi = await crdtResynchroniser();
+        if (reussi) {
+          setSyncStatus(etaitPret ? 'Resynchronisé' : 'Reconnecté à Supabase', '#2a7a2a');
         }
       }
 
@@ -3933,6 +3942,7 @@ mettreAJourBoutons();
     });
 
     window.addEventListener('online', function() {
+      crdtForcerResync = true;
       verifierConnexionSupabase({ force: true });
     });
 
@@ -4366,6 +4376,14 @@ mettreAJourBoutons();
   let crdtLastHtml = '';
   let crdtChannel = null;
   let crdtReady = false;
+  // Le canal Realtime peut mourir en silence (onglet/fenêtre en veille, réseau
+  // coupé, jeton expiré...) alors que crdtReady reste vrai : on suit donc
+  // séparément la santé du canal pour pouvoir le rétablir.
+  let crdtCanalPerdu = false;
+  let crdtResyncEnCours = false;
+  let crdtForcerResync = false;
+  let crdtDerniereVerif = Date.now();
+  const CRDT_SEUIL_INACTIVITE_MS = 20000; // sondage normal = 3 s
   let crdtApplyingRemote = false;
   let crdtObserverAttached = false;
   let crdtEditorListenerAttached = false;
@@ -4862,14 +4880,83 @@ mettreAJourBoutons();
       update: crdtBytesToBase64(update)
     };
 
+    // Attention : send() ne rejette pas en cas d'échec, il résout avec
+    // 'ok' | 'timed out' | 'error'.
     crdtChannel.send({
       type: 'broadcast',
       event: 'crdt-update',
       payload: payload
+    }).then(function(resultat) {
+      if (resultat && resultat !== 'ok') {
+        crdtMarquerCanalPerdu('envoi : ' + resultat);
+      }
     }).catch(function(error) {
       console.warn('Envoi CRDT impossible :', error);
-      setSyncStatus('Connexion CRDT interrompue…', '#a33');
+      crdtMarquerCanalPerdu('envoi impossible');
     });
+  }
+
+  // --- Santé du canal CRDT et resynchronisation ---------------------------
+  function crdtCanalEstSain() {
+    if (!crdtReady || crdtCanalPerdu || !crdtChannel) return false;
+    const etat = crdtChannel.state;
+    return !(etat === 'closed' || etat === 'errored' || etat === 'leaving');
+  }
+
+  function crdtMarquerCanalPerdu(raison) {
+    if (crdtCanalPerdu) return;
+    crdtCanalPerdu = true;
+    console.warn('RDPote : canal CRDT perdu (' + raison + ').');
+    setSyncStatus('Connexion temps réel perdue — reconnexion…', '#a33');
+    // La reconnexion est tentée par le sondage (verifierConnexionSupabase).
+  }
+
+  // Redemande l'état aux pairs et republie le nôtre (Yjs fusionne sans perte).
+  function crdtEchangerEtat() {
+    if (!crdtChannel || !crdtDoc) return;
+    crdtChannel.send({
+      type: 'broadcast',
+      event: 'crdt-state-request',
+      payload: { doc: CRDT_DOC_NAME, sender: window.RDPoteSessionId || '' }
+    }).catch(function() {});
+    crdtSendFullState();
+  }
+
+  // Appelé quand le canal change d'état APRÈS son abonnement initial
+  // (supabase-js peut aussi se reconnecter tout seul).
+  function crdtGererEtatCanalTardif(canal, status) {
+    if (canal !== crdtChannel) return; // ancien canal retiré volontairement
+    if (status === 'SUBSCRIBED') {
+      if (crdtCanalPerdu) {
+        crdtCanalPerdu = false;
+        crdtEchangerEtat(); // des messages ont pu être manqués
+        setSyncStatus('Reconnecté, resynchronisation…', '#2a7a2a');
+      }
+      return;
+    }
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      crdtMarquerCanalPerdu(status);
+    }
+  }
+
+  async function crdtResynchroniser() {
+    if (crdtResyncEnCours || !crdtDoc) return false;
+    crdtResyncEnCours = true;
+    try {
+      // resync : on garde crdtReady à vrai pour que les frappes faites
+      // pendant la reconnexion continuent d'alimenter le Y.Doc local.
+      await crdtSubscribe({ resync: crdtReady });
+      crdtCanalPerdu = false;
+      crdtForcerResync = false;
+      try { subscribeToPresence(); } catch (e) {}
+      return true;
+    } catch (error) {
+      crdtCanalPerdu = true;
+      console.warn('RDPote : impossible de rétablir le canal CRDT :', error);
+      return false;
+    } finally {
+      crdtResyncEnCours = false;
+    }
   }
 
   function crdtSendFullState() {
@@ -4985,17 +5072,19 @@ mettreAJourBoutons();
     });
   }
 
-  async function crdtSubscribe() {
+  async function crdtSubscribe(options) {
+    options = options || {};
     if (!window.RDPoteSupabaseUser) return false;
 
     if (crdtChannel) {
+      const ancienCanal = crdtChannel;
+      crdtChannel = null; // avant l'await : ignore le CLOSED de l'ancien canal
       try {
-        await supabaseClient.removeChannel(crdtChannel);
+        await supabaseClient.removeChannel(ancienCanal);
       } catch (e) {}
-      crdtChannel = null;
     }
 
-    crdtReady = false;
+    if (!options.resync) crdtReady = false;
     crdtRemoteStateReceived = false;
     crdtRemoteStateResolver = null;
     crdtPeersConcurrentsVus = new Set();
@@ -5126,6 +5215,7 @@ mettreAJourBoutons();
         }
       });
 
+    const canalCourant = crdtChannel;
     const subscribed = await new Promise(function(resolve, reject) {
       let finished = false;
 
@@ -5136,6 +5226,13 @@ mettreAJourBoutons();
       }, 10000);
 
       crdtChannel.subscribe(function(status) {
+        if (finished) {
+          // Changement d'état après l'abonnement initial : auparavant
+          // ignoré, d'où un canal mort sans que l'éditeur le sache.
+          crdtGererEtatCanalTardif(canalCourant, status);
+          return;
+        }
+
         if (status === 'SUBSCRIBED') {
           clearTimeout(timer);
           if (finished) return;
@@ -5325,6 +5422,8 @@ mettreAJourBoutons();
     crdtLocalChangeTimer = null;
 
     crdtReady = false;
+    crdtCanalPerdu = false;
+    crdtForcerResync = false;
     crdtHandshakeEnCours = false;
 
     if (crdtChannel) {
