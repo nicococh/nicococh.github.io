@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 16 nov V2 -->
+<!-- Version 17 nov -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -232,7 +232,8 @@ Saisi
   #undoBtn {
     margin-left: auto;
   }
-  #helpBtn {
+  #helpBtn,
+  #settingsBtn {
     width: 34px;
     height: 34px;
     padding: 0 !important;
@@ -271,6 +272,132 @@ Saisi
   }
   #helpBox p:last-child {
     margin-bottom: 0;
+  }
+  #settingsModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100001;
+  }
+  #settingsBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px 24px;
+    width: 92%;
+    max-width: 820px;
+    height: 80vh;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+  #settingsBox h2 {
+    margin: 0 0 6px 0;
+    font-size: 18px;
+    color: #003087;
+  }
+  #settingsBox h3 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    color: #003087;
+  }
+  #settingsIntro {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.4;
+  }
+  #settingsClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+  #settingsClose:hover { color: #a33; }
+  #snippetsHead,
+  .snippet-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 34px;
+    gap: 8px;
+    align-items: center;
+  }
+  #snippetsHead {
+    font-size: 13px;
+    font-weight: 700;
+    color: #333;
+    padding: 0 0 6px 0;
+  }
+  #snippetsList {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+    padding-top: 8px;
+  }
+  .snippet-row { margin-bottom: 6px; }
+  .snippet-row input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: inherit;
+  }
+  .snippet-row input:focus {
+    outline: none;
+    border-color: #003087;
+  }
+  .snippet-row .snippet-del {
+    width: 34px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .snippet-row .snippet-del:hover {
+    border-color: #a33;
+    background: #fdeeee;
+  }
+  #settingsActions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  #settingsActions .spacer { flex: 1; }
+  #settingsActions button {
+    padding: 8px 14px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+  }
+  #settingsActions button:hover { background: #f2f4f8; }
+  #settingsActions #settingsSave {
+    background: #003087;
+    border-color: #003087;
+    color: #fff;
+  }
+  #settingsActions #settingsSave:hover { background: #00266b; }
+  #settingsMsg {
+    font-size: 13px;
+    color: #2a7a2a;
+    min-height: 1em;
   }
   #helpClose {
     position: absolute;
@@ -1121,6 +1248,7 @@ Saisi
  <button id="zoomOutBtn" type="button" title="Réduire le texte">🔍➖</button>
   <button id="historyBtn" type="button" title="Voir les 100 dernières sauvegardes locales">🕑</button>
   <button id="helpBtn" type="button" title="Aide">❓</button>
+  <button id="settingsBtn" type="button" title="Paramètres (saisie automatique commune)">⚙️</button>
   </div>
 </div>
 
@@ -1219,9 +1347,28 @@ Saisi
     <h2>Aide</h2>
     <p><b>Si tu as perdu du texte</b> (par exemple lorsqu'un autre utilisateur s'est connecté), pas de panique, tu peux le récupérer dans le <b>menu Historique</b> 🕑</p>
     <p><b>Pour supprimer les sauts de ligne,</b> colle du texte, sélectionne des paragraphes (pas forcément en entier) puis appuie sur <kbd>Ctrl</kbd> + <kbd>M</kbd>. J'enlève aussi les tirets en fin de ligne (vérifie que c'est OK).</p>
-    <p><b>Saisie automatique :</b> si tu saisis "Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>.</p>
+    <p><b>Saisie automatique :</b> si tu saisis "Le M" ou "lemo", je te propose "(Le Monde, px)", à valider par la touche <kbd>Entrée</kbd>. Tu peux modifier ces termes dans le menu <b>Paramètres</b> ⚙️.</p>
    <p>LGP : Le Grand Parisien. LEE : Les Échos entreprises et collectivités. lmù* : Le Monde santé-médecine</p>
    <p>RDPote version 19/10/2026</p>
+  </div>
+</div>
+
+<div id="settingsModal">
+  <div id="settingsBox">
+    <button id="settingsClose" type="button" title="Fermer sans enregistrer">✕</button>
+    <h2>Paramètres</h2>
+    <h3>Saisie automatique</h3>
+    <p id="settingsIntro">Colonne de gauche : le texte que tu tapes pour déclencher la proposition (casse respectée). Colonne de droite : le texte collé quand tu valides avec <kbd>Entrée</kbd>. <b>Cette liste est commune à tous les utilisateurs</b> : toute modification les concerne tous.</p>
+    <div id="snippetsHead"><span>Texte déclencheur</span><span>Texte inséré</span><span></span></div>
+    <div id="snippetsList"></div>
+    <div id="settingsActions">
+      <button id="snippetAdd" type="button">➕ Ajouter une ligne</button>
+      <button id="snippetReset" type="button">Rétablir la liste d'origine</button>
+      <span id="settingsMsg"></span>
+      <span class="spacer"></span>
+      <button id="settingsCancel" type="button">Annuler</button>
+      <button id="settingsSave" type="button">Enregistrer</button>
+    </div>
   </div>
 </div>
 
@@ -3149,7 +3296,7 @@ dictionnaireSearch.addEventListener('keydown', function(e) {
 // du curseur. Appuyer sur Entrée remplace le déclencheur par l'expansion.
 // Toute autre touche, ou un déplacement du curseur, referme la bulle.
 
-const SNIPPETS = [
+const SNIPPETS_DEFAUT = [
   { trigger: "(Le M",   expansion: "(Le Monde, px)" },
   { trigger: "lemo",   expansion: "(Le Monde, px)" },
   { trigger: "lmù*",   expansion: "(Le Monde science et médecine, px)" },
@@ -3179,7 +3326,129 @@ const SNIPPETS = [
 ];
 // Les déclencheurs les plus longs sont testés en premier (utile si l'un est
 // le préfixe d'un autre, ex. "L'Opi" ne doit pas être masqué par un "L'O" plus court).
-SNIPPETS.sort((a, b) => b.trigger.length - a.trigger.length);
+
+// Liste active : celle partagée par tous les utilisateurs (table Supabase
+// "rdpote_snippets", une seule ligne id = 1). Une copie est gardée dans le
+// localStorage pour démarrer vite et fonctionner hors ligne ; à défaut de
+// tout, on utilise la liste d'origine ci-dessus.
+const SNIPPETS_CACHE_KEY = 'rdpote-snippets-cache';
+const SNIPPETS_TABLE = 'rdpote_snippets';
+let SNIPPETS = [];
+let snippetsAffichage = [];      // même liste, dans l'ordre choisi par les utilisateurs
+let snippetsVersion = null;      // updated_at de la ligne distante (null = ligne absente)
+let snippetsDernierChargement = 0;
+
+function trierSnippets(liste) {
+  return liste.slice().sort((a, b) => b.trigger.length - a.trigger.length);
+}
+
+function nettoyerSnippets(liste) {
+  return liste
+    .filter(function(x) {
+      return x && typeof x.trigger === 'string' && typeof x.expansion === 'string' &&
+             x.trigger.trim() !== '' && x.expansion !== '';
+    })
+    .map(function(x) { return { trigger: x.trigger, expansion: x.expansion }; });
+}
+
+function appliquerSnippets(liste) {
+  snippetsAffichage = nettoyerSnippets(liste);
+  SNIPPETS = trierSnippets(snippetsAffichage);
+}
+
+function chargerSnippetsDepuisCache() {
+  try {
+    const brut = localStorage.getItem(SNIPPETS_CACHE_KEY);
+    if (brut !== null) {
+      const liste = JSON.parse(brut);
+      if (Array.isArray(liste)) { appliquerSnippets(liste); return; }
+    }
+  } catch (e) {}
+  appliquerSnippets(SNIPPETS_DEFAUT);
+}
+
+function mettreEnCacheSnippets() {
+  try {
+    localStorage.setItem(SNIPPETS_CACHE_KEY, JSON.stringify(snippetsAffichage));
+  } catch (e) {}
+}
+
+// Lit la liste commune dans Supabase. Retourne true si la lecture a réussi.
+async function chargerSnippetsDistants() {
+  if (typeof supabaseClient === 'undefined' || !window.RDPoteSupabaseUser) return false;
+  try {
+    const { data, error } = await supabaseClient
+      .from(SNIPPETS_TABLE)
+      .select('data, updated_at')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) throw error;
+    if (data && Array.isArray(data.data)) {
+      appliquerSnippets(data.data);
+      snippetsVersion = data.updated_at;
+    } else {
+      // Aucune ligne encore : tout le monde utilise la liste d'origine.
+      appliquerSnippets(SNIPPETS_DEFAUT);
+      snippetsVersion = null;
+    }
+    mettreEnCacheSnippets();
+    snippetsDernierChargement = Date.now();
+    return true;
+  } catch (e) {
+    console.warn('Impossible de charger la liste de saisie automatique :', e);
+    return false;
+  }
+}
+
+// Écrit la liste commune. Refuse d'écraser silencieusement les modifications
+// d'un autre utilisateur : si la ligne a changé depuis la lecture, retourne
+// { conflit: true }.
+async function enregistrerSnippetsDistants(liste) {
+  const propre = nettoyerSnippets(liste);
+  const maintenant = new Date().toISOString();
+  const auteur = window.RDPoteSupabaseUser ? window.RDPoteSupabaseUser.id : null;
+  try {
+    if (snippetsVersion === null) {
+      const { error } = await supabaseClient
+        .from(SNIPPETS_TABLE)
+        .insert({ id: 1, data: propre, updated_at: maintenant, updated_by: auteur });
+      if (error) {
+        if (error.code === '23505') return { conflit: true };
+        throw error;
+      }
+    } else {
+      const { data, error } = await supabaseClient
+        .from(SNIPPETS_TABLE)
+        .update({ data: propre, updated_at: maintenant, updated_by: auteur })
+        .eq('id', 1)
+        .eq('updated_at', snippetsVersion)
+        .select('updated_at');
+      if (error) throw error;
+      if (!data || data.length === 0) return { conflit: true };
+    }
+    appliquerSnippets(propre);
+    snippetsVersion = maintenant;
+    mettreEnCacheSnippets();
+    return { ok: true };
+  } catch (e) {
+    console.error('Enregistrement de la liste de saisie automatique impossible :', e);
+    return { erreur: (e && e.message) ? e.message : 'erreur inconnue' };
+  }
+}
+
+// Appelée par le code de connexion une fois l'utilisateur identifié.
+window.RDPoteChargerSnippets = chargerSnippetsDistants;
+
+// Rafraîchit la liste quand on revient sur l'onglet (au plus toutes les 2 min).
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible' &&
+      Date.now() - snippetsDernierChargement > 2 * 60 * 1000) {
+    chargerSnippetsDistants();
+  }
+});
+
+try { localStorage.removeItem('rdpote-snippets'); } catch (e) {}
+chargerSnippetsDepuisCache();
 
 let activeSnippet = null; // { trigger, expansion, range }
 
@@ -3303,6 +3572,155 @@ function accepterSnippet() {
   mettreAJourEtatFormat();
   sauvegarder();
 }
+
+// --- Fenêtre Paramètres : gestion des termes de saisie automatique ---
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const settingsClose = document.getElementById('settingsClose');
+const settingsCancel = document.getElementById('settingsCancel');
+const settingsSave = document.getElementById('settingsSave');
+const snippetsList = document.getElementById('snippetsList');
+const snippetAdd = document.getElementById('snippetAdd');
+const snippetReset = document.getElementById('snippetReset');
+const settingsMsg = document.getElementById('settingsMsg');
+
+function ajouterLigneSnippet(trigger, expansion, focus) {
+  const row = document.createElement('div');
+  row.className = 'snippet-row';
+
+  const inTrigger = document.createElement('input');
+  inTrigger.type = 'text';
+  inTrigger.className = 'snippet-trigger';
+  inTrigger.value = trigger || '';
+  inTrigger.placeholder = 'ex. : lemo';
+  inTrigger.autocomplete = 'off';
+  inTrigger.spellcheck = false;
+
+  const inExpansion = document.createElement('input');
+  inExpansion.type = 'text';
+  inExpansion.className = 'snippet-expansion';
+  inExpansion.value = expansion || '';
+  inExpansion.placeholder = 'ex. : (Le Monde, px)';
+  inExpansion.autocomplete = 'off';
+  inExpansion.spellcheck = false;
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'snippet-del';
+  del.title = 'Supprimer cette ligne';
+  del.textContent = '🗑';
+  del.addEventListener('click', function() { row.remove(); });
+
+  row.appendChild(inTrigger);
+  row.appendChild(inExpansion);
+  row.appendChild(del);
+  snippetsList.appendChild(row);
+
+  if (focus) {
+    snippetsList.scrollTop = snippetsList.scrollHeight;
+    inTrigger.focus();
+  }
+}
+
+function remplirListeSnippets(liste) {
+  snippetsList.innerHTML = '';
+  liste.forEach(function(x) { ajouterLigneSnippet(x.trigger, x.expansion, false); });
+}
+
+function lireListeSnippets() {
+  const lignes = snippetsList.querySelectorAll('.snippet-row');
+  const liste = [];
+  lignes.forEach(function(row) {
+    liste.push({
+      trigger: row.querySelector('.snippet-trigger').value,
+      expansion: row.querySelector('.snippet-expansion').value
+    });
+  });
+  return liste;
+}
+
+async function ouvrirParametres() {
+  masquerBulle();
+  settingsMsg.style.color = '#555';
+  settingsMsg.textContent = 'Chargement de la liste commune…';
+  settingsSave.disabled = true;
+  snippetAdd.disabled = true;
+  snippetReset.disabled = true;
+  remplirListeSnippets(snippetsAffichage);   // affichage immédiat de la copie locale
+  settingsModal.style.display = 'flex';
+
+  const ok = await chargerSnippetsDistants();
+  if (settingsModal.style.display === 'none') return;   // fermée entre-temps
+
+  if (ok) {
+    remplirListeSnippets(snippetsAffichage);
+    settingsMsg.textContent = '';
+    settingsSave.disabled = false;
+    snippetAdd.disabled = false;
+    snippetReset.disabled = false;
+  } else {
+    settingsMsg.style.color = '#a33';
+    settingsMsg.textContent = 'Liste commune inaccessible (hors ligne ?) : modification impossible pour le moment.';
+  }
+}
+
+function fermerParametres() {
+  settingsModal.style.display = 'none';
+  editor.focus();
+}
+
+settingsBtn.addEventListener('click', ouvrirParametres);
+settingsClose.addEventListener('click', fermerParametres);
+settingsCancel.addEventListener('click', fermerParametres);
+settingsModal.addEventListener('click', function(e) {
+  if (e.target === settingsModal) fermerParametres();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && settingsModal.style.display !== 'none') fermerParametres();
+});
+snippetAdd.addEventListener('click', function() {
+  ajouterLigneSnippet('', '', true);
+});
+snippetReset.addEventListener('click', function() {
+  if (confirm("Remplacer ta liste actuelle par la liste d'origine ? (Rien n'est enregistré tant que tu ne cliques pas sur Enregistrer.)")) {
+    remplirListeSnippets(SNIPPETS_DEFAUT);
+  }
+});
+settingsSave.addEventListener('click', async function() {
+  const brute = lireListeSnippets();
+  settingsSave.disabled = true;
+  settingsMsg.style.color = '#555';
+  settingsMsg.textContent = 'Enregistrement…';
+
+  let res = await enregistrerSnippetsDistants(brute);
+
+  if (res.conflit) {
+    const ecraser = confirm(
+      "Quelqu'un d'autre a modifié la liste commune pendant que tu la modifiais.\n\n" +
+      "OK : écraser ses modifications avec les tiennes.\n" +
+      "Annuler : garder ta saisie à l'écran sans enregistrer."
+    );
+    if (ecraser && await chargerSnippetsDistants()) {
+      res = await enregistrerSnippetsDistants(brute);
+    } else {
+      settingsSave.disabled = false;
+      settingsMsg.style.color = '#a33';
+      settingsMsg.textContent = 'Non enregistré : la liste a été modifiée par un autre utilisateur.';
+      return;
+    }
+  }
+
+  settingsSave.disabled = false;
+  if (!res.ok) {
+    settingsMsg.style.color = '#a33';
+    settingsMsg.textContent = res.conflit
+      ? 'Non enregistré : conflit persistant, réessaie.'
+      : "Échec de l'enregistrement : " + (res.erreur || 'erreur inconnue');
+    return;
+  }
+  fermerParametres();
+  status.textContent = 'Saisie automatique mise à jour pour tous (' + SNIPPETS.length + ' entrées).';
+});
 
 // Calcule la position (en pixels, relative au textarea) du curseur, en
 // répliquant le rendu du textarea dans un <div> invisible de même style.
@@ -4258,6 +4676,8 @@ mettreAJourBoutons();
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
 
+      if (window.RDPoteChargerSnippets) window.RDPoteChargerSnippets();
+
       hideLogin();
       await loadRemoteDocument();
       await initCRDT();
@@ -4345,6 +4765,8 @@ mettreAJourBoutons();
               await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
               window.RDPoteSupabaseUser.email ||
               'Utilisateur';
+
+      if (window.RDPoteChargerSnippets) window.RDPoteChargerSnippets();
           }
           await loadRemoteDocument();
           await initCRDT();
@@ -6179,6 +6601,8 @@ mettreAJourBoutons();
         await chargerProfilUtilisateur(window.RDPoteSupabaseUser) ||
         window.RDPoteSupabaseUser.email ||
         'Utilisateur';
+
+      if (window.RDPoteChargerSnippets) window.RDPoteChargerSnippets();
 
       // On vient de récupérer la dernière version en ligne (déposée par
       // n'importe quel utilisateur) via loadRemoteDocument() : c'est
