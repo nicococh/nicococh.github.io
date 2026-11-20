@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 20nov corrigée rub vides -->
+<!-- Version 20nov correc input-->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2051,6 +2051,10 @@ function annuler() {
   const precedent = undoStack.pop();
   editor.innerHTML = precedent.html || echapperTextePourHtml(precedent.texte);
   editor.setSelectionRange(precedent.start, precedent.end);
+  // Modification directe du DOM : on déclenche input pour que Yjs/CRDT la
+  // diffuse tout de suite aux autres utilisateurs (comme une frappe).
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+
   terminerGroupe();
   mettreAJourBoutons();
   masquerBulle();
@@ -2071,6 +2075,10 @@ function retablir() {
   const suivant = redoStack.pop();
   editor.innerHTML = suivant.html || echapperTextePourHtml(suivant.texte);
   editor.setSelectionRange(suivant.start, suivant.end);
+  // Modification directe du DOM : on déclenche input pour que Yjs/CRDT la
+  // diffuse tout de suite aux autres utilisateurs (comme une frappe).
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+
   terminerGroupe();
   mettreAJourBoutons();
   masquerBulle();
@@ -2374,6 +2382,10 @@ function corrigerTypo() {
   // sans dépasser la nouvelle longueur du texte.
   const nouvellePosition = Math.min(end, texte.length);
   editor.setSelectionRange(nouvellePosition, nouvellePosition);
+
+  // Modification directe du DOM : on déclenche input pour que Yjs/CRDT la
+  // diffuse tout de suite aux autres utilisateurs (comme une frappe).
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
 
   masquerBulle();
   status.textContent = "Typo corrigée sur l'ensemble du document.";
