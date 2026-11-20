@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 20nov -->
+<!-- Version 20nov corrigée rub vides -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2521,6 +2521,11 @@ ET AUSSI...
   editor.setSelectionRange(plan.replace(/\n$/, '').length, plan.replace(/\n$/, '').length);
 
   appliquerCouleursRubriques();
+
+  // IMPORTANT : on a modifié le DOM directement (innerHTML + couleurs).
+  // Il faut déclencher input pour que Yjs/CRDT enregistre la modification
+  // et la diffuse aux autres utilisateurs, exactement comme une frappe.
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
 
   masquerBulle();
   status.textContent = "Rubriques vides insérées.";
