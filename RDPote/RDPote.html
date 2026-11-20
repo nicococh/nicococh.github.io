@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 18 nov insertion date -->
+<!-- Version 20nov -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -2455,17 +2455,29 @@ function appliquerCouleursRubriques() {
   }
 }
 
-// Date de parution affichée dans le 2e paragraphe du plan : le lendemain,
-// ou le lundi suivant si l'on est vendredi, samedi ou dimanche. Format : "19 novembre 2026"
-// (avec "1er" pour le premier jour du mois).
-function dateDeParution(aujourdhui) {
-  const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
-                'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+// Jour de parution : le lendemain, ou le lundi suivant si l'on est vendredi,
+// samedi ou dimanche.
+function jourDeParution(aujourdhui) {
   const d = new Date((aujourdhui || new Date()).getTime());
   d.setHours(12, 0, 0, 0);                           // évite les soucis d'heure d'été
   // vendredi (5) -> +3 j, samedi (6) -> +2 j, dimanche (0) -> +1 j : toujours le lundi
   const decalage = { 5: 3, 6: 2, 0: 1 }[d.getDay()] || 1;
   d.setDate(d.getDate() + decalage);
+  return d;
+}
+
+// Nom du jour de parution, pour le titre : "mardi", "mercredi", etc.
+function nomJourDeParution(aujourdhui) {
+  const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  return JOURS[jourDeParution(aujourdhui).getDay()];
+}
+
+// Date de parution pour le 2e paragraphe. Format : "19 novembre 2026"
+// (avec "1er" pour le premier jour du mois).
+function dateDeParution(aujourdhui) {
+  const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+                'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  const d = jourDeParution(aujourdhui);
   const jour = d.getDate() === 1 ? '1er' : String(d.getDate());
   return jour + ' ' + MOIS[d.getMonth()] + ' ' + d.getFullYear();
 }
@@ -2477,7 +2489,7 @@ function insererPlan() {
 
   if (!confirmation) return;
 
-  const plan = `La santé dans la presse xxx
+  const plan = `La santé dans la presse ${nomJourDeParution()}
 PARIS, ${dateDeParution()} (APMnews) - 
 POLITIQUE DE SANTÉ
 - xxx
