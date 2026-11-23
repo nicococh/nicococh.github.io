@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 23nov crayon bougé -->
+<!-- Version 23nov casse Dico-->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -3720,7 +3720,9 @@ function dicoEditLancerModification(ligne, expression) {
   async function valider() {
     const nouveau = champ.value.trim();
     if (nouveau === '' ) { annuler(); return; }
-    if (normaliserRecherche(nouveau) === normaliserRecherche(expression)) { annuler(); return; }
+    // Annule seulement si le texte n'a strictement pas changé,
+    // pour qu'un simple changement de casse puisse être enregistré.
+    if (nouveau === expression) { annuler(); return; }
     const doublon = dictionnaireExpressions.some(function(x) {
       return x !== expression && normaliserRecherche(x) === normaliserRecherche(nouveau);
     });
@@ -3835,6 +3837,7 @@ function masquerModalDicoEdit() {
 }
 
 dicoEditBtn.addEventListener('click', async function() {
+  masquerModalDictionnaire();
   afficherModalDicoEdit();
   dictionnaireEstEditable = false;
   dicoEditActualiser();
@@ -3847,7 +3850,9 @@ dicoEditBtn.addEventListener('click', async function() {
 });
 dicoEditClose.addEventListener('click', function() {
   masquerModalDicoEdit();
-  editor.focus();
+  // Retour à la fenêtre d'insertion du dictionnaire.
+  memoriserSelectionDictionnaire();
+  afficherModalDictionnaire();
 });
 dicoEditAddBtn.addEventListener('click', dicoEditAjouter);
 dicoEditNew.addEventListener('keydown', function(e) {
