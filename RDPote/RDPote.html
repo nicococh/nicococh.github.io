@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 23 nov dico en BDD -->
+<!-- Version 23nov crayon bougé -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1018,6 +1018,24 @@ Saisi
     color: #a33;
   }
 
+  /* Bouton crayon d'édition du dictionnaire : à gauche du ✕, dans l'en-tête */
+  .dictionnaire-edit-corner {
+    position: absolute;
+    top: 10px;
+    right: 40px;
+    background: none;
+    border: none;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .dictionnaire-edit-corner:hover {
+    background: #f0f0f0;
+    border-radius: 4px;
+  }
+
   #dictionnaireSearch {
     width: 100%;
     box-sizing: border-box;
@@ -1395,7 +1413,6 @@ Saisi
   </div>
    <button id="supprBtn" type="button" title="Supprimer les sauts de ligne. Ctrl+M">💥↵</button>
   <button id="dictionnaireBtn" type="button" title="Dico des sigles">📖</button>
-  <button id="dictionnaireEditBtn" type="button" title="Éditer les expressions du dictionnaire (ajouter, modifier, supprimer)">✏️</button>
   <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
   <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
   <button id="copyBtn" type="button" title="Copier tout. Ctrl+A puis Ctrl+C">⿻</button>
@@ -1533,6 +1550,7 @@ Saisi
 <div id="dictionnaireModal">
   <div id="dictionnaireBox">
     <button id="dictionnaireClose" type="button" title="Fermer sans insérer">✕</button>
+    <button id="dictionnaireEditBtn" type="button" class="dictionnaire-edit-corner" title="Éditer les expressions du dictionnaire (ajouter, modifier, supprimer)">✏️</button>
     <h2>Insérer une expression du dictionnaire</h2>
     <input id="dictionnaireSearch" type="text" placeholder="Tapez pour rechercher (ex. : « ARS », « hôpital »)…" autocomplete="off">
     <div id="dictionnaireCount"></div>
