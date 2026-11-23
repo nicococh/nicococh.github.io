@@ -1,6 +1,6 @@
 <!DOCTYPE html> 
 
-<!-- Version 20nov correc input-->
+<!-- Version 23 nov dico en BDD -->
 <html lang="fr">
 <head>
 <meta name="robots" content="noindex, nofollow" charset="utf-8"/>
@@ -1058,6 +1058,163 @@ Saisi
     font-size: 14px;
     color: #222;
   }
+
+  /* --- Modale d'édition du dictionnaire (bouton crayon) --- */
+  #dicoEditModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100001;
+  }
+
+  #dicoEditBox {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 560px;
+    height: 80vh;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #dicoEditBox h2 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #003087;
+  }
+
+  #dicoEditClose {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 4px;
+  }
+
+  #dicoEditClose:hover {
+    color: #a33;
+  }
+
+  .dico-edit-status {
+    font-size: 12px;
+    color: #888;
+    min-height: 16px;
+    margin-bottom: 8px;
+  }
+
+  .dico-edit-status.erreur {
+    color: #a33;
+  }
+
+  .dico-edit-addrow {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .dico-edit-addrow input {
+    flex: 1;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+
+  .dico-edit-addrow button {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f5f5f5;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .dico-edit-addrow button:hover {
+    background: #e8e8e8;
+  }
+
+  #dicoEditSearch {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+
+  #dicoEditCount {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 8px;
+  }
+
+  #dicoEditResults {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+  }
+
+  #dicoEditResults p {
+    font-size: 13px;
+    color: #888;
+    padding: 10px 2px;
+  }
+
+  .dico-edit-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 6px 4px;
+  }
+
+  .dico-edit-item .dico-edit-texte {
+    flex: 1;
+    font-size: 14px;
+    color: #222;
+    overflow-wrap: anywhere;
+  }
+
+  .dico-edit-item input {
+    flex: 1;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-size: 14px;
+    border: 1px solid #9bbbe8;
+    border-radius: 4px;
+  }
+
+  .dico-edit-item button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    padding: 4px 6px;
+    color: #555;
+  }
+
+  .dico-edit-item button:hover {
+    color: #a33;
+  }
+
+  .dico-edit-item button.dico-ok:hover {
+    color: #176B3A;
+  }
   .dict-item:hover {
     background: #e6ecf9;
   }
@@ -1238,6 +1395,7 @@ Saisi
   </div>
    <button id="supprBtn" type="button" title="Supprimer les sauts de ligne. Ctrl+M">💥↵</button>
   <button id="dictionnaireBtn" type="button" title="Dico des sigles">📖</button>
+  <button id="dictionnaireEditBtn" type="button" title="Éditer les expressions du dictionnaire (ajouter, modifier, supprimer)">✏️</button>
   <button id="specialCharBtn" type="button" title="Insérer un caractère spécial">Ω</button>
   <button id="typoBtn" type="button" title="Corriger la typo">✨</button>
   <button id="copyBtn" type="button" title="Copier tout. Ctrl+A puis Ctrl+C">⿻</button>
@@ -1383,6 +1541,21 @@ Saisi
 </div>
 
 
+<div id="dicoEditModal">
+  <div id="dicoEditBox">
+    <button id="dicoEditClose" type="button" title="Fermer">✕</button>
+    <h2>Éditer les expressions du dictionnaire</h2>
+    <div class="dico-edit-status" id="dicoEditStatus"></div>
+    <div class="dico-edit-addrow">
+      <input id="dicoEditNew" type="text" placeholder="Nouvelle expression à ajouter…" autocomplete="off">
+      <button id="dicoEditAddBtn" type="button" title="Ajouter">➕ Ajouter</button>
+    </div>
+    <input id="dicoEditSearch" type="text" placeholder="Rechercher une expression…" autocomplete="off">
+    <div id="dicoEditCount"></div>
+    <div id="dicoEditResults"></div>
+  </div>
+</div>
+
 <script>
   // Yjs 13.x fournit un bundle ESM pour le navigateur.
   // On l'importe comme module puis on expose l'API sous window.Y pour
@@ -1403,7 +1576,6 @@ const SUPABASE_URL = 'https://cvknbeisuecvuihuolft.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_qXkHPd-8vm-cEbdVcNBtDw_ZIqaoLZc';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
-<script src="dictionnaire-medical.js"></script>
 <script>
 const editor = document.getElementById('editor');
 const status = document.getElementById('status');
@@ -2847,6 +3019,10 @@ document.addEventListener('keydown', function(e) {
     masquerModalDictionnaire();
     editor.focus();
   }
+  if (dicoEditModal && dicoEditModal.style.display !== 'none') {
+    masquerModalDicoEdit();
+    editor.focus();
+  }
 });
 
 // --- Historique des sauvegardes (un instantané toutes les 10 sec, les 200 dernières) ---
@@ -3191,9 +3367,8 @@ historyTabOnline.addEventListener('click', function() { afficherOngletHistorique
 chargerHistorique();
 
 // --- Dictionnaire d'expressions (recherche + insertion au curseur) ---
-// La liste des expressions vit dans le fichier séparé dictionnaire-medical.js
-// (variable globale DICTIONNAIRE_EXPRESSIONS) : pour l'enrichir, il suffit de
-// modifier ce fichier, aucune autre modification n'est nécessaire ici.
+// Les expressions sont stockées dans Supabase (table dictionnaire_expressions),
+// gérées via le bouton crayon ✏️ de la barre d'outils.
 
 const dictionnaireModal = document.getElementById('dictionnaireModal');
 const dictionnaireBtn = document.getElementById('dictionnaireBtn');
@@ -3203,6 +3378,94 @@ const dictionnaireCount = document.getElementById('dictionnaireCount');
 const dictionnaireResults = document.getElementById('dictionnaireResults');
 
 const DICTIONNAIRE_MAX_AFFICHES = 200; // évite de peindre des milliers de lignes inutilement
+
+// --- Liste des expressions, stockée exclusivement dans Supabase ---
+// Table "dictionnaire_expressions" dans la base Supabase (voir le SQL de
+// création et le script d'import initial). Plus aucun fichier JS externe
+// n'est nécessaire : la liste est chargée depuis Supabase à l'ouverture de
+// la page et conservée en cache local pour l'usage hors ligne.
+const DICTIONNAIRE_TABLE = 'dictionnaire_expressions';
+const DICTIONNAIRE_CACHE_KEY = 'rdpote-dictionnaire-cache';
+
+let dictionnaireExpressions = [];
+
+function trierExpressionsDictionnaire(liste) {
+  return liste
+    .filter(function(e) { return typeof e === 'string' && e.trim() !== ''; })
+    .map(function(e) { return e.trim(); })
+    // Dédoublonne en ignorant la casse et les accents.
+    .filter(function(e, i, t) {
+      return t.findIndex(function(x) {
+        return normaliserRecherche(x) === normaliserRecherche(e);
+      }) === i;
+    })
+    .sort(function(a, b) {
+      return a.localeCompare(b, 'fr', { sensitivity: 'base' });
+    });
+}
+
+function appliquerExpressionsDictionnaire(liste) {
+  dictionnaireExpressions = trierExpressionsDictionnaire(liste);
+  try {
+    localStorage.setItem(DICTIONNAIRE_CACHE_KEY, JSON.stringify(dictionnaireExpressions));
+  } catch (e) {}
+}
+
+(function chargerDictionnaireDepuisCache() {
+  try {
+    const brut = localStorage.getItem(DICTIONNAIRE_CACHE_KEY);
+    if (brut !== null) {
+      const liste = JSON.parse(brut);
+      if (Array.isArray(liste) && liste.length > 0) {
+        dictionnaireExpressions = liste;
+      }
+    }
+  } catch (e) {}
+})();
+
+async function dictionnaireSessionActive() {
+  if (typeof supabaseClient === 'undefined' || !supabaseClient) return false;
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    return !!(data && data.session);
+  } catch (e) {
+    return false;
+  }
+}
+
+// Charge les expressions depuis Supabase. Retourne true si la lecture a réussi.
+async function chargerDictionnaireDistant() {
+  if (typeof supabaseClient === 'undefined' || !supabaseClient) return false;
+  try {
+    const { data, error } = await supabaseClient
+      .from(DICTIONNAIRE_TABLE)
+      .select('id, expression');
+    if (error) throw error;
+    if (data && data.length > 0) {
+      appliquerExpressionsDictionnaire(data.map(function(ligne) {
+        return ligne.expression;
+      }));
+      return true;
+    }
+    if (dictionnaireExpressions.length === 0) {
+      // Table vide : affichera un message dans la fenêtre d'insertion.
+      dictionnaireCount.textContent = "Le dictionnaire est vide : exécutez le script d'import initial (dictionnaire-seed.sql) dans Supabase.";
+    }
+    return true;
+  } catch (e) {
+    console.warn('Impossible de charger le dictionnaire depuis Supabase :', e);
+    return false;
+  }
+}
+
+// Première mise en ligne : la table est remplie une fois pour toutes par le
+// script SQL d'import initial (dictionnaire-seed.sql). Plus de logique
+// d'import automatique ici.
+
+// Charge le dictionnaire dès l'ouverture de la page (lecture publique de
+// la table) puis à chaque connexion.
+window.RDPoteChargerDictionnaire = chargerDictionnaireDistant;
+chargerDictionnaireDistant();
 
 function normaliserRecherche(texte) {
   // Ignore accents et casse, pour que "hopital" trouve "hôpital".
@@ -3264,7 +3527,7 @@ function actualiserResultatsDictionnaire() {
   const requeteBrute = dictionnaireSearch.value.trim();
   const requete = normaliserRecherche(requeteBrute);
 
-  const correspondances = (typeof DICTIONNAIRE_EXPRESSIONS !== 'undefined' ? DICTIONNAIRE_EXPRESSIONS : [])
+  const correspondances = dictionnaireExpressions
     .filter(function(expression) {
       return requete === '' || normaliserRecherche(expression).indexOf(requete) !== -1;
     });
@@ -3318,6 +3581,261 @@ dictionnaireClose.addEventListener('click', function() {
   masquerModalDictionnaire();
   editor.focus();
 });
+
+// --- Édition du dictionnaire (bouton crayon) ---
+//Tout utilisateur connecté à Supabase peut ajouter, modifier ou supprimer
+// des expressions : les modifications sont appliquées directement dans la
+// table "dictionnaire_expressions".
+
+const dicoEditModal = document.getElementById('dicoEditModal');
+const dicoEditBtn = document.getElementById('dictionnaireEditBtn');
+const dicoEditClose = document.getElementById('dicoEditClose');
+const dicoEditSearch = document.getElementById('dicoEditSearch');
+const dicoEditCount = document.getElementById('dicoEditCount');
+const dicoEditResults = document.getElementById('dicoEditResults');
+const dicoEditNew = document.getElementById('dicoEditNew');
+const dicoEditAddBtn = document.getElementById('dicoEditAddBtn');
+const dicoEditStatus = document.getElementById('dicoEditStatus');
+
+let dictionnaireEstEditable = false;
+
+function afficherStatutDico(texte, estErreur) {
+  dicoEditStatus.textContent = texte || '';
+  dicoEditStatus.className = 'dico-edit-status' + (estErreur ? ' erreur' : '');
+}
+
+function dicoEditActualiser() {
+  const requete = normaliserRecherche(dicoEditSearch.value.trim());
+
+  dicoEditResults.innerHTML = '';
+
+  if (!dictionnaireEstEditable) {
+    const info = document.createElement('p');
+    info.textContent = "Connectez-vous à Supabase (menu connexion) pour éditer les expressions. La consultation reste possible via le bouton 📖.";
+    dicoEditResults.appendChild(info);
+    dicoEditCount.textContent = '';
+    dicoEditNew.disabled = true;
+    dicoEditAddBtn.disabled = true;
+    return;
+  }
+  dicoEditNew.disabled = false;
+  dicoEditAddBtn.disabled = false;
+
+  const correspondances = dictionnaireExpressions.filter(function(expression) {
+    return requete === '' || normaliserRecherche(expression).indexOf(requete) !== -1;
+  });
+
+  dicoEditCount.textContent = correspondances.length +
+    (correspondances.length > 1 ? ' expressions' : ' expression');
+
+  if (correspondances.length === 0) {
+    const vide = document.createElement('p');
+    vide.textContent = "Aucune expression ne correspond à cette recherche.";
+    dicoEditResults.appendChild(vide);
+    return;
+  }
+
+  correspondances.forEach(function(expression) {
+    const ligne = document.createElement('div');
+    ligne.className = 'dico-edit-item';
+
+    const texte = document.createElement('span');
+    texte.className = 'dico-edit-texte';
+    texte.textContent = expression;
+    texte.title = expression;
+    ligne.appendChild(texte);
+
+    const boutonEditer = document.createElement('button');
+    boutonEditer.type = 'button';
+    boutonEditer.textContent = '✏️';
+    boutonEditer.title = 'Modifier cette expression';
+    boutonEditer.addEventListener('click', function() {
+      dicoEditLancerModification(ligne, expression);
+    });
+    ligne.appendChild(boutonEditer);
+
+    const boutonSupprimer = document.createElement('button');
+    boutonSupprimer.type = 'button';
+    boutonSupprimer.textContent = '🗑️';
+    boutonSupprimer.title = 'Supprimer cette expression';
+    boutonSupprimer.addEventListener('click', async function() {
+      if (!confirm('Supprimer expression « ' + expression + ' » du dictionnaire ?')) return;
+      boutonSupprimer.disabled = true;
+      await dicoEditSupprimer(expression);
+      boutonSupprimer.disabled = false;
+    });
+    ligne.appendChild(boutonSupprimer);
+
+    dicoEditResults.appendChild(ligne);
+  });
+}
+
+function dicoEditLancerModification(ligne, expression) {
+  if (ligne.querySelector('input')) return; // déjà en cours d'édition
+
+  const texte = ligne.querySelector('.dico-edit-texte');
+  const boutons = ligne.querySelectorAll('button');
+
+  const champ = document.createElement('input');
+  champ.type = 'text';
+  champ.value = expression;
+
+  const boutonValider = document.createElement('button');
+  boutonValider.type = 'button';
+  boutonValider.className = 'dico-ok';
+  boutonValider.textContent = '✔️';
+  boutonValider.title = 'Enregistrer';
+
+  const boutonAnnuler = document.createElement('button');
+  boutonAnnuler.type = 'button';
+  boutonAnnuler.textContent = '✖';
+  boutonAnnuler.title = 'Annuler';
+
+  function annuler() {
+    ligne.removeChild(champ);
+    ligne.removeChild(boutonValider);
+    ligne.removeChild(boutonAnnuler);
+    texte.style.display = '';
+    boutons.forEach(function(b) { if (b !== boutonValider && b !== boutonAnnuler) b.style.display = ''; });
+  }
+
+  async function valider() {
+    const nouveau = champ.value.trim();
+    if (nouveau === '' ) { annuler(); return; }
+    if (normaliserRecherche(nouveau) === normaliserRecherche(expression)) { annuler(); return; }
+    const doublon = dictionnaireExpressions.some(function(x) {
+      return x !== expression && normaliserRecherche(x) === normaliserRecherche(nouveau);
+    });
+    if (doublon) {
+      afficherStatutDico('Cette expression existe déjà dans le dictionnaire.', true);
+      champ.focus();
+      return;
+    }
+    boutonValider.disabled = true;
+    boutonAnnuler.disabled = true;
+    await dicoEditModifier(expression, nouveau);
+    boutonValider.disabled = false;
+    boutonAnnuler.disabled = false;
+  }
+
+  champ.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); valider(); }
+    if (e.key === 'Escape') { e.preventDefault(); annuler(); }
+  });
+  boutonValider.addEventListener('click', valider);
+  boutonAnnuler.addEventListener('click', annuler);
+
+  texte.style.display = 'none';
+  boutons.forEach(function(b) { b.style.display = 'none'; });
+  ligne.appendChild(champ);
+  ligne.appendChild(boutonValider);
+  ligne.appendChild(boutonAnnuler);
+  champ.focus();
+  champ.select();
+}
+
+async function dicoEditAjouter() {
+  const expression = dicoEditNew.value.trim();
+  if (expression === '') return;
+
+  const doublon = dictionnaireExpressions.some(function(x) {
+    return normaliserRecherche(x) === normaliserRecherche(expression);
+  });
+  if (doublon) {
+    afficherStatutDico('Cette expression existe déjà dans le dictionnaire.', true);
+    return;
+  }
+
+  dicoEditAddBtn.disabled = true;
+  afficherStatutDico('Ajout en cours…');
+  try {
+    const { error } = await supabaseClient
+      .from(DICTIONNAIRE_TABLE)
+      .insert({ expression: expression });
+    if (error) throw error;
+    dicoEditNew.value = '';
+    appliquerExpressionsDictionnaire(dictionnaireExpressions.concat([expression]));
+    afficherStatutDico('Expression ajoutée : ' + expression);
+    dicoEditActualiser();
+  } catch (e) {
+    console.error('Ajout au dictionnaire impossible :', e);
+    afficherStatutDico("Ajout impossible : " + ((e && e.message) || 'erreur inconnue'), true);
+  }
+  dicoEditAddBtn.disabled = false;
+  dicoEditNew.focus();
+}
+
+async function dicoEditModifier(ancienne, nouvelle) {
+  afficherStatutDico('Modification en cours…');
+  try {
+    const { error } = await supabaseClient
+      .from(DICTIONNAIRE_TABLE)
+      .update({ expression: nouvelle })
+      .eq('expression', ancienne);
+    if (error) throw error;
+    appliquerExpressionsDictionnaire(
+      dictionnaireExpressions.filter(function(x) { return x !== ancienne; }).concat([nouvelle])
+    );
+    afficherStatutDico('Expression modifiée.');
+    dicoEditActualiser();
+  } catch (e) {
+    console.error('Modification du dictionnaire impossible :', e);
+    afficherStatutDico("Modification impossible : " + ((e && e.message) || 'erreur inconnue'), true);
+    dicoEditActualiser();
+  }
+}
+
+async function dicoEditSupprimer(expression) {
+  afficherStatutDico('Suppression en cours…');
+  try {
+    const { error } = await supabaseClient
+      .from(DICTIONNAIRE_TABLE)
+      .delete()
+      .eq('expression', expression);
+    if (error) throw error;
+    appliquerExpressionsDictionnaire(
+      dictionnaireExpressions.filter(function(x) { return x !== expression; })
+    );
+    afficherStatutDico('Expression supprimée : ' + expression);
+  } catch (e) {
+    console.error('Suppression dans le dictionnaire impossible :', e);
+    afficherStatutDico("Suppression impossible : " + ((e && e.message) || 'erreur inconnue'), true);
+  }
+  dicoEditActualiser();
+}
+
+function afficherModalDicoEdit() {
+  dicoEditSearch.value = '';
+  afficherStatutDico('');
+  dicoEditModal.style.display = 'flex';
+  dicoEditActualiser();
+  dicoEditSearch.focus();
+}
+
+function masquerModalDicoEdit() {
+  dicoEditModal.style.display = 'none';
+}
+
+dicoEditBtn.addEventListener('click', async function() {
+  afficherModalDicoEdit();
+  dictionnaireEstEditable = false;
+  dicoEditActualiser();
+  dictionnaireEstEditable = await dictionnaireSessionActive();
+  dicoEditActualiser();
+  if (dictionnaireEstEditable) {
+    const ok = await chargerDictionnaireDistant();
+    if (ok) dicoEditActualiser();
+  }
+});
+dicoEditClose.addEventListener('click', function() {
+  masquerModalDicoEdit();
+  editor.focus();
+});
+dicoEditAddBtn.addEventListener('click', dicoEditAjouter);
+dicoEditNew.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); dicoEditAjouter(); }
+});
+dicoEditSearch.addEventListener('input', dicoEditActualiser);
 dictionnaireModal.addEventListener('click', function(e) {
   if (e.target === dictionnaireModal) {
     masquerModalDictionnaire();
@@ -4721,6 +5239,7 @@ mettreAJourBoutons();
         'Utilisateur';
 
       if (window.RDPoteChargerSnippets) window.RDPoteChargerSnippets();
+      if (window.RDPoteChargerDictionnaire) window.RDPoteChargerDictionnaire();
 
       hideLogin();
       await loadRemoteDocument();
@@ -4811,6 +5330,7 @@ mettreAJourBoutons();
               'Utilisateur';
 
       if (window.RDPoteChargerSnippets) window.RDPoteChargerSnippets();
+      if (window.RDPoteChargerDictionnaire) window.RDPoteChargerDictionnaire();
           }
           await loadRemoteDocument();
           await initCRDT();
@@ -6647,6 +7167,7 @@ mettreAJourBoutons();
         'Utilisateur';
 
       if (window.RDPoteChargerSnippets) window.RDPoteChargerSnippets();
+      if (window.RDPoteChargerDictionnaire) window.RDPoteChargerDictionnaire();
 
       // On vient de récupérer la dernière version en ligne (déposée par
       // n'importe quel utilisateur) via loadRemoteDocument() : c'est
