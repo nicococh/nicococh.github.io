@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Générateur d’agenda</title>
+<style>
+:root{--bg:#f6f6f4;--fg:#1d1d1b;--card:#fff;--bd:#d8d8d2;--ac:#1f5fa8;--acfg:#fff;--mut:#666;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171717;--fg:#eee;--card:#222;--bd:#3a3a3a;--ac:#6aa7ee;--acfg:#111;--mut:#aaa}}
+:root[data-theme="dark"]{--bg:#171717;--fg:#eee;--card:#222;--bd:#3a3a3a;--ac:#6aa7ee;--acfg:#111;--mut:#aaa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+main{max-width:820px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.3rem;margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:16px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--mut);gap:4px}
+input,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:7px 9px}
+textarea{width:100%;box-sizing:border-box;min-height:300px;font:13px/1.45 ui-monospace,Menlo,monospace}
+button{font:inherit;background:var(--ac);color:var(--acfg);border:0;border-radius:6px;padding:8px 16px;cursor:pointer}
+.warn{color:#c0392b;font-size:.9rem;margin-top:8px;min-height:1.2em}
+#prev p{margin:.4em 0}
+#prev .t{font-weight:700;font-size:1.1rem}
+#prev .d{font-weight:700;margin-top:1em}
+#prev .i{color:var(--mut)}
+</style>
+</head>
+<body>
+<main>
+<h1>Générateur d’agenda de la semaine</h1>
+<div class="card">
+  <div class="row">
+    <label>Lundi de la semaine<input type="date" id="date"></label>
+    <label>Initiales / signature<input type="text" id="sig" value="/lb-nc/APMnews"></label>
+    <label>Texte par défaut sous chaque jour<input type="text" id="ph" value="- xx"></label>
+    <label>Début de l’agenda<select id="tue" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:7px 9px"><option value="0">Lundi → dimanche</option><option value="1">Mardi → dimanche (sans le lundi)</option></select></label>
+  </div>
+  <div class="warn" id="warn"></div>
+</div>
+<div class="card">
+  <textarea id="out" readonly></textarea>
+  <p><button id="copy">Copier le code</button> <span id="ok" style="color:var(--mut)"></span></p>
+</div>
+<div class="card"><div id="prev"></div></div>
+</main>
+<script>
+var MOIS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+var JOURS=["DIMANCHE","LUNDI","MARDI","MERCREDI","JEUDI","VENDREDI","SAMEDI"];
+var NB="\u00A0";
+function esc(s){var r="";for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);
+ if(c===160)r+="&nbsp;";else if(c===39)r+="&#39;";else if(c>127)r+="&#"+c+";";else r+=s[i];}return r;}
+// 1er : minuscules ou majuscules en exposant
+function num(d,up){return d===1?(up?"1\u1D31\u1D3F":"1\u1D49\u02B3"):String(d);}
+function build(){
+  var v=document.getElementById("date").value, warn=document.getElementById("warn");
+  if(!v){return;}
+  var p=v.split("-").map(Number), start=new Date(Date.UTC(p[0],p[1]-1,p[2]));
+  warn.textContent=start.getUTCDay()!==1?"Attention : cette date n’est pas un lundi.":"";
+  var days=[];var skip=+document.getElementById("tue").value;
+  for(var i=skip;i<7;i++){days.push(new Date(Date.UTC(p[0],p[1]-1,p[2]+i)));}
+  var f=days[0],l=days[days.length-1];
+  var fd=f.getUTCDate(),ld=l.getUTCDate(),fm=f.getUTCMonth(),lm=l.getUTCMonth();
+  var title=fm===lm
+    ? "À"+NB+"l'agenda du "+num(fd,false)+" au "+num(ld,false)+NB+MOIS[lm]
+    : "À"+NB+"l'agenda du "+num(fd,false)+NB+MOIS[fm]+" au "+num(ld,false)+NB+MOIS[lm];
+  var dateline="PARIS, "+num(fd,false)+NB+MOIS[fm]+" "+f.getUTCFullYear()+" (APMnews) -";
+  var ph=document.getElementById("ph").value, sig=document.getElementById("sig").value;
+  var L=[], P=[];
+  function add(cls,txt){L.push('<p class="'+cls+'">'+esc(txt)+'</p>');P.push([cls,txt]);}
+  add("field_LQ18650087C",title);
+  add("field_LQ18650088C",dateline);
+  days.forEach(function(d,i){
+    var dd=d.getUTCDate(), name=JOURS[d.getUTCDay()], h;
+    if(i===0||dd===1) h=name+" "+num(dd,true)+NB+MOIS[d.getUTCMonth()].toUpperCase();
+    else h=name+NB+dd;
+    add("field_LQ18651654C",h);
+    add("field_LQ18650106C",ph);
+  });
+  add("field_LQ18650107C",sig);
+  document.getElementById("out").value=L.join("\n\n");
+  var pv=document.getElementById("prev");pv.innerHTML="";
+  P.forEach(function(x){var e=document.createElement("p");e.textContent=x[1];
+    e.className=x[0]==="field_LQ18650087C"?"t":x[0]==="field_LQ18651654C"?"d":x[0]==="field_LQ18650107C"?"i":"";
+    pv.appendChild(e);});
+}
+(function init(){
+  var t=new Date(),dow=t.getDay(),add=dow===1?0:dow===2?-1:(8-dow)%7;
+  if(dow===2)document.getElementById("tue").value="1";
+  var m=new Date(t.getFullYear(),t.getMonth(),t.getDate()+add);
+  var z=function(n){return n<10?"0"+n:""+n;};
+  document.getElementById("date").value=m.getFullYear()+"-"+z(m.getMonth()+1)+"-"+z(m.getDate());
+  ["date","sig","ph","tue"].forEach(function(id){document.getElementById(id).addEventListener("input",build);});
+  document.getElementById("copy").addEventListener("click",function(){
+    var o=document.getElementById("out");o.select();
+    var done=function(){document.getElementById("ok").textContent="Copié ✓";};
+    try{navigator.clipboard.writeText(o.value).then(done,function(){document.execCommand("copy");done();});}
+    catch(e){document.execCommand("copy");done();}
+  });
+  build();
+})();
+</script>
+</body>
+</html>
